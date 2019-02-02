@@ -18,6 +18,7 @@ private:
 	LinearProgram& problem;
 	double upperBound;
 	std::vector<long> currBest;
+	LinearProgram::Solution fractOpt;
 	const std::vector<CutGenerator*> generators;
 	static constexpr double eps = 0.01;
 
@@ -27,7 +28,7 @@ private:
 
 	void bound(int variable, long val, LinearProgram::BoundType bound);
 
-	std::vector<double> solveLP();
+	void solveLP(LinearProgram::Solution& out);
 };
 
 

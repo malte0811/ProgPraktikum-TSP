@@ -21,6 +21,24 @@ public:
 		upper = 'U'
 	};
 
+	class Solution {
+	public:
+		explicit Solution(size_t varCount);
+
+		double operator[](size_t index);
+
+		double getValue();
+
+		bool isValid();
+
+		const std::vector<double>& getVector();
+
+	private:
+		friend LinearProgram;
+		std::vector<double> vector;
+		double value;
+	};
+
 	LinearProgram(std::string name, Goal opt);
 
 	LinearProgram(const LinearProgram& other) = delete;
@@ -32,7 +50,9 @@ public:
 	void addConstraint(std::vector<int> indices, std::vector<double> coeffs, double rhs,
 					   LinearProgram::CompType sense);
 
-	std::vector<double> solve();
+	Solution solve();
+
+	void solve(Solution& out);
 
 	static constexpr double pos_infinite = QS_MAXDOUBLE;
 	static constexpr double neg_infinite = -QS_MAXDOUBLE;

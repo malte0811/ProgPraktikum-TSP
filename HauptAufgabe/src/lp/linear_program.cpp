@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include <linear_program.hpp>
 #include <cut_generator.hpp>
+#include <cmath>
 
 #include "linear_program.hpp"
 
@@ -32,27 +33,32 @@ void LinearProgram::addConstraint(std::vector<int> indices, std::vector<double> 
 	}
 }
 
-std::vector<double> LinearProgram::solve() {
+LinearProgram::Solution LinearProgram::solve() {
+	Solution sol(getVariableCount());
+	solve(sol);
+	return sol;
+}
+
+void LinearProgram::solve(LinearProgram::Solution& out) {
 	int status;
 	int result = QSopt_primal(problem, &status);//TODO dual might be better?
 	if (result!=0) {
 		throw std::runtime_error("Could not solve LP, return value was "+std::to_string(result));
 	}
 	switch (status) {
-		case QS_LP_OPTIMAL: {
-			std::vector<double> ret(static_cast<size_t>(QSget_colcount(problem))+1);
-			result = QSget_x_array(problem, ret.data());
+		case QS_LP_OPTIMAL:
+			result = QSget_x_array(problem, out.vector.data());
 			if (result!=0) {
 				throw std::runtime_error("Failed to copy LP solution: "+std::to_string(status));
 			}
-			result = QSget_objval(problem, &ret.back());
+			result = QSget_objval(problem, &out.value);
 			if (result!=0) {
 				throw std::runtime_error("Failed to copy LP objective value: "+std::to_string(status));
 			}
-			return ret;
-		}
+			break;
 		case QS_LP_INFEASIBLE:
-			return {};
+			out.value = NAN;
+			break;
 		case QS_LP_UNBOUNDED:
 			throw std::runtime_error("LP is unbounded");
 		case QS_LP_ITER_LIMIT:
@@ -88,4 +94,22 @@ LinearProgram::Goal LinearProgram::getGoal() {
 	QSget_objsense(problem, &g);
 	//TODO nicer way of doing this?
 	return g==maximize ? maximize : minimize;
+}
+
+LinearProgram::Solution::Solution(size_t varCount) : vector(varCount) {}
+
+double LinearProgram::Solution::operator[](size_t index) {
+	return vector[index];
+}
+
+double LinearProgram::Solution::getValue() {
+	return value;
+}
+
+bool LinearProgram::Solution::isValid() {
+	return !std::isnan(value);
+}
+
+const std::vector<double>& LinearProgram::Solution::getVector() {
+	return vector;
 }
