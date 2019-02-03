@@ -5,6 +5,8 @@
 #include <qsopt.h>
 #include <string>
 
+using variable_id = int;
+
 class LinearProgram {
 public:
 	enum CompType {

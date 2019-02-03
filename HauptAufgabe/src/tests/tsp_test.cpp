@@ -24,8 +24,8 @@ int main() {
 			{"kroC100",          20749},
 			{"kroD100",          21294},
 			{"kroE100",          22068},
-			//{"kroA150", 26524},
-			//{"a280", 2579},
+			{"kroA150", 26524},
+			{"a280", 2579},
 	};
 	for (const auto& inst:instances) {
 		clock_t start = std::clock();
@@ -38,14 +38,14 @@ int main() {
 		TSPInstance tsp(in);
 		LinearProgram lp(inst.first, LinearProgram::minimize);
 		tsp.setupBasicLP(lp);
-		SubtourCutGen subtours(tsp.getGraph());
-		TwoMatchingCutGen matchings(tsp.getGraph());
+		SubtourCutGen subtours(tsp);
+		TwoMatchingCutGen matchings(tsp);
 		BranchAndCut bac(lp, {&subtours, &matchings});
 		std::vector<long> tour = bac.solve();
 		cost_t totalCost = 0;
-		for (edge_id eid = 0; eid<tour.size(); ++eid) {
-			if (tour[eid]>0) {
-				Graph::Edge e = Graph::edgeFromId(eid);
+		for (variable_id varId = 0; varId<tour.size(); ++varId) {
+			if (tour[varId]>0) {
+				Graph::Edge e = tsp.getEdge(varId);
 				totalCost += tsp.getGraphDistances()[e];
 			}
 		}

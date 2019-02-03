@@ -14,7 +14,7 @@ T readOrThrow(std::istream& input) {
 	return ret;
 }
 
-TSPInstance::TSPInstance(std::istream& input) : graphDists(graph) {
+TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), nodeToCity(graph), edgeToVar(graph) {
 	std::string line;
 	EdgeWeightType edgeType = euc_2d;
 	EdgeFormat edgeFormat = full_matrix;
@@ -32,9 +32,9 @@ TSPInstance::TSPInstance(std::istream& input) : graphDists(graph) {
 		} else if (keyword=="COMMENT") {
 			//NOP
 		} else if (keyword=="DIMENSION") {
-			auto nodeCount = readOrThrow<node_id>(ss);
+			auto nodeCount = readOrThrow<city_id>(ss);
 			distances.resize(nodeCount-1);
-			for (node_id i = 0; i<nodeCount-1; ++i) {
+			for (city_id i = 0; i<nodeCount-1; ++i) {
 				distances[i].resize(i+1);
 			}
 		} else if (keyword=="EDGE_WEIGHT_TYPE") {
@@ -77,28 +77,44 @@ TSPInstance::TSPInstance(std::istream& input) : graphDists(graph) {
 			//throw std::invalid_argument("Invalid keyword in input: \""+keyword+"\"");
 		}
 	}
-	node_id nodeCount = getSize();
-	for (node_id id = 0; id<nodeCount; ++id) {
-		Graph::Node nId = graph.addNode();
-		for (node_id other = 0; other<id; ++other) {
-			Graph::Edge e = graph.addEdge(nId, Graph::nodeFromId(other));
-			graphDists[e] = getDistance(id, other);
+	city_id nodeCount = getSize();
+	for (city_id city = 0; city<nodeCount; ++city) {
+		Graph::Node newNode = graph.addNode();
+		nodeToCity[newNode] = city;
+		cityToNode.push_back(newNode);
+		for (Graph::NodeIt it(graph); it!=lemon::INVALID; ++it) {
+			if (it!=newNode) {
+				Graph::Edge e = graph.addEdge(newNode, it);
+				graphDists[e] = getDistance(city, getCity(it));
+				edgeToVar[e] = varToEdge.size();
+				varToEdge.push_back(e);
+			}
 		}
 	}
 }
 
 void TSPInstance::readNodes(std::istream& input, EdgeWeightType type) {
-	node_id nodeCount = getSize();
+	city_id nodeCount = getSize();
 	std::vector<std::array<double, 2>> nodeLocations(nodeCount);
-	for (node_id iteration = 0; iteration<nodeCount; ++iteration) {
-		auto id = readOrThrow<node_id>(input)-1;
+	std::vector<bool> set(nodeCount, false);
+	city_id setCount = 0;
+	for (city_id iteration = 0; iteration<nodeCount; ++iteration) {
+		auto id = readOrThrow<city_id>(input)-1;
 		assert(id<nodeCount);
 		nodeLocations[id][0] = readOrThrow<double>(input);
 		nodeLocations[id][1] = readOrThrow<double>(input);
+		if (set[id]) {
+			throw std::runtime_error("Location for city "+std::to_string(id)+" was set twice");
+		}
+		set[id] = true;
+		++setCount;
 	}
-	//TODO check that all locations have been set
-	for (node_id higherId = 1; higherId<nodeCount; ++higherId) {
-		for (node_id lowerId = 0; lowerId<higherId; ++lowerId) {
+	if (setCount<nodeCount) {
+		throw std::runtime_error(
+				"Only "+std::to_string(setCount)+" of "+std::to_string(nodeCount)+" node locations have been set");
+	}
+	for (city_id higherId = 1; higherId<nodeCount; ++higherId) {
+		for (city_id lowerId = 0; lowerId<higherId; ++lowerId) {
 			cost_t distance = 0;
 			double distX = nodeLocations[lowerId][0]-nodeLocations[higherId][0];
 			double distY = nodeLocations[lowerId][1]-nodeLocations[higherId][1];
@@ -118,14 +134,14 @@ void TSPInstance::readNodes(std::istream& input, EdgeWeightType type) {
 }
 
 void TSPInstance::readEdges(std::istream& input, TSPInstance::EdgeFormat type) {
-	const node_id nodeCount = getSize();
-	node_id rowCount = nodeCount;
+	const city_id nodeCount = getSize();
+	city_id rowCount = nodeCount;
 	if (type==upper_row) {
 		rowCount--;
 	}
-	for (node_id row = 0; row<rowCount; ++row) {
-		node_id minCol = 0;
-		node_id colCount = 0;
+	for (city_id row = 0; row<rowCount; ++row) {
+		city_id minCol = 0;
+		city_id colCount = 0;
 		switch (type) {
 			case full_matrix:
 				colCount = nodeCount;
@@ -142,13 +158,13 @@ void TSPInstance::readEdges(std::istream& input, TSPInstance::EdgeFormat type) {
 				colCount = nodeCount-row-1;
 				break;
 		}
-		for (node_id col = minCol; col<minCol+colCount; ++col) {
+		for (city_id col = minCol; col<minCol+colCount; ++col) {
 			setDistance(row, col, readOrThrow<cost_t>(input));
 		}
 	}
 }
 
-cost_t TSPInstance::getDistance(node_id a, node_id b) const {
+cost_t TSPInstance::getDistance(city_id a, city_id b) const {
 	if (a>b) {
 		return distances[a-1][b];
 	} else if (b>a) {
@@ -158,7 +174,7 @@ cost_t TSPInstance::getDistance(node_id a, node_id b) const {
 	}
 }
 
-void TSPInstance::setDistance(node_id a, node_id b, cost_t dist) {
+void TSPInstance::setDistance(city_id a, city_id b, cost_t dist) {
 	if (a>b) {
 		distances[a-1][b] = dist;
 	} else if (b>a) {
@@ -166,11 +182,11 @@ void TSPInstance::setDistance(node_id a, node_id b, cost_t dist) {
 	}
 }
 
-node_id TSPInstance::getSize() const {
+city_id TSPInstance::getSize() const {
 	return distances.size()+1;
 }
 
-const Graph& TSPInstance::getGraph() {
+const Graph& TSPInstance::getGraph() const {
 	return graph;
 }
 
@@ -179,15 +195,31 @@ const Graph::EdgeMap <cost_t>& TSPInstance::getGraphDistances() {
 }
 
 void TSPInstance::setupBasicLP(LinearProgram& lp) {
-	for (edge_id i = 0; i<=graph.maxEdgeId(); ++i) {
-		Graph::Edge e = Graph::edgeFromId(i);
+	for (int i = 0; i<varToEdge.size(); ++i) {
+		Graph::Edge e = getEdge(i);
 		lp.addVariable(graphDists[e], 0, 1);
 	}
 	for (Graph::NodeIt nIt(graph); nIt!=lemon::INVALID; ++nIt) {
-		std::vector<edge_id> adjancent;
+		std::vector<variable_id> adjancent;
 		for (Graph::IncEdgeIt eIt(graph, nIt); eIt!=lemon::INVALID; ++eIt) {
-			adjancent.push_back(Graph::id(eIt));
+			adjancent.push_back(getVariable(eIt));
 		}
 		lp.addConstraint(adjancent, std::vector<double>(adjancent.size(), 1), 2, LinearProgram::equal);
 	}
+}
+
+variable_id TSPInstance::getVariable(const Graph::Edge& e) const {
+	return edgeToVar[e];
+}
+
+Graph::Edge TSPInstance::getEdge(variable_id variable) const {
+	return varToEdge[variable];
+}
+
+city_id TSPInstance::getCity(const Graph::Node& e) const {
+	return nodeToCity[e];
+}
+
+Graph::Node TSPInstance::getNode(variable_id variable) const {
+	return cityToNode[variable];
 }

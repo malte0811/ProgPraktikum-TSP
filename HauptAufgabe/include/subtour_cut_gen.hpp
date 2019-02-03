@@ -8,14 +8,16 @@
 
 class SubtourCutGen : public CutGenerator {
 public:
-	explicit SubtourCutGen(const lemon::SmartGraph& graph);
+	explicit SubtourCutGen(const TSPInstance& inst);
 	bool validate(LinearProgram& lp, const std::vector<double>& solution) override;
 
 private:
-	const lemon::SmartGraph& origGraph;
+	const TSPInstance& tsp;
 	Graph workGraph;
-	lemon::SmartGraph::EdgeMap<double> capacity;
-	lemon::NagamochiIbaraki<lemon::SmartGraph, lemon::SmartGraph::EdgeMap<double>> minCut;
+	Graph::Snapshot baseState;
+	Graph::NodeMap <Graph::Node> origToWork;
+	Graph::EdgeMap<double> capacity;
+	lemon::NagamochiIbaraki<Graph, Graph::EdgeMap<double>> minCut;
 	lemon::Tolerance<double> tolerance;
 };
 

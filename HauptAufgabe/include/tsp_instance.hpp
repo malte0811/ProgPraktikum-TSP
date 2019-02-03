@@ -7,22 +7,28 @@
 #include <linear_program.hpp>
 
 using cost_t = unsigned;
-using node_id = int;
-using edge_id = int;
+using city_id = int;
 using Graph = lemon::SmartGraph;
 
 class TSPInstance {
 public:
-	//TODO are edge IDs consecutive? I can't find docs on that anywhere...
 	explicit TSPInstance(std::istream& in);
 
-	cost_t getDistance(node_id a, node_id b) const;
+	cost_t getDistance(city_id a, city_id b) const;
 
-	node_id getSize() const;
+	city_id getSize() const;
 
-	const Graph& getGraph();
+	const Graph& getGraph() const;
 
 	const Graph::EdgeMap <cost_t>& getGraphDistances();
+
+	variable_id getVariable(const Graph::Edge& e) const;
+
+	Graph::Edge getEdge(variable_id variable) const;
+
+	city_id getCity(const Graph::Node& e) const;
+
+	Graph::Node getNode(city_id city) const;
 
 	void setupBasicLP(LinearProgram& lp);
 
@@ -43,10 +49,14 @@ private:
 
 	void readEdges(std::istream& input, EdgeFormat type);
 
-	void setDistance(node_id a, node_id b, cost_t dist);
+	void setDistance(city_id a, city_id b, cost_t dist);
 
 	Graph graph;
 	Graph::EdgeMap <cost_t> graphDists;
+	Graph::EdgeMap <variable_id> edgeToVar;
+	std::vector<Graph::Edge> varToEdge;
+	Graph::NodeMap <city_id> nodeToCity;
+	std::vector<Graph::Node> cityToNode;
 	std::vector<std::vector<cost_t>> distances;
 	std::string name;
 };

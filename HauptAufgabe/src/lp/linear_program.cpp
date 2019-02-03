@@ -4,8 +4,6 @@
 #include <cut_generator.hpp>
 #include <cmath>
 
-#include "linear_program.hpp"
-
 LinearProgram::LinearProgram(std::string name, Goal opt) : problem(QScreate_prob(name.c_str(), opt)) {
 	assert(problem!=nullptr);
 }

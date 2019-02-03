@@ -7,7 +7,7 @@
 
 class TwoMatchingCutGen : public CutGenerator {
 public:
-	explicit TwoMatchingCutGen(const Graph& g);
+	explicit TwoMatchingCutGen(const TSPInstance& inst);
 
 	bool validate(LinearProgram& lp, const std::vector<double>& solution) override;
 
@@ -19,15 +19,15 @@ private:
 		Graph::NodeMap<bool> x;
 		Graph::EdgeMap<bool> f;
 		double cost;
-		node_id sizeX;
-		edge_id sizeF;
+		city_id sizeX;
+		variable_id sizeF;
 	};
 
 	//T={}
 	static void lemma1220(const Graph& graph, const Graph::EdgeMap<double>& c,
 						  const Graph::EdgeMap<double>& cDash, TwoMatchingCutGen::XandF& out);
 
-	const Graph& original;
+	const TSPInstance& tsp;
 	Graph workGraph;
 	Graph::Snapshot basicState;
 	Graph::NodeMap <Graph::Node> origToWork;

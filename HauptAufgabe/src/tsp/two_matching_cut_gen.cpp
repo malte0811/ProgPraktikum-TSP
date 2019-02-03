@@ -1,15 +1,13 @@
 
 #include <two_matching_cut_gen.hpp>
 
-#include "two_matching_cut_gen.hpp"
-
-TwoMatchingCutGen::TwoMatchingCutGen(const Graph& g)
-		: original(g), origToWork(original), workToOrig(workGraph), c(workGraph), cDash(workGraph) {
+TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst)
+		: tsp(inst), origToWork(inst.getGraph()), workToOrig(workGraph), c(workGraph), cDash(workGraph) {
 	z = workGraph.addNode();
-	for (Graph::NodeIt it(original); it!=lemon::INVALID; ++it) {
-		origToWork[it] = workGraph.addNode();
-		//TODO
-		workToOrig[origToWork[it]] = it;
+	for (Graph::NodeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
+		Graph::Node n = workGraph.addNode();
+		origToWork[it] = n;
+		workToOrig[n] = it;
 		Graph::Edge e = workGraph.addEdge(z, origToWork[it]);
 		cDash[e] = std::numeric_limits<double>::max();
 	}
@@ -21,19 +19,21 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 	basicState.restore();
 	Graph::NodeMap<double> totalVal(workGraph);
 	Graph::EdgeMap<int> edgeToVar(workGraph);
-	Graph::EdgeMap <Graph::Edge> inWorkGraph(original);
-	for (edge_id eid = 0; eid<solution.size(); ++eid) {
-		Graph::Edge eOrig = Graph::edgeFromId(eid);
-		if (solution[eid]>0) {
-			Graph::Edge eWork = workGraph.addEdge(origToWork[original.u(eOrig)], origToWork[original.v(eOrig)]);
-			inWorkGraph[eOrig] = eWork;
-			c[eWork] = solution[eid];
-			cDash[eWork] = 1-solution[eid];
-			edgeToVar[eWork] = eid;
-			totalVal[workGraph.u(eWork)] += solution[eid];
-			totalVal[workGraph.v(eWork)] += solution[eid];
+	Graph::EdgeMap <Graph::Edge> inWorkGraph(tsp.getGraph());
+	for (Graph::EdgeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
+		variable_id varId = tsp.getVariable(it);
+		if (solution[varId]>0) {
+			Graph::Node uOrig = tsp.getGraph().u(it);
+			Graph::Node vOrig = tsp.getGraph().v(it);
+			Graph::Edge eWork = workGraph.addEdge(origToWork[uOrig], origToWork[vOrig]);
+			inWorkGraph[it] = eWork;
+			c[eWork] = solution[varId];
+			cDash[eWork] = 1-solution[varId];
+			edgeToVar[eWork] = varId;
+			totalVal[workGraph.u(eWork)] += solution[varId];
+			totalVal[workGraph.v(eWork)] += solution[varId];
 		} else {
-			inWorkGraph[eOrig] = lemon::INVALID;
+			inWorkGraph[it] = lemon::INVALID;
 		}
 	}
 	for (Graph::IncEdgeIt it(workGraph, z); it!=lemon::INVALID; ++it) {
@@ -53,15 +53,14 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 			//TODO better way of getting node count
 			min.sizeX = workGraph.maxNodeId()+1-min.sizeX;
 		}
-		//unsigned hash = 0;
-		for (Graph::EdgeIt it(original); it!=lemon::INVALID; ++it) {
+		for (Graph::EdgeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
+			Graph::Node uOrig = tsp.getGraph().u(it);
+			Graph::Node vOrig = tsp.getGraph().v(it);
 			if ((inWorkGraph[it]!=lemon::INVALID && min.f[inWorkGraph[it]]) ||
-				(min.x[origToWork[original.u(it)]]==valForX && min.x[origToWork[original.v(it)]]==valForX)) {
+				(min.x[origToWork[uOrig]]==valForX && min.x[origToWork[vOrig]]==valForX)) {
 				inSum.push_back(Graph::id(it));
-				//hash = 31*hash+Graph::id(it);
 			}
 		}
-		//std::cout << hash << std::endl;
 		lp.addConstraint(inSum, std::vector<double>(inSum.size(), 1), min.sizeX+min.sizeF/2, LinearProgram::less_eq);
 		return false;
 	} else {

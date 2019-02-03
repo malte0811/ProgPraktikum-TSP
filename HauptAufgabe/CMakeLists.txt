@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 project(HauptAufgabe)
 
 set(CMAKE_CXX_STANDARD 11)
-#set(CMAKE_CXX_FLAGS "-O3")
+set(CMAKE_CXX_FLAGS "-O2")
 
 set(COMMON_SOURCES src/lp/linear_program.cpp include/linear_program.hpp
         src/lp/branch_and_cut.cpp include/branch_and_cut.hpp include/cut_generator.hpp

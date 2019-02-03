@@ -3,8 +3,8 @@
 
 
 #include <lemon/tolerance.h>
-#include "linear_program.hpp"
-#include "cut_generator.hpp"
+#include <linear_program.hpp>
+#include <cut_generator.hpp>
 
 class BranchAndCut {
 public:
