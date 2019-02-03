@@ -3,6 +3,9 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <ctime>
+#include <queue>
+#include <lemon/bin_heap.h>
 
 BranchAndCut::BranchAndCut(LinearProgram& p, double initialUpperBound, std::vector<long> initialOpt,
 						   const std::vector<CutGenerator*>& gens)
@@ -26,14 +29,6 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 			break;
 		}
 		valid = true;
-		/*
-		int hash = 0;
-		for (double d:out.getVector()) {
-			hash *= 37;
-			hash += std::lround(d);
-		}
-		std::cout << hash << std::endl;
-		*/
 		for (CutGenerator* gen:generators) {
 			if (!gen->validate(problem, out.getVector())) {
 				valid = false;
@@ -48,36 +43,61 @@ std::vector<long> BranchAndCut::solve() {
 	return currBest;
 }
 
+//TODO how much does this actually improve things?
+struct BranchInfo {
+	int variable;
+	double to05;
+
+	bool operator<(const BranchInfo& other) const {
+		return to05<other.to05;
+	}
+};
+
 void BranchAndCut::branchAndBound() {
 	solveLP(fractOpt);
 	if (!fractOpt.isValid() || !isBetter(fractOpt.getValue(), upperBound)) {
 		return;
 	}
-	bool integer = true;
+	std::priority_queue<BranchInfo> possible;
 	for (int i = 0; i<problem.getVariableCount(); ++i) {
-		//TODO heuristics for choosing which variable to bound?
 		long rounded = std::lround(fractOpt[i]);
 		double diff = rounded-fractOpt[i];
-		if (diff>eps) {
-			bound(i, rounded, LinearProgram::lower);
-			bound(i, rounded-1, LinearProgram::upper);
-			integer = false;
-		} else if (diff<-eps) {
-			bound(i, rounded+1, LinearProgram::lower);
-			bound(i, rounded, LinearProgram::upper);
-			integer = false;
+		if (tolerance.nonZero(diff)) {
+			possible.push({i, std::abs(diff-.5)});
 		}
 	}
-	if (integer) {
+	if (possible.empty()) {
 		upperBound = fractOpt.getValue();
 		for (int i = 0; i<problem.getVariableCount(); ++i) {
 			currBest[i] = std::lround(fractOpt[i]);
 		}
 		std::cout << "New optimum: " << upperBound << std::endl;
+	} else {
+		while (!possible.empty() && isBetter(fractOpt.getValue(), upperBound)) {
+			int varToBound = possible.top().variable;
+			possible.pop();
+			long rounded = std::lround(fractOpt[varToBound]);
+			double diff = rounded-fractOpt[varToBound];
+			long lower;
+			if (tolerance.positive(diff)) {
+				lower = rounded;
+			} else {
+				lower = rounded+1;
+			}
+			long upper = lower-1;
+			bound(varToBound, lower, LinearProgram::lower);
+			bound(varToBound, upper, LinearProgram::upper);
+		}
 	}
 }
 
 void BranchAndCut::bound(int variable, long val, LinearProgram::BoundType bound) {
+	static unsigned calls = 0;
+	++calls;
+	if (calls%1000==0) {
+		std::cout << "Heartbeat: " << std::clock() << std::endl;
+		calls = 0;
+	}
 	double oldBound = problem.getBound(variable, bound);
 	problem.setBound(variable, bound, val);
 	//std::cout << "Bounding " << variable << " to " << val << " (" << (char) bound << ")" << std::endl;
@@ -88,8 +108,8 @@ void BranchAndCut::bound(int variable, long val, LinearProgram::BoundType bound)
 
 bool BranchAndCut::isBetter(double a, double b) {
 	if (problem.getGoal()==LinearProgram::maximize) {
-		return a>b;
+		return std::round(b)<std::round(a);
 	} else {
-		return a<b;
+		return std::round(a)<std::round(b);
 	}
 }

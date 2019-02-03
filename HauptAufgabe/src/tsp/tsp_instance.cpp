@@ -73,7 +73,8 @@ TSPInstance::TSPInstance(std::istream& input) : graphDists(graph) {
 		} else if (keyword=="EOF") {
 			break;
 		} else {
-			throw std::invalid_argument("Invalid keyword in input: \""+keyword+"\"");
+			std::cout << "Unknown keyword found, ignoring: " << keyword << std::endl;
+			//throw std::invalid_argument("Invalid keyword in input: \""+keyword+"\"");
 		}
 	}
 	node_id nodeCount = getSize();
@@ -138,7 +139,7 @@ void TSPInstance::readEdges(std::istream& input, TSPInstance::EdgeFormat type) {
 				break;
 			case upper_row:
 				minCol = row+1;
-				colCount = nodeCount-row+1;
+				colCount = nodeCount-row-1;
 				break;
 		}
 		for (node_id col = minCol; col<minCol+colCount; ++col) {

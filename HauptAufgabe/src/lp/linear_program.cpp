@@ -41,7 +41,7 @@ LinearProgram::Solution LinearProgram::solve() {
 
 void LinearProgram::solve(LinearProgram::Solution& out) {
 	int status;
-	int result = QSopt_primal(problem, &status);//TODO dual might be better?
+	int result = QSopt_dual(problem, &status);//TODO dual might be better?
 	if (result!=0) {
 		throw std::runtime_error("Could not solve LP, return value was "+std::to_string(result));
 	}

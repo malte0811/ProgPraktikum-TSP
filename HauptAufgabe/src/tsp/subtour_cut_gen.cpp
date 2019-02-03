@@ -22,9 +22,10 @@ bool SubtourCutGen::validate(LinearProgram& lp, const std::vector<double>& solut
 	minCut.run();
 	double capacity = minCut.minCutValue();
 	if (tolerance.less(capacity, 2)) {
-		lemon::SmartGraph::NodeMap<bool> inCut(origGraph);
+		lemon::SmartGraph::NodeMap<bool> inCut(workGraph);
 		minCut.minCutMap(inCut);
 		std::vector<int> inducedEdges;
+		inducedEdges.reserve(origGraph.maxEdgeId()+1);
 		for (lemon::SmartGraph::EdgeIt it(origGraph); it!=lemon::INVALID; ++it) {
 			if (inCut[origGraph.u(it)] && inCut[origGraph.v(it)]) {
 				inducedEdges.push_back(lemon::SmartGraph::id(it));

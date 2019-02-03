@@ -9,7 +9,6 @@
 class SubtourCutGen : public CutGenerator {
 public:
 	explicit SubtourCutGen(const lemon::SmartGraph& graph);
-
 	bool validate(LinearProgram& lp, const std::vector<double>& solution) override;
 
 private:

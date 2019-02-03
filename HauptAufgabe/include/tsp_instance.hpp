@@ -13,6 +13,7 @@ using Graph = lemon::SmartGraph;
 
 class TSPInstance {
 public:
+	//TODO are edge IDs consecutive? I can't find docs on that anywhere...
 	explicit TSPInstance(std::istream& in);
 
 	cost_t getDistance(node_id a, node_id b) const;
