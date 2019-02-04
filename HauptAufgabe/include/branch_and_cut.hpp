@@ -8,10 +8,9 @@
 
 class BranchAndCut {
 public:
-	BranchAndCut(LinearProgram& p, double initialUpperBound, std::vector<long> initialOpt,
-				 const std::vector<CutGenerator*>& gens);
-
 	BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens);
+
+	void setUpperBound(const std::vector<long>& value, double cost);
 
 	std::vector<long> solve();
 

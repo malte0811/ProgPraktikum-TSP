@@ -7,13 +7,9 @@
 #include <queue>
 #include <lemon/bin_heap.h>
 
-BranchAndCut::BranchAndCut(LinearProgram& p, double initialUpperBound, std::vector<long> initialOpt,
-						   const std::vector<CutGenerator*>& gens)
-		: problem(p), upperBound(initialUpperBound), currBest(std::move(initialOpt)), generators(gens),
-		  fractOpt(p.getVariableCount()) {}
-
 BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens) :
-		BranchAndCut(program, 0, std::vector<long>(static_cast<size_t>(program.getVariableCount())), gens) {
+		problem(program), currBest(program.getVariableCount()), generators(gens),
+		fractOpt(program.getVariableCount()) {
 	if (program.getGoal()==LinearProgram::minimize) {
 		upperBound = std::numeric_limits<double>::max();
 	} else {
@@ -71,7 +67,7 @@ void BranchAndCut::branchAndBound() {
 		for (int i = 0; i<problem.getVariableCount(); ++i) {
 			currBest[i] = std::lround(fractOpt[i]);
 		}
-		std::cout << "New optimum: " << upperBound << std::endl;
+		//std::cout << "New optimum: " << upperBound << std::endl;
 	} else {
 		while (!possible.empty() && isBetter(fractOpt.getValue(), upperBound)) {
 			int varToBound = possible.top().variable;
@@ -112,4 +108,9 @@ bool BranchAndCut::isBetter(double a, double b) {
 	} else {
 		return std::round(a)<std::round(b);
 	}
+}
+
+void BranchAndCut::setUpperBound(const std::vector<long>& value, double cost) {
+	upperBound = cost;
+	currBest = value;
 }

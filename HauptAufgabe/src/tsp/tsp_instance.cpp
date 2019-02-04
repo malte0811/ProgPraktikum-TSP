@@ -82,13 +82,12 @@ TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), nodeToCity(gr
 		Graph::Node newNode = graph.addNode();
 		nodeToCity[newNode] = city;
 		cityToNode.push_back(newNode);
-		for (Graph::NodeIt it(graph); it!=lemon::INVALID; ++it) {
-			if (it!=newNode) {
-				Graph::Edge e = graph.addEdge(newNode, it);
-				graphDists[e] = getDistance(city, getCity(it));
-				edgeToVar[e] = varToEdge.size();
-				varToEdge.push_back(e);
-			}
+		for (city_id other = 0; other<city; ++other) {
+			Graph::Node nodeForCity = cityToNode[other];
+			Graph::Edge e = graph.addEdge(newNode, nodeForCity);
+			graphDists[e] = getDistance(city, getCity(nodeForCity));
+			edgeToVar[e] = varToEdge.size();
+			varToEdge.push_back(e);
 		}
 	}
 }
@@ -190,11 +189,11 @@ const Graph& TSPInstance::getGraph() const {
 	return graph;
 }
 
-const Graph::EdgeMap <cost_t>& TSPInstance::getGraphDistances() {
+const Graph::EdgeMap <cost_t>& TSPInstance::getGraphDistances() const {
 	return graphDists;
 }
 
-void TSPInstance::setupBasicLP(LinearProgram& lp) {
+void TSPInstance::setupBasicLP(LinearProgram& lp) const {
 	for (int i = 0; i<varToEdge.size(); ++i) {
 		Graph::Edge e = getEdge(i);
 		lp.addVariable(graphDists[e], 0, 1);
@@ -212,6 +211,13 @@ variable_id TSPInstance::getVariable(const Graph::Edge& e) const {
 	return edgeToVar[e];
 }
 
+variable_id TSPInstance::getVariable(city_id a, city_id b) const {
+	if (b>a) {
+		std::swap(a, b);
+	}
+	return (a*(a-1))/2+b;//?
+}
+
 Graph::Edge TSPInstance::getEdge(variable_id variable) const {
 	return varToEdge[variable];
 }
@@ -222,4 +228,13 @@ city_id TSPInstance::getCity(const Graph::Node& e) const {
 
 Graph::Node TSPInstance::getNode(variable_id variable) const {
 	return cityToNode[variable];
+}
+
+variable_id TSPInstance::getEdgeCount() const {
+	city_id size = getSize();
+	return (size*(size-1))/2;
+}
+
+std::string TSPInstance::getName() const {
+	return name;
 }

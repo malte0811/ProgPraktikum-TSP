@@ -15,7 +15,9 @@ private:
 
 	struct XandF {
 		explicit XandF(const Graph& graph);
+		XandF(const XandF& other);
 
+		const Graph* g;//Needed for the copy-constructor...
 		Graph::NodeMap<bool> x;
 		Graph::EdgeMap<bool> f;
 		double cost;
@@ -24,8 +26,9 @@ private:
 	};
 
 	//T={}
-	static void lemma1220(const Graph& graph, const Graph::EdgeMap<double>& c,
-						  const Graph::EdgeMap<double>& cDash, TwoMatchingCutGen::XandF& out);
+	std::vector<XandF> lemma1220(const Graph& graph,
+								 const Graph::EdgeMap<double>& c,
+								 const Graph::EdgeMap<double>& cDash);
 
 	const TSPInstance& tsp;
 	Graph workGraph;

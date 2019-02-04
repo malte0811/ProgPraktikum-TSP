@@ -20,9 +20,11 @@ public:
 
 	const Graph& getGraph() const;
 
-	const Graph::EdgeMap <cost_t>& getGraphDistances();
+	const Graph::EdgeMap <cost_t>& getGraphDistances() const;
 
 	variable_id getVariable(const Graph::Edge& e) const;
+
+	variable_id getVariable(city_id a, city_id b) const;
 
 	Graph::Edge getEdge(variable_id variable) const;
 
@@ -30,7 +32,13 @@ public:
 
 	Graph::Node getNode(city_id city) const;
 
-	void setupBasicLP(LinearProgram& lp);
+	variable_id getEdgeCount() const;
+
+	void setupBasicLP(LinearProgram& lp) const;
+
+	std::string getName() const;
+
+	static constexpr city_id invalid_city = -1;
 
 private:
 	enum EdgeWeightType {
