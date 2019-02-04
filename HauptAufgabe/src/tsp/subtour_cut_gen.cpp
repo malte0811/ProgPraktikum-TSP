@@ -26,21 +26,28 @@ bool SubtourCutGen::validate(LinearProgram& lp, const std::vector<double>& solut
 	if (tolerance.less(capacity, 2)) {
 		Graph::NodeMap<bool> inCut(workGraph);
 		minCut.minCutMap(inCut);
-		std::vector<int> inducedEdges;
-		for (Graph::EdgeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
-			Graph::Node uOrig = tsp.getGraph().u(it);
-			Graph::Node vOrig = tsp.getGraph().v(it);
-			if (inCut[origToWork[uOrig]] && inCut[origToWork[vOrig]]) {
-				inducedEdges.push_back(tsp.getVariable(it));
-			}
-		}
 		city_id cutSize = 0;
 		for (Graph::NodeIt it(workGraph); it!=lemon::INVALID; ++it) {
 			if (inCut[it]) {
 				++cutSize;
 			}
 		}
-		lp.addConstraint(inducedEdges, std::vector<double>(inducedEdges.size(), 1), cutSize-1, LinearProgram::less_eq);
+		std::vector<int> induced;
+		//TODO figure out why this works so well
+		const bool cutVal = cutSize<tsp.getSize()/2;
+		if (!cutVal) {
+			cutSize = tsp.getSize()-cutSize;
+		}
+		for (Graph::EdgeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
+			Graph::Node uOrig = tsp.getGraph().u(it);
+			Graph::Node vOrig = tsp.getGraph().v(it);
+			bool vInCut = inCut[origToWork[vOrig]];
+			bool uInCut = inCut[origToWork[uOrig]];
+			if (vInCut==cutVal && uInCut==cutVal) {
+				induced.push_back(tsp.getVariable(it));
+			}
+		}
+		lp.addConstraint(induced, std::vector<double>(induced.size(), 1), cutSize-1, LinearProgram::less_eq);
 		return false;
 	} else {
 		return true;
