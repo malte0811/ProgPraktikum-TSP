@@ -24,9 +24,16 @@ bool SubtourCutGen::validate(LinearProgram& lp, const std::vector<double>& solut
 	}
 	minCut.run();
 	double capacity = minCut.minCutValue();
-	if (false && !tolerance.nonZero(capacity)) {
+	if (!tolerance.nonZero(capacity)) {
 		Graph::NodeMap<bool> visited(workGraph);
-		for (Graph::NodeIt it(workGraph); it!=lemon::INVALID; ++it) {
+		Graph::NodeIt it(workGraph);
+		{
+			//TODO comment (don't add constr for all comps)
+			lemon::Dfs<Graph> dfs(workGraph);
+			dfs.reachedMap(visited);
+			dfs.run(it);
+		}
+		for (; it!=lemon::INVALID; ++it) {
 			if (!visited[it]) {
 				lemon::Dfs<Graph> dfs(workGraph);
 				dfs.run(it);
@@ -72,7 +79,6 @@ bool SubtourCutGen::validate(LinearProgram& lp, const std::vector<double>& solut
 			bool vInCut = inCut[origToWork[vOrig]];
 			bool uInCut = inCut[origToWork[uOrig]];
 			if (vInCut==cutVal && uInCut==cutVal) {
-				//if (vInCut && uInCut) {
 				induced.push_back(tsp.getVariable(it));
 			}
 		}

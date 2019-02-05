@@ -14,21 +14,14 @@ public:
 private:
 
 	struct XandF {
-		explicit XandF(const Graph& graph);
-		XandF(const XandF& other);
-
-		const Graph* g;//Needed for the copy-constructor...
-		Graph::NodeMap<bool> x;
-		Graph::EdgeMap<bool> f;
+		std::vector<Graph::Node> x;
+		std::vector<Graph::Edge> f;
 		double cost;
-		city_id sizeX;
-		variable_id sizeF;
 	};
 
 	//T={}
-	std::vector<XandF> lemma1220(const Graph& graph,
-								 const Graph::EdgeMap<double>& c,
-								 const Graph::EdgeMap<double>& cDash);
+	void lemma1220(const Graph& graph, const Graph::EdgeMap<double>& c,
+				   const Graph::EdgeMap<double>& cDash, std::vector<XandF>& out, Graph::Node exclude);
 
 	const TSPInstance& tsp;
 	Graph workGraph;

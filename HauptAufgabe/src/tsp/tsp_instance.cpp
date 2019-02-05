@@ -163,34 +163,12 @@ void TSPInstance::readEdges(std::istream& input, TSPInstance::EdgeFormat type) {
 	}
 }
 
-cost_t TSPInstance::getDistance(city_id a, city_id b) const {
-	if (a>b) {
-		return distances[a-1][b];
-	} else if (b>a) {
-		return distances[b-1][a];
-	} else {
-		return 0;
-	}
-}
-
 void TSPInstance::setDistance(city_id a, city_id b, cost_t dist) {
 	if (a>b) {
 		distances[a-1][b] = dist;
 	} else if (b>a) {
 		distances[b-1][a] = dist;
 	}
-}
-
-city_id TSPInstance::getSize() const {
-	return distances.size()+1;
-}
-
-const Graph& TSPInstance::getGraph() const {
-	return graph;
-}
-
-const Graph::EdgeMap <cost_t>& TSPInstance::getGraphDistances() const {
-	return graphDists;
 }
 
 void TSPInstance::setupBasicLP(LinearProgram& lp) const {
@@ -205,34 +183,6 @@ void TSPInstance::setupBasicLP(LinearProgram& lp) const {
 		}
 		lp.addConstraint(adjancent, std::vector<double>(adjancent.size(), 1), 2, LinearProgram::equal);
 	}
-}
-
-variable_id TSPInstance::getVariable(const Graph::Edge& e) const {
-	return edgeToVar[e];
-}
-
-variable_id TSPInstance::getVariable(city_id a, city_id b) const {
-	if (b>a) {
-		std::swap(a, b);
-	}
-	return (a*(a-1))/2+b;//?
-}
-
-Graph::Edge TSPInstance::getEdge(variable_id variable) const {
-	return varToEdge[variable];
-}
-
-city_id TSPInstance::getCity(const Graph::Node& e) const {
-	return nodeToCity[e];
-}
-
-Graph::Node TSPInstance::getNode(variable_id variable) const {
-	return cityToNode[variable];
-}
-
-variable_id TSPInstance::getEdgeCount() const {
-	city_id size = getSize();
-	return (size*(size-1))/2;
 }
 
 std::string TSPInstance::getName() const {

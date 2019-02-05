@@ -28,7 +28,6 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 		for (CutGenerator* gen:generators) {
 			if (!gen->validate(problem, out.getVector())) {
 				valid = false;
-				break;
 			}
 		}
 	} while (!valid);

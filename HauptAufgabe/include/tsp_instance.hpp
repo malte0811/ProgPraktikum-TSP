@@ -14,25 +14,25 @@ class TSPInstance {
 public:
 	explicit TSPInstance(std::istream& in);
 
-	cost_t getDistance(city_id a, city_id b) const;
+	inline cost_t getDistance(city_id a, city_id b) const;
 
-	city_id getSize() const;
+	inline city_id getSize() const;
 
-	const Graph& getGraph() const;
+	inline const Graph& getGraph() const;
 
-	const Graph::EdgeMap <cost_t>& getGraphDistances() const;
+	inline const Graph::EdgeMap <cost_t>& getGraphDistances() const;
 
-	variable_id getVariable(const Graph::Edge& e) const;
+	inline variable_id getVariable(const Graph::Edge& e) const;
 
-	variable_id getVariable(city_id a, city_id b) const;
+	inline variable_id getVariable(city_id a, city_id b) const;
 
-	Graph::Edge getEdge(variable_id variable) const;
+	inline Graph::Edge getEdge(variable_id variable) const;
 
-	city_id getCity(const Graph::Node& e) const;
+	inline city_id getCity(const Graph::Node& e) const;
 
-	Graph::Node getNode(city_id city) const;
+	inline Graph::Node getNode(city_id city) const;
 
-	variable_id getEdgeCount() const;
+	inline variable_id getEdgeCount() const;
 
 	void setupBasicLP(LinearProgram& lp) const;
 
@@ -69,5 +69,55 @@ private:
 	std::string name;
 };
 
+
+city_id TSPInstance::getSize() const {
+	return distances.size()+1;
+}
+
+const Graph& TSPInstance::getGraph() const {
+	return graph;
+}
+
+const Graph::EdgeMap <cost_t>& TSPInstance::getGraphDistances() const {
+	return graphDists;
+}
+
+variable_id TSPInstance::getVariable(const Graph::Edge& e) const {
+	return edgeToVar[e];
+}
+
+variable_id TSPInstance::getVariable(city_id a, city_id b) const {
+	if (b>a) {
+		std::swap(a, b);
+	}
+	return (a*(a-1))/2+b;
+}
+
+Graph::Edge TSPInstance::getEdge(variable_id variable) const {
+	return varToEdge[variable];
+}
+
+city_id TSPInstance::getCity(const Graph::Node& e) const {
+	return nodeToCity[e];
+}
+
+Graph::Node TSPInstance::getNode(variable_id variable) const {
+	return cityToNode[variable];
+}
+
+variable_id TSPInstance::getEdgeCount() const {
+	city_id size = getSize();
+	return (size*(size-1))/2;
+}
+
+cost_t TSPInstance::getDistance(city_id a, city_id b) const {
+	if (a>b) {
+		return distances[a-1][b];
+	} else if (b>a) {
+		return distances[b-1][a];
+	} else {
+		return 0;
+	}
+}
 
 #endif
