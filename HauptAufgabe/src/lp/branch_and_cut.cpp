@@ -9,7 +9,7 @@
 
 BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens) :
 		problem(program), currBest(program.getVariableCount()), generators(gens),
-		fractOpt(program.getVariableCount()) {
+		fractOpt(program.getVariableCount()), constraintsAtStart(program.getConstraintCount()) {
 	if (program.getGoal()==LinearProgram::minimize) {
 		upperBound = std::numeric_limits<double>::max();
 	} else {
@@ -19,7 +19,12 @@ BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerato
 
 void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 	bool valid;
+	size_t iterations = 0;
 	do {
+		++iterations;
+		if (iterations%64==0) {
+			std::cout << "At " << iterations << " iterations, have " << problem.getConstraintCount() << std::endl;
+		}
 		problem.solve(out);
 		if (!out.isValid() || out.getValue()>upperBound) {
 			break;
@@ -31,6 +36,15 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 			}
 		}
 	} while (!valid);
+	const double maxRatio = 7;
+	if (problem.getConstraintCount()>constraintsAtStart*(maxRatio+1)) {
+		std::vector<int> toRemove(problem.getConstraintCount()-constraintsAtStart*maxRatio);
+		for (unsigned i = 0; i<toRemove.size(); ++i) {
+			toRemove[i] = constraintsAtStart+i;
+		}
+		problem.removeConstraints(toRemove);
+		std::cout << "Removed " << toRemove.size() << " constraints" << std::endl;
+	}
 }
 
 std::vector<long> BranchAndCut::solve() {

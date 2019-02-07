@@ -31,6 +31,10 @@ void LinearProgram::addConstraint(std::vector<int> indices, std::vector<double> 
 	}
 }
 
+void LinearProgram::removeConstraints(std::vector<int>& indices) {
+	QSdelete_rows(problem, indices.size(), indices.data());
+}
+
 LinearProgram::Solution LinearProgram::solve() {
 	Solution sol(getVariableCount());
 	solve(sol);
@@ -92,6 +96,10 @@ LinearProgram::Goal LinearProgram::getGoal() {
 	QSget_objsense(problem, &g);
 	//TODO nicer way of doing this?
 	return g==maximize ? maximize : minimize;
+}
+
+int LinearProgram::getConstraintCount() {
+	return QSget_rowcount(problem);
 }
 
 LinearProgram::Solution::Solution(size_t varCount) : vector(varCount) {}

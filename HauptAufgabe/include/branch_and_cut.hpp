@@ -21,6 +21,7 @@ private:
 	LinearProgram::Solution fractOpt;
 	const std::vector<CutGenerator*> generators;
 	lemon::Tolerance<double> tolerance;
+	const size_t constraintsAtStart;
 
 	bool isBetter(double a, double b);
 

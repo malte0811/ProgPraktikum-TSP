@@ -52,6 +52,8 @@ public:
 	void addConstraint(std::vector<int> indices, std::vector<double> coeffs, double rhs,
 					   LinearProgram::CompType sense);
 
+	void removeConstraints(std::vector<int>& indices);
+
 	Solution solve();
 
 	void solve(Solution& out);
@@ -60,6 +62,8 @@ public:
 	static constexpr double neg_infinite = -QS_MAXDOUBLE;
 
 	int getVariableCount();
+
+	int getConstraintCount();
 
 	double getBound(int var, BoundType bound);
 
