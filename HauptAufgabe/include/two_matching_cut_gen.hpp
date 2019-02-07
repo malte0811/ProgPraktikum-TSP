@@ -14,14 +14,12 @@ public:
 private:
 
 	struct XandF {
-		std::vector<Graph::Node> x;
+		std::vector<bool> x;
 		std::vector<Graph::Edge> f;
 		double cost;
 	};
 
-	//T={}
-	void lemma1220(const Graph& graph, const Graph::EdgeMap<double>& c,
-				   const Graph::EdgeMap<double>& cDash, std::vector<XandF>& out, Graph::Node exclude);
+	void lemma1220(std::vector<XandF>& out, const Graph::NodeMap<bool>& odd, Graph::Node exclude);
 
 	const TSPInstance& tsp;
 	Graph workGraph;

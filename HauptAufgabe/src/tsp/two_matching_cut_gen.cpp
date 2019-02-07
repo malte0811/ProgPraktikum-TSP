@@ -18,20 +18,28 @@ TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst)
 bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& solution) {
 	basicState.restore();
 	Graph::NodeMap<double> totalVal(workGraph);
+	Graph::NodeMap<bool> odd(workGraph);
 	Graph::EdgeMap<int> edgeToVar(workGraph);
 	Graph::EdgeMap <variable_id> vars(workGraph);
+	std::vector<Graph::Edge> oneEdges;
 	for (Graph::EdgeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
 		variable_id varId = tsp.getVariable(it);
 		if (solution[varId]>0) {
-			Graph::Node uOrig = tsp.getGraph().u(it);
-			Graph::Node vOrig = tsp.getGraph().v(it);
-			Graph::Edge eWork = workGraph.addEdge(origToWork[uOrig], origToWork[vOrig]);
-			vars[eWork] = varId;
-			c[eWork] = solution[varId];
-			cDash[eWork] = 1-solution[varId];
-			edgeToVar[eWork] = varId;
-			totalVal[origToWork[uOrig]] += solution[varId];
-			totalVal[origToWork[vOrig]] += solution[varId];
+			Graph::Node endU = origToWork[tsp.getGraph().u(it)];
+			Graph::Node endV = origToWork[tsp.getGraph().v(it)];
+			if (solution[varId]==1) {
+				odd[endU] = !odd[endU];
+				odd[endV] = !odd[endV];
+				oneEdges.push_back(it);
+			} else {
+				Graph::Edge eWork = workGraph.addEdge(endU, endV);
+				vars[eWork] = varId;
+				c[eWork] = solution[varId];
+				cDash[eWork] = 1-solution[varId];
+				edgeToVar[eWork] = varId;
+			}
+			totalVal[endU] += solution[varId];
+			totalVal[endV] += solution[varId];
 		}
 	}
 	for (Graph::IncEdgeIt it(workGraph, z); it!=lemon::INVALID; ++it) {
@@ -43,24 +51,35 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 		c[it] = 2-totalVal[otherEnd];
 	}
 	std::vector<XandF> allMin;
-	lemma1220(workGraph, c, cDash, allMin, z);
+	lemma1220(allMin, odd, z);
 	if (tolerance.less(allMin.front().cost, 1)) {
 		for (XandF& min:allMin) {
 			std::vector<int> inSum;
-			for (size_t indexU = 1; indexU<min.x.size(); ++indexU) {
-				for (size_t indexV = 0; indexV<indexU; ++indexV) {
-					Graph::Node u = min.x[indexU];
-					Graph::Node v = min.x[indexV];
-					city_id uId = tsp.getCity(workToOrig[u]);
-					city_id vId = tsp.getCity(workToOrig[v]);
-					inSum.push_back(tsp.getVariable(uId, vId));
+			std::vector<city_id> x;
+			for (city_id uId = 0; uId<min.x.size(); ++uId) {
+				if (min.x[uId]) {
+					for (int vId : x) {
+						inSum.push_back(tsp.getVariable(uId, vId));
+					}
+					x.push_back(uId);
+				}
+			}
+			size_t sizeF = min.f.size();
+			for (Graph::Edge e:oneEdges) {
+				Graph::Node endU = tsp.getGraph().u(e);
+				Graph::Node endV = tsp.getGraph().v(e);
+				city_id idU = tsp.getCity(endU);
+				city_id idV = tsp.getCity(endV);
+				if (min.x[idU]!=min.x[idV]) {
+					inSum.push_back(tsp.getVariable(idU, idV));
+					++sizeF;
 				}
 			}
 			for (Graph::Edge e:min.f) {
 				inSum.push_back(vars[e]);
 			}
 			lp.addConstraint(inSum, std::vector<double>(inSum.size(), 1),
-							 static_cast<int>(min.x.size()+min.f.size()/2),
+							 static_cast<int>(x.size()+sizeF/2),
 							 LinearProgram::less_eq);
 		}
 		return false;
@@ -69,26 +88,25 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 	}
 }
 
-void TwoMatchingCutGen::lemma1220(const Graph& graph, const Graph::EdgeMap<double>& c,
-								  const Graph::EdgeMap<double>& cDash, std::vector<XandF>& out, Graph::Node exclude) {
-	Graph::EdgeMap<double> d(graph);
-	Graph::NodeMap<int> adjacentEDash(graph);
-	for (Graph::EdgeIt it(graph); it!=lemon::INVALID; ++it) {
+void TwoMatchingCutGen::lemma1220(std::vector<XandF>& out, const Graph::NodeMap<bool>& odd, Graph::Node exclude) {
+	Graph::EdgeMap<double> d(workGraph);
+	Graph::NodeMap<int> adjacentEDash(workGraph);
+	for (Graph::EdgeIt it(workGraph); it!=lemon::INVALID; ++it) {
 		if (c[it]>cDash[it]) {
-			++adjacentEDash[graph.v(it)];
-			++adjacentEDash[graph.u(it)];
+			++adjacentEDash[workGraph.v(it)];
+			++adjacentEDash[workGraph.u(it)];
 			d[it] = cDash[it];
 		} else {
 			d[it] = c[it];
 		}
 	}
 	lemon::GomoryHu<Graph, Graph::EdgeMap<double>>
-	gh(graph, d);
+	gh(workGraph, d);
 	gh.run();
 	double minCost = std::numeric_limits<double>::max();
-	Graph::NodeMap<bool> x(graph);
-	Graph::EdgeMap<bool> f(graph);
-	for (Graph::NodeIt it(graph); it!=lemon::INVALID; ++it) {
+	Graph::NodeMap<bool> x(workGraph);
+	Graph::EdgeMap<bool> f(workGraph);
+	for (Graph::NodeIt it(workGraph); it!=lemon::INVALID; ++it) {
 		Graph::Node pred = gh.predNode(it);
 		if (pred==lemon::INVALID) {
 			continue;
@@ -100,24 +118,26 @@ void TwoMatchingCutGen::lemma1220(const Graph& graph, const Graph::EdgeMap<doubl
 		gh.minCutMap(it, pred, x);
 		Graph::Edge minDiffEdge;
 		double minDiffVal = std::numeric_limits<double>::max();
-		for (Graph::EdgeIt eIt(graph); eIt!=lemon::INVALID; ++eIt) {
-			if (x[graph.u(eIt)]!=x[graph.v(eIt)]) {
+		bool hasMinEdge = false;
+		for (Graph::EdgeIt eIt(workGraph); eIt!=lemon::INVALID; ++eIt) {
+			if (x[workGraph.u(eIt)]!=x[workGraph.v(eIt)]) {
 				f[eIt] = c[eIt]>cDash[eIt];
-				if (std::abs(c[eIt]-cDash[eIt])<std::abs(minDiffVal)) {
+				if (!hasMinEdge || std::abs(c[eIt]-cDash[eIt])<std::abs(minDiffVal)) {
 					minDiffEdge = eIt;
 					minDiffVal = c[eIt]-cDash[eIt];
+					hasMinEdge = true;
 				}
 			} else {
 				f[eIt] = false;
 			}
 		}
-		unsigned xAndT = 0;
-		for (Graph::NodeIt nIt(graph); nIt!=lemon::INVALID; ++nIt) {
-			if (x[nIt] && adjacentEDash[nIt]%2==1) {
-				++xAndT;
+		unsigned xAndTDash = 0;
+		for (Graph::NodeIt nIt(workGraph); nIt!=lemon::INVALID; ++nIt) {
+			if (x[nIt] && (adjacentEDash[nIt]%2==1)!=odd[nIt]) {
+				++xAndTDash;
 			}
 		}
-		if (xAndT%2==0) {
+		if (xAndTDash%2==0) {
 			if (f[minDiffEdge]) {
 				cutCost += minDiffVal;
 				f[minDiffEdge] = false;
@@ -131,17 +151,16 @@ void TwoMatchingCutGen::lemma1220(const Graph& graph, const Graph::EdgeMap<doubl
 				out.clear();
 				minCost = cutCost;
 			}
-			XandF curr;
-			curr.cost = cutCost;
-			for (Graph::EdgeIt cp(graph); cp!=lemon::INVALID; ++cp) {
+			XandF curr{std::vector<bool>(tsp.getSize()), std::vector<Graph::Edge>(0), cutCost};
+			for (Graph::EdgeIt cp(workGraph); cp!=lemon::INVALID; ++cp) {
 				if (f[cp]) {
 					curr.f.push_back(cp);
 				}
 			}
 			bool valForX = !x[exclude];
-			for (Graph::NodeIt cp(graph); cp!=lemon::INVALID; ++cp) {
+			for (Graph::NodeIt cp(workGraph); cp!=lemon::INVALID; ++cp) {
 				if (x[cp]==valForX) {
-					curr.x.push_back(cp);
+					curr.x[tsp.getCity(workToOrig[cp])] = true;
 				}
 			}
 			out.push_back(curr);
