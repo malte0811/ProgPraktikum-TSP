@@ -24,31 +24,26 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 	std::vector<Graph::Edge> oneEdges;
 	for (Graph::EdgeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
 		variable_id varId = tsp.getVariable(it);
-		if (solution[varId]>0) {
+		if (tolerance.positive(solution[varId])) {
 			Graph::Node endU = origToWork[tsp.getGraph().u(it)];
 			Graph::Node endV = origToWork[tsp.getGraph().v(it)];
-			if (solution[varId]==1) {
-				odd[endU] = !odd[endU];
-				odd[endV] = !odd[endV];
-				oneEdges.push_back(it);
-			} else {
+			if (tolerance.less(solution[varId], 1)) {
 				Graph::Edge eWork = workGraph.addEdge(endU, endV);
 				vars[eWork] = varId;
 				c[eWork] = solution[varId];
 				cDash[eWork] = 1-solution[varId];
 				edgeToVar[eWork] = varId;
+			} else {
+				odd[endU] = !odd[endU];
+				odd[endV] = !odd[endV];
+				oneEdges.push_back(it);
 			}
 			totalVal[endU] += solution[varId];
 			totalVal[endV] += solution[varId];
 		}
 	}
-	for (Graph::IncEdgeIt it(workGraph, z); it!=lemon::INVALID; ++it) {
-		//TODO is it always v/always u?
-		Graph::Node otherEnd = workGraph.u(it);
-		if (otherEnd==z) {
-			otherEnd = workGraph.v(it);
-		}
-		c[it] = 2-totalVal[otherEnd];
+	for (Graph::OutArcIt it(workGraph, z); it!=lemon::INVALID; ++it) {
+		c[it] = 2-totalVal[workGraph.target(it)];
 	}
 	std::vector<XandF> allMin;
 	lemma1220(allMin, odd, z);
@@ -78,6 +73,9 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 			for (Graph::Edge e:min.f) {
 				inSum.push_back(vars[e]);
 			}
+			//unsigned hash = 0;
+			//for (int a:inSum) hash = 31*hash+a;
+			//std::cout << "Adding: " << hash << std::endl;
 			lp.addConstraint(inSum, std::vector<double>(inSum.size(), 1),
 							 static_cast<int>(x.size()+sizeF/2),
 							 LinearProgram::less_eq);

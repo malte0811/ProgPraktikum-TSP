@@ -12,10 +12,14 @@ public:
 	bool validate(LinearProgram& lp, const std::vector<double>& solution) override;
 
 private:
+	void addConnectivityConstraints(LinearProgram& lp);
+
+	void addCutConstraint(LinearProgram& lp);
 	const TSPInstance& tsp;
 	Graph workGraph;
 	Graph::Snapshot baseState;
 	Graph::NodeMap <Graph::Node> origToWork;
+	Graph::NodeMap <Graph::Node> workToOrig;
 	Graph::EdgeMap<double> capacity;
 	lemon::NagamochiIbaraki<Graph, Graph::EdgeMap<double>> minCut;
 	lemon::Tolerance<double> tolerance;
