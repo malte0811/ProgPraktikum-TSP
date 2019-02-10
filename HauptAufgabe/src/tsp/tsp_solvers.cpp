@@ -82,7 +82,7 @@ namespace tspsolvers {
 		LinearProgram lp(inst.getName(), LinearProgram::minimize);
 		inst.setupBasicLP(lp);
 		SubtourCutGen subtours(inst);
-		TwoMatchingCutGen matchings(inst);
+		TwoMatchingCutGen matchings(inst, true);
 		BranchAndCut bac(lp, {&subtours, &matchings});
 		if (initial!=nullptr) {
 			std::vector<long> asVars(inst.getEdgeCount());

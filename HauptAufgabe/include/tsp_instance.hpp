@@ -3,12 +3,12 @@
 
 #include <istream>
 #include <vector>
-#include <lemon/smart_graph.h>
+#include <lemon/list_graph.h>
 #include <linear_program.hpp>
 
 using cost_t = unsigned;
 using city_id = int;
-using Graph = lemon::SmartGraph;
+using Graph = lemon::ListGraph;
 
 class TSPInstance {
 public:

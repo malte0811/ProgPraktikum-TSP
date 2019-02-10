@@ -16,6 +16,7 @@ SubtourCutGen::SubtourCutGen(const TSPInstance& inst)
 
 bool SubtourCutGen::validate(LinearProgram& lp, const std::vector<double>& solution) {
 	baseState.restore();
+	baseState.save(workGraph);
 	for (variable_id i = 0; i<solution.size(); ++i) {
 		if (tolerance.positive(solution[i])) {
 			Graph::Edge inOrig = tsp.getEdge(i);
