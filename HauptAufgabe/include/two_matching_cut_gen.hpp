@@ -12,27 +12,29 @@ public:
 	bool validate(LinearProgram& lp, const std::vector<double>& solution) override;
 
 private:
-
+	using ContractionMap = Graph::NodeMap<std::vector<Graph::Node>>;
 	struct XandF {
 		std::vector<Graph::Node> x;
 		std::vector<Graph::Edge> f;
 		double cost;
 	};
 
-	void contractPaths(Graph& g, Graph::NodeMap<bool>& odd, Graph::EdgeMap<double>& c,
-					   Graph::EdgeMap <variable_id>& vars,
-					   Graph::NodeMap <std::vector<Graph::Node>>& toOrig);
+	static void contractPaths(Graph& g, Graph::NodeMap<bool>& odd, Graph::EdgeMap<double>& c,
+							  ContractionMap& toOrig);
 
-	void lemma1220(const Graph& graph, std::vector<XandF>& out, const Graph::NodeMap<bool>& odd,
+	static void lemma1220(const Graph& graph, std::vector<XandF>& out, const Graph::NodeMap<bool>& odd,
 				   const Graph::EdgeMap<double>& c);
 
-	void discoverPath(const Graph& graph, Graph::Node start, Graph::Node exclude,
-					  const Graph::NodeMap<bool>& odd, Graph::NodeMap<bool>& visited,
-					  std::vector<Graph::Node>& path, const Graph::EdgeMap<double>& c,
-					  const Graph::NodeMap <std::vector<Graph::Node>>& toOrig, double& firstEdgeVal);
-	const TSPInstance& tsp;
+	static std::vector<Graph::Node> discoverPath(const Graph& graph, Graph::Node start, Graph::Node exclude,
+												 const Graph::NodeMap<bool>& odd, Graph::NodeMap<bool>& visited,
+												 const Graph::EdgeMap<double>& c, double& firstEdgeVal);
 
-	const lemon::Tolerance<double> tolerance;
+	static bool findAndContractPath(Graph& g, Graph::Node start, ContractionMap& toOrig, Graph::NodeMap<bool>& odd,
+									const Graph::EdgeMap<double>& c);
+
+	static const lemon::Tolerance<double> tolerance;
+
+	const TSPInstance& tsp;
 
 	const bool enableContraction;
 };
