@@ -4,8 +4,8 @@
 #include <stack>
 
 SubtourCutGen::SubtourCutGen(const TSPInstance& inst)
-		: tsp(inst), origToWork(tsp.getGraph()), capacity(workGraph), minCut(workGraph, capacity),
-		  workToOrig(workGraph) {
+		: tsp(inst), origToWork(tsp.getGraph()), workToOrig(workGraph), capacity(workGraph),
+		  minCut(workGraph, capacity) {
 	for (Graph::NodeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
 		Graph::Node newNode = workGraph.addNode();
 		origToWork[it] = newNode;
@@ -17,7 +17,7 @@ SubtourCutGen::SubtourCutGen(const TSPInstance& inst)
 bool SubtourCutGen::validate(LinearProgram& lp, const std::vector<double>& solution) {
 	baseState.restore();
 	baseState.save(workGraph);
-	for (variable_id i = 0; i<solution.size(); ++i) {
+	for (variable_id i = 0; i<static_cast<variable_id>(solution.size()); ++i) {
 		if (tolerance.positive(solution[i])) {
 			Graph::Edge inOrig = tsp.getEdge(i);
 			Graph::Node uOrig = tsp.getGraph().u(inOrig);

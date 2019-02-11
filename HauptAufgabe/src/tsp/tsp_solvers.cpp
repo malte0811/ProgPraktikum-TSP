@@ -19,6 +19,7 @@
 namespace tspsolvers {
 	TSPSolution solveGreedy(const TSPInstance& inst) {
 		struct sorting_data {
+			sorting_data() = delete;
 			Graph::Edge e;
 			cost_t cost;
 		};
@@ -32,11 +33,10 @@ namespace tspsolvers {
 					  return edgeA.cost<edgeB.cost;
 				  }
 		);
-		UnionFind connectedComps(inst.getSize());
-		std::vector<bool> used(inst.getEdgeCount());
+		UnionFind connectedComps(static_cast<size_t>(inst.getSize()));
+		std::vector<bool> used(static_cast<size_t>(inst.getEdgeCount()));
 		Graph::NodeMap <size_t> degree(inst.getGraph());
-		unsigned addedEdges = 0;
-		cost_t totalCost = 0;
+		int addedEdges = 0;
 		for (const sorting_data& data:sortedEdges) {
 			const Graph::Edge& e = data.e;
 			Graph::Node u = inst.getGraph().u(e);
@@ -49,8 +49,8 @@ namespace tspsolvers {
 			if (edgesAtV>=2) {
 				continue;
 			}
-			city_id rootU = connectedComps.find(inst.getCity(u));
-			city_id rootV = connectedComps.find(inst.getCity(v));
+			size_t rootU = connectedComps.find(static_cast<size_t>(inst.getCity(u)));
+			size_t rootV = connectedComps.find(static_cast<size_t>(inst.getCity(v)));
 			//Unterschiedliche Zusammenhangskomponenten->hinzufügen
 			if (rootU!=rootV) {
 				++addedEdges;
@@ -85,15 +85,15 @@ namespace tspsolvers {
 		TwoMatchingCutGen matchings(inst, true);
 		BranchAndCut bac(lp, {&subtours, &matchings});
 		if (initial!=nullptr) {
-			std::vector<long> asVars(inst.getEdgeCount());
+			std::vector<long> asVars(static_cast<size_t>(inst.getEdgeCount()));
 			for (variable_id i = 0; i<inst.getEdgeCount(); ++i) {
 				asVars[i] = initial->getVariable(i);
 			}
 			bac.setUpperBound(asVars, initial->getCost());
 		}
 		std::vector<long> tour = bac.solve();
-		std::vector<bool> asBools(inst.getEdgeCount());
-		for (variable_id i = 0; i<inst.getEdgeCount(); ++i) {
+		std::vector<bool> asBools(tour.size());
+		for (size_t i = 0; i<tour.size(); ++i) {
 			asBools[i] = tour[i];
 		}
 		return TSPSolution(inst, asBools);

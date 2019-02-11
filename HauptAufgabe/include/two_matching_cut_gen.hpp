@@ -19,20 +19,20 @@ private:
 		double cost;
 	};
 
-	static void contractPaths(Graph& g, Graph::NodeMap<bool>& odd, Graph::EdgeMap<double>& c,
-							  ContractionMap& toOrig);
+	void contractPaths(Graph& g, Graph::NodeMap<bool>& odd, Graph::EdgeMap<double>& c,
+					   ContractionMap& toOrig);
 
-	static void lemma1220(const Graph& graph, std::vector<XandF>& out, const Graph::NodeMap<bool>& odd,
+	void lemma1220(const Graph& graph, std::vector<XandF>& out, const Graph::NodeMap<bool>& odd,
 				   const Graph::EdgeMap<double>& c);
 
-	static std::vector<Graph::Node> discoverPath(const Graph& graph, Graph::Node start, Graph::Node exclude,
-												 const Graph::NodeMap<bool>& odd, Graph::NodeMap<bool>& visited,
-												 const Graph::EdgeMap<double>& c, double& firstEdgeVal);
+	std::vector<Graph::Node> discoverPath(const Graph& graph, Graph::Node start, Graph::Node exclude,
+										  const Graph::NodeMap<bool>& odd, Graph::NodeMap<bool>& visited,
+										  const Graph::EdgeMap<double>& c, double& firstEdgeVal);
 
-	static bool findAndContractPath(Graph& g, Graph::Node start, ContractionMap& toOrig, Graph::NodeMap<bool>& odd,
-									const Graph::EdgeMap<double>& c);
+	bool findAndContractPath(Graph& g, Graph::Node start, ContractionMap& toOrig, Graph::NodeMap<bool>& odd,
+							 const Graph::EdgeMap<double>& c);
 
-	static const lemon::Tolerance<double> tolerance;
+	const lemon::Tolerance<double> tolerance;
 
 	const TSPInstance& tsp;
 

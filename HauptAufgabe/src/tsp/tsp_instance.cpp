@@ -14,7 +14,7 @@ T readOrThrow(std::istream& input) {
 	return ret;
 }
 
-TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), nodeToCity(graph), edgeToVar(graph) {
+TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), edgeToVar(graph), nodeToCity(graph) {
 	std::string line;
 	EdgeWeightType edgeType = euc_2d;
 	EdgeFormat edgeFormat = full_matrix;
@@ -33,8 +33,8 @@ TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), nodeToCity(gr
 			//NOP
 		} else if (keyword=="DIMENSION") {
 			auto nodeCount = readOrThrow<city_id>(ss);
-			distances.resize(nodeCount-1);
-			for (city_id i = 0; i<nodeCount-1; ++i) {
+			distances.resize(static_cast<size_t>(nodeCount-1));
+			for (size_t i = 0; i<static_cast<size_t>(nodeCount-1); ++i) {
 				distances[i].resize(i+1);
 			}
 		} else if (keyword=="EDGE_WEIGHT_TYPE") {
@@ -86,7 +86,7 @@ TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), nodeToCity(gr
 			Graph::Node nodeForCity = cityToNode[other];
 			Graph::Edge e = graph.addEdge(newNode, nodeForCity);
 			graphDists[e] = getDistance(city, getCity(nodeForCity));
-			edgeToVar[e] = varToEdge.size();
+			edgeToVar[e] = static_cast<variable_id>(varToEdge.size());
 			varToEdge.push_back(e);
 		}
 	}
@@ -94,8 +94,8 @@ TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), nodeToCity(gr
 
 void TSPInstance::readNodes(std::istream& input, EdgeWeightType type) {
 	city_id nodeCount = getSize();
-	std::vector<std::array<double, 2>> nodeLocations(nodeCount);
-	std::vector<bool> set(nodeCount, false);
+	std::vector<std::array<double, 2>> nodeLocations(static_cast<size_t>(nodeCount));
+	std::vector<bool> set(static_cast<size_t>(nodeCount), false);
 	city_id setCount = 0;
 	for (city_id iteration = 0; iteration<nodeCount; ++iteration) {
 		auto id = readOrThrow<city_id>(input)-1;
@@ -119,10 +119,10 @@ void TSPInstance::readNodes(std::istream& input, EdgeWeightType type) {
 			double distY = nodeLocations[lowerId][1]-nodeLocations[higherId][1];
 			switch (type) {
 				case euc_2d:
-					distance = std::round(std::sqrt(distX*distX+distY*distY));
+					distance = static_cast<cost_t>(std::round(std::sqrt(distX*distX+distY*distY)));
 					break;
 				case ceil_2d:
-					distance = std::ceil(std::sqrt(distX*distX+distY*distY));
+					distance = static_cast<cost_t>(std::ceil(std::sqrt(distX*distX+distY*distY)));
 					break;
 				case explicit_:
 					throw std::runtime_error("Weight type is EXPLICIT, but a NODE_COORD_SECTION exists!");
@@ -172,7 +172,7 @@ void TSPInstance::setDistance(city_id a, city_id b, cost_t dist) {
 }
 
 void TSPInstance::setupBasicLP(LinearProgram& lp) const {
-	for (int i = 0; i<varToEdge.size(); ++i) {
+	for (variable_id i = 0; i<static_cast<variable_id>(varToEdge.size()); ++i) {
 		Graph::Edge e = getEdge(i);
 		lp.addVariable(graphDists[e], 0, 1);
 	}

@@ -19,6 +19,5 @@ link_libraries(qsopt lemon)
 
 add_executable(BranchBoundTest ${COMMON_SOURCES} src/tests/branch_bound_test.cpp)
 add_executable(BranchCutTest ${COMMON_SOURCES} src/tests/cut_test.cpp)
-add_executable(SubtourTest ${COMMON_SOURCES} src/tests/subtour_test.cpp)
-add_executable(TSPtest1 ${COMMON_SOURCES} src/tests/tsp_no_matching.cpp)
 add_executable(TSPtest2 ${COMMON_SOURCES} src/tests/tsp_test.cpp)
+add_executable(TSPsolver ${COMMON_SOURCES} src/main.cpp)

@@ -1,5 +1,5 @@
-#ifndef HAUPTAUFGABE_BRANCH_AND_CUT_HPP
-#define HAUPTAUFGABE_BRANCH_AND_CUT_HPP
+#ifndef BRANCH_AND_CUT_HPP
+#define BRANCH_AND_CUT_HPP
 
 
 #include <lemon/tolerance.h>
@@ -20,8 +20,8 @@ private:
 	std::vector<long> currBest;
 	LinearProgram::Solution fractOpt;
 	const std::vector<CutGenerator*> generators;
-	lemon::Tolerance<double> tolerance;
 	const size_t constraintsAtStart;
+	const lemon::Tolerance<double> tolerance;
 
 	bool isBetter(double a, double b);
 
@@ -33,4 +33,4 @@ private:
 };
 
 
-#endif //HAUPTAUFGABE_BRANCH_AND_CUT_HPP
+#endif

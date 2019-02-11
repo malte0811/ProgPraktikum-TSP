@@ -1,5 +1,5 @@
-#ifndef HAUPTAUFGABE_CUT_GENERATOR_HPP
-#define HAUPTAUFGABE_CUT_GENERATOR_HPP
+#ifndef CUT_GENERATOR_HPP
+#define CUT_GENERATOR_HPP
 
 
 #include <linear_program.hpp>
@@ -15,4 +15,4 @@ public:
 };
 
 
-#endif //HAUPTAUFGABE_CUT_GENERATOR_HPP
+#endif

@@ -1,7 +1,5 @@
 #include <two_matching_cut_gen.hpp>
 
-const lemon::Tolerance<double> TwoMatchingCutGen::tolerance;
-
 TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst, bool contract)
 		: tsp(inst), enableContraction(contract) {}
 
@@ -45,7 +43,7 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 		for (XandF& min:allMin) {
 			std::vector<int> inSum;
 			std::vector<city_id> xElements;
-			std::vector<bool> isInX(tsp.getSize());
+			std::vector<bool> isInX(static_cast<size_t>(tsp.getSize()));
 			for (Graph::Node contracted:min.x) {
 				for (Graph::Node orig:workToOrig[contracted]) {
 					variable_id uId = tsp.getCity(orig);

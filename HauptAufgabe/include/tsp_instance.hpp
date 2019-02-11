@@ -71,7 +71,7 @@ private:
 
 
 city_id TSPInstance::getSize() const {
-	return distances.size()+1;
+	return static_cast<city_id>(distances.size()+1);
 }
 
 const Graph& TSPInstance::getGraph() const {
@@ -101,8 +101,8 @@ city_id TSPInstance::getCity(const Graph::Node& e) const {
 	return nodeToCity[e];
 }
 
-Graph::Node TSPInstance::getNode(variable_id variable) const {
-	return cityToNode[variable];
+Graph::Node TSPInstance::getNode(city_id city) const {
+	return cityToNode[city];
 }
 
 variable_id TSPInstance::getEdgeCount() const {

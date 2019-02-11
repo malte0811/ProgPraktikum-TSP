@@ -8,9 +8,6 @@ class TSPSolution {
 public:
 	TSPSolution(const TSPInstance& inst, const std::vector<bool>& variables);
 
-	//TODO do I need this one anywhere?
-	TSPSolution(const TSPInstance& inst, std::vector<city_id> order);
-
 	void write(std::ostream& out) const;
 
 	cost_t getCost() const;

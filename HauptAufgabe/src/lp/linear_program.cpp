@@ -13,8 +13,8 @@ LinearProgram::~LinearProgram() {
 }
 
 void LinearProgram::addVariable(double objCoeff, double lower, double upper) {
-	int emptyInt[0];
-	double emptyDouble[0];
+	int emptyInt[1];
+	double emptyDouble[1];
 	int result = QSadd_col(problem, 0, emptyInt, emptyDouble, objCoeff, lower, upper, nullptr);
 	if (result!=0) {
 		throw std::runtime_error("Could not add variable to LP, return value was "+std::to_string(result));
@@ -32,18 +32,18 @@ void LinearProgram::addConstraint(std::vector<int> indices, std::vector<double> 
 }
 
 void LinearProgram::removeConstraints(std::vector<int>& indices) {
-	QSdelete_rows(problem, indices.size(), indices.data());
+	QSdelete_rows(problem, static_cast<int>(indices.size()), indices.data());
 }
 
 LinearProgram::Solution LinearProgram::solve() {
-	Solution sol(getVariableCount());
+	Solution sol(static_cast<size_t>(getVariableCount()));
 	solve(sol);
 	return sol;
 }
 
 void LinearProgram::solve(LinearProgram::Solution& out) {
 	int status;
-	int result = QSopt_dual(problem, &status);//TODO dual might be better?
+	int result = QSopt_dual(problem, &status);
 	if (result!=0) {
 		throw std::runtime_error("Could not solve LP, return value was "+std::to_string(result));
 	}
@@ -94,8 +94,7 @@ void LinearProgram::setBound(int var, LinearProgram::BoundType type, double valu
 LinearProgram::Goal LinearProgram::getGoal() {
 	int g;
 	QSget_objsense(problem, &g);
-	//TODO nicer way of doing this?
-	return g==maximize ? maximize : minimize;
+	return static_cast<Goal>(g);
 }
 
 int LinearProgram::getConstraintCount() {

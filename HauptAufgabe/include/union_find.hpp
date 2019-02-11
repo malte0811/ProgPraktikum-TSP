@@ -6,21 +6,20 @@
 
 class UnionFind {
 public:
-	using index_t = uint32_t;
 	using rank_t = uint32_t;
 
-	explicit UnionFind(index_t size);
+	explicit UnionFind(size_t size);
 
-	index_t find(index_t start);
+	size_t find(size_t start);
 
 	//oder union, aber das ist kein gültiger Methodenname
-	index_t merge(index_t startA, index_t startB);
+	size_t merge(size_t startA, size_t startB);
 
-	index_t mergeRoots(index_t rootA, index_t rootB);
+	size_t mergeRoots(size_t rootA, size_t rootB);
 
 private:
 	typedef struct {
-		index_t parent;
+		size_t parent;
 		rank_t rank;
 	} entry;
 	std::vector<entry> entries;

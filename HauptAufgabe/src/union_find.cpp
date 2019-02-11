@@ -6,15 +6,15 @@ Union-Find-Struktur auf der Menge 0,...,size-1.
 Entspricht praktisch direkt den Algorithmen aus der Vorlesung
 */
 
-UnionFind::UnionFind(index_t size) : entries(size) {
-	for (index_t i = 0; i<size; ++i) {
+UnionFind::UnionFind(size_t size) : entries(size) {
+	for (size_t i = 0; i<size; ++i) {
 		entry& e = entries[i];
 		e.rank = 0;
 		e.parent = i;
 	}
 }
 
-UnionFind::index_t UnionFind::find(index_t start) {
+size_t UnionFind::find(size_t start) {
 	entry& currEntry = entries[start];
 	if (currEntry.parent==start) {
 		return start;
@@ -25,17 +25,17 @@ UnionFind::index_t UnionFind::find(index_t start) {
 	if (parent.parent==currEntry.parent) {
 		return currEntry.parent;
 	}
-	const index_t root = find(parent.parent);
+	const size_t root = find(parent.parent);
 	currEntry.parent = root;
 	parent.parent = root;
 	return root;
 }
 
-UnionFind::index_t UnionFind::merge(index_t startA, index_t startB) {
+size_t UnionFind::merge(size_t startA, size_t startB) {
 	return mergeRoots(find(startA), find(startB));
 }
 
-UnionFind::index_t UnionFind::mergeRoots(index_t rootA, index_t rootB) {
+size_t UnionFind::mergeRoots(size_t rootA, size_t rootB) {
 	if (rootA==rootB) {
 		return rootA;
 	}

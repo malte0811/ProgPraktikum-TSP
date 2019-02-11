@@ -5,11 +5,12 @@
 #include <limits>
 #include <ctime>
 #include <queue>
-#include <lemon/bin_heap.h>
 
 BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens) :
-		problem(program), currBest(program.getVariableCount()), generators(gens),
-		fractOpt(program.getVariableCount()), constraintsAtStart(program.getConstraintCount()) {
+		problem(program), currBest(static_cast<size_t>(program.getVariableCount())),
+		fractOpt(static_cast<size_t>(program.getVariableCount())),
+		generators(gens),
+		constraintsAtStart(static_cast<size_t>(program.getConstraintCount())) {
 	if (program.getGoal()==LinearProgram::minimize) {
 		upperBound = std::numeric_limits<double>::max();
 	} else {
@@ -19,12 +20,7 @@ BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerato
 
 void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 	bool valid;
-	size_t iterations = 0;
 	do {
-		++iterations;
-		if (iterations%64==0) {
-			std::cout << "At " << iterations << " iterations, have " << problem.getConstraintCount() << std::endl;
-		}
 		problem.solve(out);
 		if (!out.isValid() || out.getValue()>upperBound) {
 			break;
@@ -38,12 +34,11 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 	} while (!valid);
 	const double maxRatio = 7;
 	if (problem.getConstraintCount()>constraintsAtStart*(maxRatio+1)) {
-		std::vector<int> toRemove(problem.getConstraintCount()-constraintsAtStart*maxRatio);
+		std::vector<int> toRemove(static_cast<size_t>(problem.getConstraintCount()-constraintsAtStart*maxRatio));
 		for (unsigned i = 0; i<toRemove.size(); ++i) {
-			toRemove[i] = constraintsAtStart+i;
+			toRemove[i] = static_cast<int>(constraintsAtStart+i);
 		}
 		problem.removeConstraints(toRemove);
-		std::cout << "Removed " << toRemove.size() << " constraints" << std::endl;
 	}
 }
 
@@ -52,7 +47,6 @@ std::vector<long> BranchAndCut::solve() {
 	return currBest;
 }
 
-//TODO how much does this actually improve things?
 struct BranchInfo {
 	int variable;
 	double to05;
@@ -80,7 +74,6 @@ void BranchAndCut::branchAndBound() {
 		for (int i = 0; i<problem.getVariableCount(); ++i) {
 			currBest[i] = std::lround(fractOpt[i]);
 		}
-		//std::cout << "New optimum: " << upperBound << std::endl;
 	} else {
 		while (!possible.empty() && isBetter(fractOpt.getValue(), upperBound)) {
 			int varToBound = possible.top().variable;
@@ -101,17 +94,9 @@ void BranchAndCut::branchAndBound() {
 }
 
 void BranchAndCut::bound(int variable, long val, LinearProgram::BoundType bound) {
-	static unsigned calls = 0;
-	++calls;
-	if (calls%1000==0) {
-		std::cout << "Heartbeat: " << std::clock() << std::endl;
-		calls = 0;
-	}
 	double oldBound = problem.getBound(variable, bound);
 	problem.setBound(variable, bound, val);
-	//std::cout << "Bounding " << variable << " to " << val << " (" << (char) bound << ")" << std::endl;
 	branchAndBound();
-	//std::cout << "Un-bounding " << variable << "(to " << oldBound << ")" << std::endl;
 	problem.setBound(variable, bound, oldBound);
 }
 
