@@ -45,6 +45,10 @@ TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), edgeToVar(gra
 				edgeType = ceil_2d;
 			} else if (type=="EXPLICIT") {
 				edgeType = explicit_;
+			} else if (type=="GEO") {
+				edgeType = geo;
+			} else if (type=="ATT") {
+				edgeType = att;
 			} else {
 				throw std::runtime_error("Unknown edge weight type: "+type);
 			}
@@ -58,7 +62,7 @@ TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), edgeToVar(gra
 				edgeFormat = upper_diag_row;
 			} else if (type=="UPPER_ROW") {
 				edgeFormat = upper_row;
-			} else {
+			} else if (type!="FUNCTION") {//Function kommt in einigen Instanzen vor, die sonst keine ungewöhnlichen Daten haben (gr431)
 				throw std::runtime_error("Unknown edge format: "+type);
 			}
 		} else if (keyword=="NODE_COORD_SECTION") {
@@ -90,6 +94,13 @@ TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), edgeToVar(gra
 			varToEdge.push_back(e);
 		}
 	}
+}
+
+double coordToLatLong(double val) {
+	//TSPLIB-Beschreibung nutzt hier nint (round), das geht aber nicht für >=50 min
+	int deg = static_cast<int>(val);
+	double min = val-deg;
+	return M_PI*(deg+5.0*min/3.0)/180.0;
 }
 
 void TSPInstance::readNodes(std::istream& input, EdgeWeightType type) {
@@ -126,6 +137,34 @@ void TSPInstance::readNodes(std::istream& input, EdgeWeightType type) {
 					break;
 				case explicit_:
 					throw std::runtime_error("Weight type is EXPLICIT, but a NODE_COORD_SECTION exists!");
+				case geo: {
+					double lati = coordToLatLong(nodeLocations[lowerId][0]);
+					double longi = coordToLatLong(nodeLocations[lowerId][1]);
+					double latj = coordToLatLong(nodeLocations[higherId][0]);
+					double longj = coordToLatLong(nodeLocations[higherId][1]);
+					/*const double RRR = 6378.388;
+					double q1 = std::cos(long1-long2);
+					double q2 = std::cos(lat1-lat2);
+					double q3 = std::cos(lat1+lat2);
+					distance = static_cast<cost_t>(RRR*std::acos(0.5*((1.0+q1)*q2-(1.0-q1)*q3))+1.0);*/
+					double q1 = std::cos (latj) * std::sin(longi - longj);
+					double q3 = std::sin((longi - longj)/2.0);
+					double q4 = std::cos((longi - longj)/2.0);
+					double q2 = std::sin(lati + latj) * q3 * q3 - std::sin(lati - latj) * q4 * q4;
+					double q5 = std::cos(lati - latj) * q4 * q4 - std::cos(lati + latj) * q3 * q3;
+					distance = (int) (6378.388 * std::atan2(sqrt(q1*q1 + q2*q2), q5) + 1.0);
+				}
+					break;
+				case att: {
+					double rij = sqrt((distX*distX+distY*distY)/10.0);
+					auto tij = static_cast<cost_t>(std::lround(rij));
+					if (tij<rij) {
+						distance = tij+1;
+					} else {
+						distance = tij;
+					}
+				}
+					break;
 			}
 			distances[higherId-1][lowerId] = distance;
 		}

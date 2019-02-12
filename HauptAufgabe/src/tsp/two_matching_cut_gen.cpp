@@ -170,7 +170,7 @@ void TwoMatchingCutGen::contractPaths(Graph& g, Graph::NodeMap<bool>& odd, Graph
 	bool contracted;
 	do {
 		contracted = false;
-		for (Graph::NodeIt start(g); start!=lemon::INVALID; ++start) {
+		for (Graph::NodeIt start(g); start!=lemon::INVALID && !contracted; ++start) {
 			if (odd[start]) {
 				contracted = findAndContractPath(g, start, toOrig, odd, c);
 			}
@@ -189,7 +189,8 @@ bool TwoMatchingCutGen::findAndContractPath(Graph& g, Graph::Node start, Contrac
 	}
 	pathValue = 1-pathValue;
 	std::vector<Graph::Node> right = discoverPath(g, start, left[0], odd, inPath, c, pathValue);
-	if (left.size()+right.size()<2) {
+	//TODO when can right be empty?
+	if (left.size()+right.size()<2 || right.empty()) {
 		return false;
 	}
 	std::vector<Graph::Node> toContract(left.begin(), left.end()-1);

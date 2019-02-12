@@ -44,7 +44,9 @@ private:
 	enum EdgeWeightType {
 		euc_2d,
 		ceil_2d,
-		explicit_
+		explicit_,
+		geo,
+		att
 	};
 	enum EdgeFormat {
 		full_matrix,
