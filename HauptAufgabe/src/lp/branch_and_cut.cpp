@@ -20,7 +20,13 @@ BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerato
 
 void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 	bool valid;
+	size_t iterations = 0;
 	do {
+		++iterations;
+		if (iterations%128==0) {
+			std::cout << "Iteration " << iterations << ", currently at " << problem.getConstraintCount()
+					  << " constraints!" << std::endl;
+		}
 		problem.solve(out);
 		if (!out.isValid() || out.getValue()>upperBound) {
 			break;

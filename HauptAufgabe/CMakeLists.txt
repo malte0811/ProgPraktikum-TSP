@@ -21,3 +21,4 @@ add_executable(BranchBoundTest ${COMMON_SOURCES} src/tests/branch_bound_test.cpp
 add_executable(BranchCutTest ${COMMON_SOURCES} src/tests/cut_test.cpp)
 add_executable(TSPtest2 ${COMMON_SOURCES} src/tests/tsp_test.cpp)
 add_executable(TSPsolver ${COMMON_SOURCES} src/main.cpp)
+add_executable(2MatchingSim ${COMMON_SOURCES} src/tests/two_matching_sim.cpp)

@@ -1,7 +1,7 @@
 #include <two_matching_cut_gen.hpp>
 
 TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst, bool contract)
-		: tsp(inst), enableContraction(contract) {}
+		: tsp(inst), enableContraction(contract), tolerance(1e-5) {}
 
 bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& solution) {
 	Graph workGraph;
@@ -36,7 +36,6 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 		contractPaths(workGraph, odd, c, workToOrig);
 	}
 	//TODO explain why I don't have z (c is always 0, cDash always inf, so the edges are irrelevant)
-	//TODO is that still true after contracting?
 	std::vector<XandF> allMin;
 	lemma1220(workGraph, allMin, odd, c);
 	if (!allMin.empty() && tolerance.less(allMin.front().cost, 1)) {
@@ -68,12 +67,22 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 			for (Graph::Edge e:min.f) {
 				inSum.push_back(vars[e]);
 			}
-			double actualValue = 0;
+			size_t rhs = xElements.size()+sizeF/2;
+			/*double actualValue = 0;
 			unsigned hash = 0;
 			for (int a:inSum) hash = 31*hash+a, actualValue += solution[a];
+			if (actualValue<=rhs) {
+				std::cout << "2-Matching cut-generator produced invalid (non-separating) cut!" << std::endl;
+				for (size_t id = 0;id<solution.size();++id) {
+					if (tolerance.nonZero(solution[id])) {
+						std::cout << id << ": " << solution[id] << "\n";
+					}
+				}
+				std::cout << std::flush;
+				return true;
+			}*/
 			lp.addConstraint(inSum, std::vector<double>(inSum.size(), 1),
-							 static_cast<int>(xElements.size()+sizeF/2),
-							 LinearProgram::less_eq);
+							 rhs, LinearProgram::less_eq);
 		}
 		return false;
 	} else {

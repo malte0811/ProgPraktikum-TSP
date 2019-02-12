@@ -32,11 +32,11 @@ private:
 	bool findAndContractPath(Graph& g, Graph::Node start, ContractionMap& toOrig, Graph::NodeMap<bool>& odd,
 							 const Graph::EdgeMap<double>& c);
 
-	const lemon::Tolerance<double> tolerance;
-
 	const TSPInstance& tsp;
 
 	const bool enableContraction;
+
+	const lemon::Tolerance<double> tolerance;
 };
 
 
