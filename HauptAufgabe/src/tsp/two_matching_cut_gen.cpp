@@ -13,7 +13,7 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 		workToOrig[newNode] = {it};
 	}
 	Graph::NodeMap<bool> odd(workGraph);
-	Graph::EdgeMap <variable_id> vars(workGraph);
+	Graph::EdgeMap <Graph::Edge> toOrigEdge(workGraph);
 	Graph::EdgeMap<double> c(workGraph);
 	std::vector<Graph::Edge> oneEdges;
 	for (Graph::EdgeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
@@ -23,7 +23,7 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 			Graph::Node endV = origToWork[tsp.getGraph().v(it)];
 			if (tolerance.less(solution[varId], 1)) {
 				Graph::Edge eWork = workGraph.addEdge(endU, endV);
-				vars[eWork] = varId;
+				toOrigEdge[eWork] = it;
 				c[eWork] = solution[varId];
 			} else {
 				odd[endU] = !odd[endU];
@@ -40,39 +40,71 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 	lemma1220(workGraph, allMin, odd, c);
 	if (!allMin.empty() && tolerance.less(allMin.front().cost, 1)) {
 		for (XandF& min:allMin) {
-			std::vector<int> inSum;
-			std::vector<city_id> xElements;
-			std::vector<bool> isInX(static_cast<size_t>(tsp.getSize()));
+			Graph::NodeMap<bool> isInX(tsp.getGraph());
 			for (Graph::Node contracted:min.x) {
 				for (Graph::Node orig:workToOrig[contracted]) {
-					variable_id uId = tsp.getCity(orig);
-					isInX[uId] = true;
-					for (int vId : xElements) {
-						inSum.push_back(tsp.getVariable(uId, vId));
-					}
-					xElements.push_back(uId);
+					isInX[orig] = true;
 				}
 			}
-			size_t sizeF = min.f.size();
+			Graph::EdgeMap<bool> fTSP(tsp.getGraph());
+			std::vector<Graph::Edge> prelimF;
 			for (Graph::Edge e:oneEdges) {
 				Graph::Node endU = tsp.getGraph().u(e);
 				Graph::Node endV = tsp.getGraph().v(e);
-				city_id idU = tsp.getCity(endU);
-				city_id idV = tsp.getCity(endV);
-				if (isInX[idU]!=isInX[idV]) {
-					inSum.push_back(tsp.getVariable(idU, idV));
-					++sizeF;
+				if (isInX[endU]!=isInX[endV]) {
+					fTSP[e] = true;
+					prelimF.push_back(e);
 				}
 			}
 			for (Graph::Edge e:min.f) {
-				inSum.push_back(vars[e]);
+				fTSP[toOrigEdge[e]] = true;
+				prelimF.push_back(toOrigEdge[e]);
+			}
+			Graph::NodeMap <Graph::Edge> incidentF(tsp.getGraph());
+			for (Graph::NodeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
+				incidentF[it] = lemon::INVALID;//TODO is this necessary?
+			}
+			for (Graph::Edge e:prelimF) {
+				Graph::Node ends[2] = {tsp.getGraph().u(e), tsp.getGraph().v(e)};
+				for (Graph::Node end:ends) {
+					if (incidentF[end]==lemon::INVALID) {
+						incidentF[end] = e;
+					} else {
+						Graph::Edge oldEdge = incidentF[end];
+						fTSP[oldEdge] = false;
+						incidentF[tsp.getGraph().u(oldEdge)] = lemon::INVALID;
+						incidentF[tsp.getGraph().v(oldEdge)] = lemon::INVALID;
+						incidentF[tsp.getGraph().u(e)] = lemon::INVALID;
+						incidentF[tsp.getGraph().v(e)] = lemon::INVALID;
+						fTSP[e] = false;
+						isInX[end] = !isInX[end];
+						break;
+					}
+				}
+			}
+			std::vector<variable_id> inSum;
+			for (Graph::Edge e:prelimF) {
+				if (fTSP[e]) {
+					inSum.push_back(tsp.getVariable(e));
+				}
+			}
+			const size_t sizeF = inSum.size();
+			std::vector<city_id> xElements;
+			for (Graph::NodeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
+				if (isInX[it]) {
+					city_id curr = tsp.getCity(it);
+					for (city_id other:xElements) {
+						inSum.push_back(tsp.getVariable(curr, other));
+					}
+					xElements.push_back(curr);
+				}
 			}
 			size_t rhs = xElements.size()+sizeF/2;
 			/*double actualValue = 0;
 			unsigned hash = 0;
 			for (int a:inSum) hash = 31*hash+a, actualValue += solution[a];
 			if (actualValue<=rhs) {
-				std::cout << "2-Matching cut-generator produced invalid (non-separating) cut!" << std::endl;
+				std::cout << "2-Matching cut-generator produced invalid (non-separating) cut! LHS " << actualValue << ", RHS " << rhs << std::endl;
 				for (size_t id = 0;id<solution.size();++id) {
 					if (tolerance.nonZero(solution[id])) {
 						std::cout << id << ": " << solution[id] << "\n";
