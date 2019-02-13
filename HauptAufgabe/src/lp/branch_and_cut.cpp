@@ -53,49 +53,41 @@ std::vector<long> BranchAndCut::solve() {
 	return currBest;
 }
 
-struct BranchInfo {
-	int variable;
-	double to05;
-
-	bool operator<(const BranchInfo& other) const {
-		return to05<other.to05;
-	}
-};
-
 void BranchAndCut::branchAndBound() {
 	solveLP(fractOpt);
 	if (!fractOpt.isValid() || !isBetter(fractOpt.getValue(), upperBound)) {
 		return;
 	}
-	std::priority_queue<BranchInfo> possible;
-	for (int i = 0; i<problem.getVariableCount(); ++i) {
+	variable_id varToBound = -1;
+	double optDist = 1;
+	for (variable_id i = 0; i<problem.getVariableCount(); ++i) {
 		long rounded = std::lround(fractOpt[i]);
 		double diff = rounded-fractOpt[i];
 		if (tolerance.nonZero(diff)) {
-			possible.push({i, std::abs(diff-.5)});
+			double dist05 = std::abs(std::abs(diff)-.5);
+			if (dist05<optDist) {
+				optDist = dist05;
+				varToBound = i;
+			}
 		}
 	}
-	if (possible.empty()) {
+	if (varToBound<0) {
 		upperBound = fractOpt.getValue();
 		for (int i = 0; i<problem.getVariableCount(); ++i) {
 			currBest[i] = std::lround(fractOpt[i]);
 		}
 	} else {
-		while (!possible.empty() && isBetter(fractOpt.getValue(), upperBound)) {
-			int varToBound = possible.top().variable;
-			possible.pop();
-			long rounded = std::lround(fractOpt[varToBound]);
-			double diff = rounded-fractOpt[varToBound];
-			long lower;
-			if (tolerance.positive(diff)) {
-				lower = rounded;
-			} else {
-				lower = rounded+1;
-			}
-			long upper = lower-1;
-			bound(varToBound, lower, LinearProgram::lower);
-			bound(varToBound, upper, LinearProgram::upper);
+		long rounded = std::lround(fractOpt[varToBound]);
+		double diff = rounded-fractOpt[varToBound];
+		long lower;
+		if (tolerance.positive(diff)) {
+			lower = rounded;
+		} else {
+			lower = rounded+1;
 		}
+		long upper = lower-1;
+		bound(varToBound, lower, LinearProgram::lower);
+		bound(varToBound, upper, LinearProgram::upper);
 	}
 }
 
