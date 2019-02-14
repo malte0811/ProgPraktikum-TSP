@@ -32,7 +32,10 @@ void LinearProgram::addConstraint(std::vector<int> indices, std::vector<double> 
 }
 
 void LinearProgram::removeConstraints(std::vector<int>& indices) {
-	QSdelete_rows(problem, static_cast<int>(indices.size()), indices.data());
+	int status = QSdelete_rows(problem, static_cast<int>(indices.size()), indices.data());
+	if (status!=0) {
+		throw std::runtime_error("Error while deleting constraints: "+std::to_string(status));
+	}
 }
 
 LinearProgram::Solution LinearProgram::solve() {
@@ -99,6 +102,15 @@ LinearProgram::Goal LinearProgram::getGoal() {
 
 int LinearProgram::getConstraintCount() {
 	return QSget_rowcount(problem);
+}
+
+std::vector<double> LinearProgram::getSlack() {
+	std::vector<double> ret(getConstraintCount());
+	int status = QSget_slack_array(problem, ret.data());
+	if (status!=0) {
+		throw std::runtime_error("Could not get slack array: "+std::to_string(status));
+	}
+	return ret;
 }
 
 LinearProgram::Solution::Solution(size_t varCount) : vector(varCount) {}

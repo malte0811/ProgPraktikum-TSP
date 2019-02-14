@@ -19,6 +19,7 @@ private:
 	double upperBound;
 	std::vector<long> currBest;
 	LinearProgram::Solution fractOpt;
+	std::vector<size_t> sinceSlack0;
 	const std::vector<CutGenerator*> generators;
 	const size_t constraintsAtStart;
 	const lemon::Tolerance<double> tolerance;
@@ -30,6 +31,8 @@ private:
 	void bound(int variable, long val, LinearProgram::BoundType bound);
 
 	void solveLP(LinearProgram::Solution& out);
+
+	void countSolutionSlack();
 };
 
 

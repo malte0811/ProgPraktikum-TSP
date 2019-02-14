@@ -71,6 +71,8 @@ public:
 
 	Goal getGoal();
 
+	std::vector<double> getSlack();
+
 private:
 	QSprob problem;
 };

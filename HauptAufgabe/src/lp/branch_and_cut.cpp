@@ -24,6 +24,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 	size_t slowIterations = 0;
 	do {
 		problem.solve(out);
+		countSolutionSlack();
 		if (!out.isValid() || !isBetter(out.getValue(), upperBound)) {
 			break;
 		}
@@ -40,18 +41,34 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 				solutionValid = genStatus;
 			}
 		}
+		sinceSlack0.resize(problem.getConstraintCount()-constraintsAtStart, 0);
 		if (slowIterations>6 && solutionValid==CutGenerator::maybe_recalc) {
 			solutionValid = CutGenerator::valid;
 		}
 	} while (solutionValid!=CutGenerator::valid);
-	const double maxRatio = 7;
-	if (problem.getConstraintCount()>constraintsAtStart*(maxRatio+1)) {
-		std::vector<variable_id> toRemove(
-				static_cast<size_t>(problem.getConstraintCount()-constraintsAtStart*maxRatio));
-		for (unsigned i = 0; i<toRemove.size(); ++i) {
-			toRemove[i] = static_cast<variable_id>(constraintsAtStart+i);
+	const double maxRatio = 3;
+	if (problem.getConstraintCount()>constraintsAtStart*maxRatio) {
+		std::vector<int> toRemove;
+		for (size_t i = 0; i<sinceSlack0.size(); ++i) {
+			if (sinceSlack0[i]>10) {
+				toRemove.push_back(i+constraintsAtStart);
+			}
 		}
-		problem.removeConstraints(toRemove);
+		if (!toRemove.empty()) {
+			std::vector<size_t> since0New;
+			since0New.reserve(sinceSlack0.size()-toRemove.size());
+			size_t nextInRemove = 0;
+			for (size_t i = 0; i<sinceSlack0.size(); ++i) {
+				if (nextInRemove<toRemove.size() && toRemove[nextInRemove]==(i+constraintsAtStart)) {
+					++nextInRemove;
+				} else {
+					since0New.push_back(sinceSlack0[i]);
+				}
+			}
+			sinceSlack0 = std::move(since0New);
+			problem.removeConstraints(toRemove);
+			//std::cout << "Removed " << toRemove.size() << " constraints" << std::endl;
+		}
 	}
 }
 
@@ -108,6 +125,17 @@ void BranchAndCut::bound(int variable, long val, LinearProgram::BoundType bound)
 	problem.setBound(variable, bound, val);
 	branchAndBound();
 	problem.setBound(variable, bound, oldBound);
+}
+
+void BranchAndCut::countSolutionSlack() {
+	std::vector<double> slack = problem.getSlack();
+	for (size_t constraint = constraintsAtStart; constraint<slack.size(); ++constraint) {
+		if (tolerance.nonZero(slack[constraint])) {
+			++sinceSlack0[constraint-constraintsAtStart];
+		} else {
+			sinceSlack0[constraint-constraintsAtStart] = 0;
+		}
+	}
 }
 
 bool BranchAndCut::isBetter(double a, double b) {
