@@ -14,42 +14,53 @@ BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerato
 	if (program.getGoal()==LinearProgram::minimize) {
 		upperBound = std::numeric_limits<double>::max();
 	} else {
-		upperBound = std::numeric_limits<double>::min();
+		upperBound = -std::numeric_limits<double>::max();
 	}
 }
 
 void BranchAndCut::solveLP(LinearProgram::Solution& out) {
-	bool valid;
-	size_t iterations = 0;
+	CutGenerator::CutStatus solutionValid;
+	double oldVal = 0;
+	size_t slowIterations = 0;
 	do {
-		++iterations;
-		if (iterations%128==0) {
-			std::cout << "Iteration " << iterations << ", currently at " << problem.getConstraintCount()
-					  << " constraints!" << std::endl;
-		}
 		problem.solve(out);
-		if (!out.isValid() || out.getValue()>upperBound) {
+		if (!out.isValid() || !isBetter(out.getValue(), upperBound)) {
 			break;
 		}
-		valid = true;
+		if (std::abs(oldVal-out.getValue())<oldVal*2.5e-5) {
+			++slowIterations;
+		} else {
+			slowIterations = 0;
+		}
+		oldVal = std::abs(out.getValue());
+		solutionValid = CutGenerator::valid;
 		for (CutGenerator* gen:generators) {
-			if (!gen->validate(problem, out.getVector())) {
-				valid = false;
+			CutGenerator::CutStatus genStatus = gen->validate(problem, out.getVector());
+			if (genStatus>solutionValid) {
+				solutionValid = genStatus;
 			}
 		}
-	} while (!valid);
+		if (slowIterations>6 && solutionValid==CutGenerator::maybe_recalc) {
+			solutionValid = CutGenerator::valid;
+		}
+	} while (solutionValid!=CutGenerator::valid);
 	const double maxRatio = 7;
 	if (problem.getConstraintCount()>constraintsAtStart*(maxRatio+1)) {
-		std::vector<int> toRemove(static_cast<size_t>(problem.getConstraintCount()-constraintsAtStart*maxRatio));
+		std::vector<variable_id> toRemove(
+				static_cast<size_t>(problem.getConstraintCount()-constraintsAtStart*maxRatio));
 		for (unsigned i = 0; i<toRemove.size(); ++i) {
-			toRemove[i] = static_cast<int>(constraintsAtStart+i);
+			toRemove[i] = static_cast<variable_id>(constraintsAtStart+i);
 		}
 		problem.removeConstraints(toRemove);
 	}
 }
 
+static size_t boundSteps = 0;
+
 std::vector<long> BranchAndCut::solve() {
+	boundSteps = 0;
 	branchAndBound();
+	std::cout << boundSteps << std::endl;
 	return currBest;
 }
 
@@ -80,7 +91,7 @@ void BranchAndCut::branchAndBound() {
 		long rounded = std::lround(fractOpt[varToBound]);
 		double diff = rounded-fractOpt[varToBound];
 		long lower;
-		if (tolerance.positive(diff)) {
+		if (diff>0) {
 			lower = rounded;
 		} else {
 			lower = rounded+1;
@@ -92,6 +103,7 @@ void BranchAndCut::branchAndBound() {
 }
 
 void BranchAndCut::bound(int variable, long val, LinearProgram::BoundType bound) {
+	++boundSteps;
 	double oldBound = problem.getBound(variable, bound);
 	problem.setBound(variable, bound, val);
 	branchAndBound();

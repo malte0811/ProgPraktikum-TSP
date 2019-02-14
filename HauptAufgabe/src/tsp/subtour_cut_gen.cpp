@@ -5,7 +5,7 @@
 
 SubtourCutGen::SubtourCutGen(const TSPInstance& inst)
 		: tsp(inst), origToWork(tsp.getGraph()), workToOrig(workGraph), capacity(workGraph),
-		  minCut(workGraph, capacity) {
+		  minCut(workGraph, capacity), tolerance(1e-5) {
 	for (Graph::NodeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
 		Graph::Node newNode = workGraph.addNode();
 		origToWork[it] = newNode;
@@ -14,7 +14,7 @@ SubtourCutGen::SubtourCutGen(const TSPInstance& inst)
 	baseState.save(workGraph);
 }
 
-bool SubtourCutGen::validate(LinearProgram& lp, const std::vector<double>& solution) {
+CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::vector<double>& solution) {
 	baseState.restore();
 	baseState.save(workGraph);
 	for (variable_id i = 0; i<static_cast<variable_id>(solution.size()); ++i) {
@@ -30,12 +30,12 @@ bool SubtourCutGen::validate(LinearProgram& lp, const std::vector<double>& solut
 	double capacity = minCut.minCutValue();
 	if (capacity==0) {
 		addConnectivityConstraints(lp);
-		return false;
+		return CutGenerator::recalc;
 	} else if (tolerance.less(capacity, 2)) {
 		addCutConstraint(lp);
-		return false;
+		return CutGenerator::recalc;
 	} else {
-		return true;
+		return CutGenerator::valid;
 	}
 }
 
@@ -90,7 +90,6 @@ void SubtourCutGen::addCutConstraint(LinearProgram& lp) {
 		}
 	}
 	std::vector<int> induced;
-	//TODO figure out why this works very well or not at all depending on edge ordering
 	const bool cutVal = cutSize<tsp.getSize()/2;
 	if (!cutVal) {
 		cutSize = tsp.getSize()-cutSize;

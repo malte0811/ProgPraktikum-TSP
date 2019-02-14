@@ -3,7 +3,7 @@
 TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst, bool contract)
 		: tsp(inst), enableContraction(contract), tolerance(1e-5) {}
 
-bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& solution) {
+CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& solution) {
 	Graph workGraph;
 	Graph::NodeMap <Graph::Node> origToWork(tsp.getGraph());
 	ContractionMap workToOrig(workGraph);
@@ -41,10 +41,12 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 	if (!allMin.empty() && tolerance.less(allMin.front().cost, 1)) {
 		for (XandF& min:allMin) {
 			Graph::NodeMap<bool> isInX(tsp.getGraph());
+			size_t sizeXTrue = 0;
 			for (Graph::Node contracted:min.x) {
 				for (Graph::Node orig:workToOrig[contracted]) {
 					isInX[orig] = true;
 				}
+				sizeXTrue += workToOrig[contracted].size();
 			}
 			Graph::EdgeMap<bool> fTSP(tsp.getGraph());
 			std::vector<Graph::Edge> prelimF;
@@ -78,6 +80,11 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 						incidentF[tsp.getGraph().v(e)] = lemon::INVALID;
 						fTSP[e] = false;
 						isInX[end] = !isInX[end];
+						if (isInX[end]) {
+							++sizeXTrue;
+						} else {
+							--sizeXTrue;
+						}
 						break;
 					}
 				}
@@ -90,8 +97,9 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 			}
 			const size_t sizeF = inSum.size();
 			std::vector<city_id> xElements;
+			const bool valForX = sizeXTrue<tsp.getSize()/2;
 			for (Graph::NodeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
-				if (isInX[it]) {
+				if (isInX[it]==valForX) {
 					city_id curr = tsp.getCity(it);
 					for (city_id other:xElements) {
 						inSum.push_back(tsp.getVariable(curr, other));
@@ -116,9 +124,9 @@ bool TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& s
 			lp.addConstraint(inSum, std::vector<double>(inSum.size(), 1),
 							 rhs, LinearProgram::less_eq);
 		}
-		return false;
+		return CutGenerator::maybe_recalc;
 	} else {
-		return true;
+		return CutGenerator::valid;
 	}
 }
 

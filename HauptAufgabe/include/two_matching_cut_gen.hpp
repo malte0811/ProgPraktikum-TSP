@@ -9,7 +9,7 @@ class TwoMatchingCutGen : public CutGenerator {
 public:
 	explicit TwoMatchingCutGen(const TSPInstance& inst, bool contract);
 
-	bool validate(LinearProgram& lp, const std::vector<double>& solution) override;
+	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution) override;
 
 private:
 	using ContractionMap = Graph::NodeMap<std::vector<Graph::Node>>;
