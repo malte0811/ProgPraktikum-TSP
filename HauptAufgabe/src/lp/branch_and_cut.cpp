@@ -18,16 +18,44 @@ BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerato
 	}
 }
 
+/**
+ * Löst das LP wiederholt und fügt die von den Cut-Gereratoren erzeugten Schnitte hinzu, bis eine der folgenden
+ * Bedingungen erfüllt ist:<br>
+ * 1. Das LP ist unzulässig.<br>
+ * 2. Die Lösung wird von allen Cut-Generatoren als gültig akzeptiert.<br>
+ * 3. Die Lösung ist schlechter als die aktuelle obere Schranke.<br>
+ * 4. Der Wert der Lösung hat sich in den letzten Iterationen nicht stark geändert und es wurde kein Schnitt hinzu-
+ * gefügt, der eine Neuberechnung erzwingt.<br>
+ * Amd Ende werden Constraints entfernt, die seit mindestens 10 Iterationen nicht mehr mit Gleichheit erfüllt waren.
+ * @param out Ein Solution-Objekt der korrekten Größe. Dient als Ausgabe.
+ */
 void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 	CutGenerator::CutStatus solutionValid;
 	double oldVal = 0;
 	size_t slowIterations = 0;
+	unsigned iterations = 0;
 	do {
+		++iterations;
+		if (iterations%64==0) {
+			std::cout << "Currently at " << iterations << " iterations, using " << problem.getConstraintCount()
+					  << " constraints!" << std::endl;
+		}
 		problem.solve(out);
 		countSolutionSlack();
-		if (!out.isValid() || !isBetter(out.getValue(), upperBound)) {
+		/*
+		 * Abbrechen, falls das LP unzulässig ist oder die optimale fraktionale Lösung nicht mehr besser als die beste
+		 * bekannte ganzzahlige ist
+		 * TODO Annahme: Koeffs der Zielfunktion sind ganzzahlig
+		 * TODO ceil durch floor ersetzen, falls max. wird
+		 */
+		if (!out.isValid() || !isBetter(std::ceil(out.getValue()), upperBound)) {
 			break;
 		}
+		/*
+		 * Als langsame Iteration zählen solche, in denen die relative Änderung des Wertes der Lösung weniger
+		 * als 2.5*10^-5 ist, siehe "A branch-and-cut algorithm for the resolution of large-scale symmetric traveling
+		 * salesman problems", Padberg und Rinaldi 1991
+		 */
 		if (std::abs(oldVal-out.getValue())<oldVal*2.5e-5) {
 			++slowIterations;
 		} else {
@@ -41,6 +69,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 				solutionValid = genStatus;
 			}
 		}
+		//sinceSlack0 vergrößern, da eventuell Constraints hinzugefügt wurden
 		sinceSlack0.resize(problem.getConstraintCount()-constraintsAtStart, 0);
 		if (slowIterations>6 && solutionValid==CutGenerator::maybe_recalc) {
 			solutionValid = CutGenerator::valid;
@@ -49,41 +78,35 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 	const double maxRatio = 3;
 	if (problem.getConstraintCount()>constraintsAtStart*maxRatio) {
 		std::vector<int> toRemove;
+		//Alle constraints, die seit 10 oder mehr Iterationen nicht mit Gleichheit erfüllt waren, werden entfernt
 		for (size_t i = 0; i<sinceSlack0.size(); ++i) {
 			if (sinceSlack0[i]>10) {
-				toRemove.push_back(i+constraintsAtStart);
+				toRemove.push_back(static_cast<int>(i+constraintsAtStart));
 			}
 		}
 		if (!toRemove.empty()) {
-			std::vector<size_t> since0New;
-			since0New.reserve(sinceSlack0.size()-toRemove.size());
-			size_t nextInRemove = 0;
-			for (size_t i = 0; i<sinceSlack0.size(); ++i) {
-				if (nextInRemove<toRemove.size() && toRemove[nextInRemove]==(i+constraintsAtStart)) {
-					++nextInRemove;
-				} else {
-					since0New.push_back(sinceSlack0[i]);
-				}
-			}
-			sinceSlack0 = std::move(since0New);
+			sinceSlack0.resize(sinceSlack0.size()-toRemove.size());
+			std::fill(sinceSlack0.begin(), sinceSlack0.end(), 0);
 			problem.removeConstraints(toRemove);
-			//std::cout << "Removed " << toRemove.size() << " constraints" << std::endl;
 		}
 	}
 }
 
-static size_t boundSteps = 0;
-
+/**
+ * @return eine optimale ganzzahlige Lösung des LP, die von alle Cut-Generatoren akzeptiert wird.
+ */
 std::vector<long> BranchAndCut::solve() {
-	boundSteps = 0;
 	branchAndBound();
-	std::cout << boundSteps << std::endl;
 	return currBest;
 }
 
+/**
+ * Findet die beste ganzzahlige Lösung des LP's (mit Cut-Generatoren) unter den aktuellen Grenzen für die Variablen.
+ * Falls diese Lösung besser als upperBound bzw.
+ */
 void BranchAndCut::branchAndBound() {
 	solveLP(fractOpt);
-	if (!fractOpt.isValid() || !isBetter(fractOpt.getValue(), upperBound)) {
+	if (!fractOpt.isValid() || !isBetter(std::ceil(fractOpt.getValue()), upperBound)) {
 		return;
 	}
 	variable_id varToBound = -1;
@@ -119,14 +142,24 @@ void BranchAndCut::branchAndBound() {
 	}
 }
 
+/**
+ * Beschränkt den zulässgen Bereich einer Variablen wie durch die Parameter beschrieben, ruft dann branchAndBound auf
+ * und setzt den zulässigen Bereich wieder auf den ursprünglichen Wert.
+ * @param variable Die zu beschränkende Variable
+ * @param val Der neue Wert der Beschränkung
+ * @param bound Die "Richtung", in der die variable beschränkt werden soll
+ */
 void BranchAndCut::bound(int variable, long val, LinearProgram::BoundType bound) {
-	++boundSteps;
 	double oldBound = problem.getBound(variable, bound);
 	problem.setBound(variable, bound, val);
 	branchAndBound();
 	problem.setBound(variable, bound, oldBound);
 }
 
+/**
+ * Erhöht die zähler für die Constraints, die nicht mit Gleichheit erfüllt sind und setzt die Zähler für die anderen
+ * zurück.
+ */
 void BranchAndCut::countSolutionSlack() {
 	std::vector<double> slack = problem.getSlack();
 	for (size_t constraint = constraintsAtStart; constraint<slack.size(); ++constraint) {
@@ -138,14 +171,24 @@ void BranchAndCut::countSolutionSlack() {
 	}
 }
 
+/**
+ * @param a ein Wert der Zielfunktion
+ * @param b ein Wert der Zielfunktion
+ * @return true, falls a ein streng besserer Wert der Zielfunktion als b ist
+ */
 bool BranchAndCut::isBetter(double a, double b) {
 	if (problem.getGoal()==LinearProgram::maximize) {
-		return std::round(b)<std::round(a);
+		return tolerance.less(b, a);
 	} else {
-		return std::round(a)<std::round(b);
+		return tolerance.less(a, b);
 	}
 }
 
+/**
+ * Setzt die obere Schranke für Branch and Bound
+ * @param value Die Werte der Variablen
+ * @param cost Die Kosten der angegebenen Lösung
+ */
 void BranchAndCut::setUpperBound(const std::vector<long>& value, double cost) {
 	upperBound = cost;
 	currBest = value;

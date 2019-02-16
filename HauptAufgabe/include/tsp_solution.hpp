@@ -2,7 +2,7 @@
 #define TSP_SOLUTION_HPP
 
 
-#include "tsp_instance.hpp"
+#include <tsp_instance.hpp>
 
 class TSPSolution {
 public:

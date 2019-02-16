@@ -21,18 +21,31 @@ TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& varia
 	} while (currentCity!=0);
 }
 
+/**
+ * @return Die Kosten der Lösung
+ */
 cost_t TSPSolution::getCost() const {
 	return cost;
 }
 
+/**
+ * @param id Die ID einer Variablen des LP's
+ * @return true, falls die Variable den Wert 1 hat
+ */
 bool TSPSolution::getVariable(int id) const {
 	return variables[id];
 }
 
+/**
+ * @return Die Städte in der Reihenfolge, in der sie in dieser Lösung besucht werden
+ */
 const std::vector<city_id>& TSPSolution::getOrder() const {
 	return order;
 }
 
+/**
+ * Gibt die Lösung im TSPLIB-Format in out aus
+ */
 void TSPSolution::write(std::ostream& out) const {
 	out << "NAME: " << inst.getName() << ".tsp.tour\n"
 		<< "TYPE: TOUR\n"

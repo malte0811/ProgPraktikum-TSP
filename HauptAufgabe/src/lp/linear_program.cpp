@@ -12,38 +12,64 @@ LinearProgram::~LinearProgram() {
 	QSfree_prob(problem);
 }
 
+/**
+ * Fügt eine neue Variable zum LP hinzu
+ * @param objCoeff Der Koeffizient der Variablen in der Zielfunktion
+ * @param lower Untere Schranke für die Variable
+ * @param upper Obere Schranke für die variable
+ */
 void LinearProgram::addVariable(double objCoeff, double lower, double upper) {
-	int emptyInt[1];
-	double emptyDouble[1];
-	int result = QSadd_col(problem, 0, emptyInt, emptyDouble, objCoeff, lower, upper, nullptr);
+	int result = QSnew_col(problem, objCoeff, lower, upper, nullptr);
 	if (result!=0) {
 		throw std::runtime_error("Could not add variable to LP, return value was "+std::to_string(result));
 	}
 }
 
-void LinearProgram::addConstraint(std::vector<int> indices, std::vector<double> coeffs, double rhs,
+/**
+ * Fügt eine neue (Un)Gleichung zum LP hinzu
+ * @param indices Die Indizes der Koeffizienten, die nicht 0 sind
+ * @param coeffs Die Werte dieser Koeffizienten
+ * @param rhs Die rechte Seite der Ungleichung
+ * @param sense Um welche Art von (Un)Gleichung es sich handelt (kleiner gleich, größer gleich, gleich)
+ */
+void LinearProgram::addConstraint(const std::vector<int>& indices, const std::vector<double>& coeffs, double rhs,
 								  LinearProgram::CompType sense) {
 	assert(indices.size()==coeffs.size());
-	int result = QSadd_row(problem, static_cast<int>(indices.size()), indices.data(), coeffs.data(), rhs, sense,
-						   nullptr);
+	int result = QSadd_row(problem, static_cast<int>(indices.size()),
+						   const_cast<int*>(indices.data()), const_cast<double*>(coeffs.data()),
+						   rhs, sense, nullptr);
 	if (result!=0) {
 		throw std::runtime_error("Could not add constraint to LP, return value was "+std::to_string(result));
 	}
 }
 
-void LinearProgram::removeConstraints(std::vector<int>& indices) {
-	int status = QSdelete_rows(problem, static_cast<int>(indices.size()), indices.data());
+/**
+ * Entfernt die Constraints mit den angegebenen Indizes. Die Indizes der verbleibenden Constraints "rücken auf",
+ * d.h. nach dem Entfernen von Constraint 0, 2 und 3 wird Constraint 1 zu Constraint 0, 4 zu 1, 5 zu 2, 6 zu 3, etc.
+ * @param indices die Indizes der zu entfernenden Constraints
+ */
+void LinearProgram::removeConstraints(const std::vector<int>& indices) {
+	int status = QSdelete_rows(problem, static_cast<int>(indices.size()), const_cast<int*>(indices.data()));
 	if (status!=0) {
 		throw std::runtime_error("Error while deleting constraints: "+std::to_string(status));
 	}
 }
 
+/**
+ * @return eine optimale Lösung des LP
+ */
 LinearProgram::Solution LinearProgram::solve() {
 	Solution sol(static_cast<size_t>(getVariableCount()));
 	solve(sol);
 	return sol;
 }
 
+/**
+ * Löst das LP. Falls das LP erfolgreich gelöst wurde, wird die gefundene Lösung in out ausgegeben.
+ * Falls das LP unzulässig ist, wird out dementsprechend gesetzt. In allen anderen Fällen wird ein
+ * Fehler geworfen.
+ * @param out Eine Solution-Objekt der korrekten Größe. Dient als Ausgabe.
+ */
 void LinearProgram::solve(LinearProgram::Solution& out) {
 	int status;
 	int result = QSopt_dual(problem, &status);

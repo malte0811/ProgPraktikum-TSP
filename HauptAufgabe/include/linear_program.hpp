@@ -49,10 +49,10 @@ public:
 
 	void addVariable(double objCoeff, double lower, double upper);
 
-	void addConstraint(std::vector<int> indices, std::vector<double> coeffs, double rhs,
+	void addConstraint(const std::vector<int>& indices, const std::vector<double>& coeffs, double rhs,
 					   LinearProgram::CompType sense);
 
-	void removeConstraints(std::vector<int>& indices);
+	void removeConstraints(const std::vector<int>& indices);
 
 	Solution solve();
 

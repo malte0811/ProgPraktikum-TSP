@@ -4,6 +4,10 @@
 #include <array>
 #include <cassert>
 
+/**
+ * Liest einen Wert aus dem gegebenen istrean und wirft einen Fehler, falls dies nicht möglich ist
+ * @tparam T Der Typ des zu lesenden Wertes
+ */
 template<typename T>
 T readOrThrow(std::istream& input) {
 	T ret;
@@ -14,6 +18,10 @@ T readOrThrow(std::istream& input) {
 	return ret;
 }
 
+/**
+ * Liest eine STSP im TSPLIB-Format ein
+ * @param input Die Quelle der Eingabe
+ */
 TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), edgeToVar(graph), nodeToCity(graph) {
 	std::string line;
 	EdgeWeightType edgeType = euc_2d;
@@ -21,6 +29,10 @@ TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), edgeToVar(gra
 	while (std::getline(input, line) && !line.empty()) {
 		std::stringstream ss(line);
 		std::string keyword;
+		/*
+		 * Doppelpunkt ignorieren. Der Doppelpunkt kann sowohl direkt hinter dem "Operator" als auch durch Whitespace
+		 * abgetrennt auftreten.
+		 */
 		ss >> keyword >> std::ws;
 		if (ss.peek()==':') {
 			ss.ignore();
