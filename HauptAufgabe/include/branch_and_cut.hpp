@@ -20,6 +20,7 @@ private:
 	std::vector<long> currBest;
 	LinearProgram::Solution fractOpt;
 	std::vector<size_t> sinceSlack0;
+	std::vector<long> objCoefficients;
 	const std::vector<CutGenerator*> generators;
 	const size_t constraintsAtStart;
 	const lemon::Tolerance<double> tolerance;

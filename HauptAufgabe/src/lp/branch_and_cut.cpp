@@ -9,12 +9,17 @@
 BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens) :
 		problem(program), currBest(static_cast<size_t>(program.getVariableCount())),
 		fractOpt(static_cast<size_t>(program.getVariableCount())),
+		objCoefficients(static_cast<size_t>(program.getVariableCount())),
 		generators(gens),
 		constraintsAtStart(static_cast<size_t>(program.getConstraintCount())) {
 	if (program.getGoal()==LinearProgram::minimize) {
 		upperBound = std::numeric_limits<double>::max();
 	} else {
 		upperBound = -std::numeric_limits<double>::max();
+	}
+	std::vector<double> obj = program.getObjective();
+	for (size_t i = 0; i<obj.size(); ++i) {
+		objCoefficients[i] = std::lround(obj[i]);
 	}
 }
 
@@ -111,14 +116,18 @@ void BranchAndCut::branchAndBound() {
 	}
 	variable_id varToBound = -1;
 	double optDist = 1;
+	long varWeight = 0;
 	for (variable_id i = 0; i<problem.getVariableCount(); ++i) {
 		long rounded = std::lround(fractOpt[i]);
 		double diff = rounded-fractOpt[i];
 		if (tolerance.nonZero(diff)) {
 			double dist05 = std::abs(std::abs(diff)-.5);
-			if (dist05<optDist) {
+			long cost = objCoefficients[i];
+			if (tolerance.less(dist05, optDist) ||
+				(!tolerance.less(optDist, dist05) && cost>varWeight)) {
 				optDist = dist05;
 				varToBound = i;
+				varWeight = cost;
 			}
 		}
 	}
@@ -157,7 +166,7 @@ void BranchAndCut::bound(int variable, long val, LinearProgram::BoundType bound)
 }
 
 /**
- * Erhöht die zähler für die Constraints, die nicht mit Gleichheit erfüllt sind und setzt die Zähler für die anderen
+ * Erhöht die Zähler für die Constraints, die nicht mit Gleichheit erfüllt sind und setzt die Zähler für die anderen
  * zurück.
  */
 void BranchAndCut::countSolutionSlack() {

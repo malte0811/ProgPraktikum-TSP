@@ -73,6 +73,8 @@ public:
 
 	std::vector<double> getSlack();
 
+	std::vector<double> getObjective();
+
 private:
 	QSprob problem;
 };

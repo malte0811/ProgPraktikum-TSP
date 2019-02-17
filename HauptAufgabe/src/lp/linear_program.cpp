@@ -139,6 +139,15 @@ std::vector<double> LinearProgram::getSlack() {
 	return ret;
 }
 
+std::vector<double> LinearProgram::getObjective() {
+	std::vector<double> ret(getVariableCount());
+	int status = QSget_obj(problem, ret.data());
+	if (status!=0) {
+		throw std::runtime_error("Could not get objective coefficients: "+std::to_string(status));
+	}
+	return ret;
+}
+
 LinearProgram::Solution::Solution(size_t varCount) : vector(varCount) {}
 
 double LinearProgram::Solution::operator[](size_t index) {
