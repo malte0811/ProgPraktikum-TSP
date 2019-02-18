@@ -53,7 +53,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 		 * TODO Annahme: Koeffs der Zielfunktion sind ganzzahlig
 		 * TODO ceil durch floor ersetzen, falls max. wird
 		 */
-		if (!out.isValid() || !isBetter(std::ceil(out.getValue()), upperBound)) {
+		if (!out.isValid() || !isBetter(std::ceil(out.getValue()), upperBound, problem.getGoal())) {
 			break;
 		}
 		/*
@@ -101,7 +101,14 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
  * @return eine optimale ganzzahlige Lösung des LP, die von alle Cut-Generatoren akzeptiert wird.
  */
 std::vector<long> BranchAndCut::solve() {
-	branchAndBound();
+	open.push({{}, 0, 0, problem.getGoal()});
+	while (!open.empty()/* && isBetter(std::ceil(open.top().value), upperBound, problem.getGoal())*/) {
+		BranchNode next = open.top();
+		open.pop();
+		if (isBetter(std::ceil(next.value), upperBound, problem.getGoal())) {
+			branchAndBound(next, true);
+		}
+	}
 	return currBest;
 }
 
@@ -109,45 +116,53 @@ std::vector<long> BranchAndCut::solve() {
  * Findet die beste ganzzahlige Lösung des LP's (mit Cut-Generatoren) unter den aktuellen Grenzen für die Variablen.
  * Falls diese Lösung besser als upperBound bzw.
  */
-void BranchAndCut::branchAndBound() {
-	solveLP(fractOpt);
-	if (!fractOpt.isValid() || !isBetter(std::ceil(fractOpt.getValue()), upperBound)) {
-		return;
+void BranchAndCut::branchAndBound(const BranchNode& node, bool setup) {
+	std::vector<double> oldBounds;
+	if (setup) {
+		oldBounds = setupBounds(node.bounds);
 	}
-	variable_id varToBound = -1;
-	double optDist = 1;
-	long varWeight = 0;
-	for (variable_id i = 0; i<problem.getVariableCount(); ++i) {
-		long rounded = std::lround(fractOpt[i]);
-		double diff = rounded-fractOpt[i];
-		if (tolerance.nonZero(diff)) {
-			double dist05 = std::abs(std::abs(diff)-.5);
-			long cost = objCoefficients[i];
-			if (tolerance.less(dist05, optDist) ||
-				(!tolerance.less(optDist, dist05) && cost>varWeight)) {
-				optDist = dist05;
-				varToBound = i;
-				varWeight = cost;
+	solveLP(fractOpt);
+	if (fractOpt.isValid() && isBetter(std::ceil(fractOpt.getValue()), upperBound, problem.getGoal())) {
+		variable_id varToBound = -1;
+		double optDist = 1;
+		long varWeight = 0;
+		for (variable_id i = 0; i<problem.getVariableCount(); ++i) {
+			long rounded = std::lround(fractOpt[i]);
+			double diff = rounded-fractOpt[i];
+			if (tolerance.nonZero(diff)) {
+				double dist05 = std::abs(std::abs(diff)-.5);
+				long cost = objCoefficients[i];
+				if (tolerance.less(dist05, optDist) ||
+					(!tolerance.less(optDist, dist05) && cost>varWeight)) {
+					optDist = dist05;
+					varToBound = i;
+					varWeight = cost;
+				}
 			}
 		}
-	}
-	if (varToBound<0) {
-		upperBound = fractOpt.getValue();
-		for (int i = 0; i<problem.getVariableCount(); ++i) {
-			currBest[i] = std::lround(fractOpt[i]);
-		}
-	} else {
-		long rounded = std::lround(fractOpt[varToBound]);
-		double diff = rounded-fractOpt[varToBound];
-		long lower;
-		if (diff>0) {
-			lower = rounded;
+		if (varToBound<0) {
+			upperBound = fractOpt.getValue();
+			for (int i = 0; i<problem.getVariableCount(); ++i) {
+				currBest[i] = std::lround(fractOpt[i]);
+			}
 		} else {
-			lower = rounded+1;
+			long rounded = std::lround(fractOpt[varToBound]);
+			double diff = rounded-fractOpt[varToBound];
+			long lower;
+			if (diff>0) {
+				lower = rounded;
+			} else {
+				lower = rounded+1;
+			}
+			long upper = lower-1;
+			//TODO use proper values (those of the nodes themselves rather than the parent)
+			double fractVal = fractOpt.getValue();
+			bound(varToBound, lower, LinearProgram::lower, node.bounds, node.level+1, fractVal, true);
+			bound(varToBound, upper, LinearProgram::upper, node.bounds, node.level+1, fractVal, false);
 		}
-		long upper = lower-1;
-		bound(varToBound, lower, LinearProgram::lower);
-		bound(varToBound, upper, LinearProgram::upper);
+	}
+	if (setup) {
+		cleanupBounds(node.bounds, oldBounds);
 	}
 }
 
@@ -157,12 +172,20 @@ void BranchAndCut::branchAndBound() {
  * @param variable Die zu beschränkende Variable
  * @param val Der neue Wert der Beschränkung
  * @param bound Die "Richtung", in der die variable beschränkt werden soll
+ * TODO update comment
  */
-void BranchAndCut::bound(int variable, long val, LinearProgram::BoundType bound) {
-	double oldBound = problem.getBound(variable, bound);
-	problem.setBound(variable, bound, val);
-	branchAndBound();
-	problem.setBound(variable, bound, oldBound);
+void BranchAndCut::bound(int variable, long val, LinearProgram::BoundType bound, const std::vector<Bound>& parent,
+						 size_t level, double objValue, bool immediate) {
+	BranchNode node{parent, objValue, level, problem.getGoal()};
+	node.bounds.push_back({variable, val, bound});
+	if (immediate) {
+		double oldBound = problem.getBound(variable, bound);
+		problem.setBound(variable, bound, val);
+		branchAndBound(node, false);
+		problem.setBound(variable, bound, oldBound);
+	} else {
+		open.push(node);
+	}
 }
 
 /**
@@ -185,8 +208,9 @@ void BranchAndCut::countSolutionSlack() {
  * @param b ein Wert der Zielfunktion
  * @return true, falls a ein streng besserer Wert der Zielfunktion als b ist
  */
-bool BranchAndCut::isBetter(double a, double b) {
-	if (problem.getGoal()==LinearProgram::maximize) {
+bool BranchAndCut::isBetter(double a, double b, LinearProgram::Goal goal) {
+	lemon::Tolerance<double> tolerance;
+	if (goal==LinearProgram::maximize) {
 		return tolerance.less(b, a);
 	} else {
 		return tolerance.less(a, b);
@@ -201,4 +225,21 @@ bool BranchAndCut::isBetter(double a, double b) {
 void BranchAndCut::setUpperBound(const std::vector<long>& value, double cost) {
 	upperBound = cost;
 	currBest = value;
+}
+
+//TODO be more lazy
+std::vector<double> BranchAndCut::setupBounds(const std::vector<BranchAndCut::Bound>& bounds) {
+	std::vector<double> ret(bounds.size());
+	for (size_t i = 0; i<bounds.size(); ++i) {
+		const Bound& b = bounds[i];
+		ret[i] = problem.getBound(b.var, b.type);
+		problem.setBound(b.var, b.type, b.value);
+	}
+	return ret;
+}
+
+void BranchAndCut::cleanupBounds(const std::vector<BranchAndCut::Bound>& bounds, const std::vector<double>& oldBounds) {
+	for (size_t i = bounds.size()-1; i+1>0; --i) {
+		problem.setBound(bounds[i].var, bounds[i].type, oldBounds[i]);
+	}
 }
