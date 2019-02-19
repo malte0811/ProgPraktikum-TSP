@@ -11,7 +11,8 @@ BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerato
 		fractOpt(static_cast<size_t>(program.getVariableCount())),
 		objCoefficients(static_cast<size_t>(program.getVariableCount())),
 		generators(gens),
-		constraintsAtStart(static_cast<size_t>(program.getConstraintCount())) {
+		constraintsAtStart(static_cast<size_t>(program.getConstraintCount())),
+		defaultBounds(static_cast<size_t>(problem.getVariableCount())) {
 	if (program.getGoal()==LinearProgram::minimize) {
 		upperBound = std::numeric_limits<double>::max();
 	} else {
@@ -20,6 +21,11 @@ BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerato
 	std::vector<double> obj = program.getObjective();
 	for (size_t i = 0; i<obj.size(); ++i) {
 		objCoefficients[i] = std::lround(obj[i]);
+	}
+	for (variable_id i = 0; i<problem.getVariableCount(); ++i) {
+		for (LinearProgram::BoundType type:{LinearProgram::lower, LinearProgram::upper}) {
+			defaultBounds[i][type==LinearProgram::upper] = std::lround(problem.getBound(i, type));
+		}
 	}
 }
 
@@ -93,6 +99,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 			sinceSlack0.resize(sinceSlack0.size()-toRemove.size());
 			std::fill(sinceSlack0.begin(), sinceSlack0.end(), 0);
 			problem.removeConstraints(toRemove);
+			std::cout << "Removing " << toRemove.size() << std::endl;
 		}
 	}
 }
@@ -101,13 +108,15 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
  * @return eine optimale ganzzahlige Lösung des LP, die von alle Cut-Generatoren akzeptiert wird.
  */
 std::vector<long> BranchAndCut::solve() {
-	open.push({{}, 0, 0, problem.getGoal()});
+	open.insert({{}, 0, 0, problem.getGoal()});
 	while (!open.empty()/* && isBetter(std::ceil(open.top().value), upperBound, problem.getGoal())*/) {
-		BranchNode next = open.top();
-		open.pop();
+		auto it = open.begin();
+		BranchNode next = *it;
+		open.erase(it);
 		if (isBetter(std::ceil(next.value), upperBound, problem.getGoal())) {
 			branchAndBound(next, true);
 		}
+		//std::cout << open.size() << std::endl;
 	}
 	return currBest;
 }
@@ -117,9 +126,8 @@ std::vector<long> BranchAndCut::solve() {
  * Falls diese Lösung besser als upperBound bzw.
  */
 void BranchAndCut::branchAndBound(const BranchNode& node, bool setup) {
-	std::vector<double> oldBounds;
 	if (setup) {
-		oldBounds = setupBounds(node.bounds);
+		setupBounds(node.bounds);
 	}
 	solveLP(fractOpt);
 	if (fractOpt.isValid() && isBetter(std::ceil(fractOpt.getValue()), upperBound, problem.getGoal())) {
@@ -129,7 +137,7 @@ void BranchAndCut::branchAndBound(const BranchNode& node, bool setup) {
 		for (variable_id i = 0; i<problem.getVariableCount(); ++i) {
 			long rounded = std::lround(fractOpt[i]);
 			double diff = rounded-fractOpt[i];
-			if (tolerance.nonZero(diff)) {
+			if (std::abs(diff)>0.05) {
 				double dist05 = std::abs(std::abs(diff)-.5);
 				long cost = objCoefficients[i];
 				if (tolerance.less(dist05, optDist) ||
@@ -141,10 +149,11 @@ void BranchAndCut::branchAndBound(const BranchNode& node, bool setup) {
 			}
 		}
 		if (varToBound<0) {
-			upperBound = fractOpt.getValue();
+			std::vector<long> newOpt(problem.getVariableCount());
 			for (int i = 0; i<problem.getVariableCount(); ++i) {
-				currBest[i] = std::lround(fractOpt[i]);
+				newOpt[i] = std::lround(fractOpt[i]);
 			}
+			setUpperBound(newOpt, fractOpt.getValue());
 		} else {
 			long rounded = std::lround(fractOpt[varToBound]);
 			double diff = rounded-fractOpt[varToBound];
@@ -161,9 +170,6 @@ void BranchAndCut::branchAndBound(const BranchNode& node, bool setup) {
 			bound(varToBound, upper, LinearProgram::upper, node.bounds, node.level+1, fractVal, false);
 		}
 	}
-	if (setup) {
-		cleanupBounds(node.bounds, oldBounds);
-	}
 }
 
 /**
@@ -174,17 +180,21 @@ void BranchAndCut::branchAndBound(const BranchNode& node, bool setup) {
  * @param bound Die "Richtung", in der die variable beschränkt werden soll
  * TODO update comment
  */
-void BranchAndCut::bound(int variable, long val, LinearProgram::BoundType bound, const std::vector<Bound>& parent,
+void BranchAndCut::bound(int variable, long val, LinearProgram::BoundType bound,
+						 const std::map<variable_id, VariableBounds>& parent,
 						 size_t level, double objValue, bool immediate) {
 	BranchNode node{parent, objValue, level, problem.getGoal()};
-	node.bounds.push_back({variable, val, bound});
+	if (!node.bounds.count(variable)) {
+		node.bounds[variable] = defaultBounds[variable];
+	}
+	node.bounds[variable][bound==LinearProgram::upper] = val;
 	if (immediate) {
 		double oldBound = problem.getBound(variable, bound);
 		problem.setBound(variable, bound, val);
 		branchAndBound(node, false);
 		problem.setBound(variable, bound, oldBound);
 	} else {
-		open.push(node);
+		open.insert(node);
 	}
 }
 
@@ -225,21 +235,26 @@ bool BranchAndCut::isBetter(double a, double b, LinearProgram::Goal goal) {
 void BranchAndCut::setUpperBound(const std::vector<long>& value, double cost) {
 	upperBound = cost;
 	currBest = value;
-}
-
-//TODO be more lazy
-std::vector<double> BranchAndCut::setupBounds(const std::vector<BranchAndCut::Bound>& bounds) {
-	std::vector<double> ret(bounds.size());
-	for (size_t i = 0; i<bounds.size(); ++i) {
-		const Bound& b = bounds[i];
-		ret[i] = problem.getBound(b.var, b.type);
-		problem.setBound(b.var, b.type, b.value);
+	auto it = open.cbegin();
+	while (it!=open.cend() && !isBetter(it->value, cost, problem.getGoal())) {
+		it = open.erase(it);
 	}
-	return ret;
 }
 
-void BranchAndCut::cleanupBounds(const std::vector<BranchAndCut::Bound>& bounds, const std::vector<double>& oldBounds) {
-	for (size_t i = bounds.size()-1; i+1>0; --i) {
-		problem.setBound(bounds[i].var, bounds[i].type, oldBounds[i]);
+void BranchAndCut::setupBounds(std::map<variable_id, VariableBounds> bounds) {
+	for (variable_id i = 0; i<problem.getVariableCount(); ++i) {
+		VariableBounds boundsForVar;
+		if (bounds.count(i)) {
+			boundsForVar = bounds[i];
+		} else {
+			boundsForVar = defaultBounds[i];
+		}
+		for (LinearProgram::BoundType type:{LinearProgram::lower, LinearProgram::upper}) {
+			double currBound = problem.getBound(i, type);
+			long newBound = boundsForVar[type==LinearProgram::upper];
+			if (tolerance.different(currBound, newBound)) {
+				problem.setBound(i, type, newBound);
+			}
+		}
 	}
 }

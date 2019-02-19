@@ -146,7 +146,7 @@ void TwoMatchingCutGen::lemma1220(const Graph& graph, std::vector<XandF>& out, c
 	lemon::GomoryHu<Graph, Graph::EdgeMap<double>>
 	gh(graph, d);
 	gh.run();
-	double minCost = std::numeric_limits<double>::max();
+	double minCost = 1;
 	Graph::NodeMap<bool> x(graph);
 	Graph::EdgeMap<bool> f(graph);
 	for (Graph::NodeIt it(graph); it!=lemon::INVALID; ++it) {
