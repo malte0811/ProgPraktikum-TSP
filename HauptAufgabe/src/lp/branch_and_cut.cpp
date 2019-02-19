@@ -130,14 +130,14 @@ void BranchAndCut::branchAndBound(const BranchNode& node, bool setup) {
 		setupBounds(node.bounds);
 	}
 	solveLP(fractOpt);
-	if (fractOpt.isValid() && isBetter(std::ceil(fractOpt.getValue()), upperBound, problem.getGoal())) {
+	if (fractOpt.isValid() && isBetter(std::lround(fractOpt.getValue()), upperBound, problem.getGoal())) {
 		variable_id varToBound = -1;
 		double optDist = 1;
 		long varWeight = 0;
 		for (variable_id i = 0; i<problem.getVariableCount(); ++i) {
 			long rounded = std::lround(fractOpt[i]);
 			double diff = rounded-fractOpt[i];
-			if (std::abs(diff)>0.05) {
+			if (std::abs(diff)>0.01) {
 				double dist05 = std::abs(std::abs(diff)-.5);
 				long cost = objCoefficients[i];
 				if (tolerance.less(dist05, optDist) ||
@@ -153,7 +153,7 @@ void BranchAndCut::branchAndBound(const BranchNode& node, bool setup) {
 			for (int i = 0; i<problem.getVariableCount(); ++i) {
 				newOpt[i] = std::lround(fractOpt[i]);
 			}
-			setUpperBound(newOpt, fractOpt.getValue());
+			setUpperBound(newOpt, std::lround(fractOpt.getValue()));
 		} else {
 			long rounded = std::lround(fractOpt[varToBound]);
 			double diff = rounded-fractOpt[varToBound];
@@ -232,9 +232,10 @@ bool BranchAndCut::isBetter(double a, double b, LinearProgram::Goal goal) {
  * @param value Die Werte der Variablen
  * @param cost Die Kosten der angegebenen Lösung
  */
-void BranchAndCut::setUpperBound(const std::vector<long>& value, double cost) {
+void BranchAndCut::setUpperBound(const std::vector<long>& value, long cost) {
 	upperBound = cost;
 	currBest = value;
+	std::cout << "Setting upper bound as " << cost << std::endl;
 	auto it = open.cbegin();
 	while (it!=open.cend() && !isBetter(it->value, cost, problem.getGoal())) {
 		it = open.erase(it);

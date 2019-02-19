@@ -16,7 +16,7 @@ class BranchAndCut {
 public:
 	BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens);
 
-	void setUpperBound(const std::vector<long>& value, double cost);
+	void setUpperBound(const std::vector<long>& value, long cost);
 
 	std::vector<long> solve();
 
