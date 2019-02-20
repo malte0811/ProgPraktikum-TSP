@@ -27,17 +27,23 @@ public:
 	public:
 		explicit Solution(size_t varCount);
 
-		double operator[](size_t index);
+		double operator[](size_t index) const;
 
-		double getValue();
+		double getValue() const;
 
-		bool isValid();
+		bool isValid() const;
 
-		const std::vector<double>& getVector();
+		const std::vector<double>& getVector() const;
+
+		const std::vector<double>& getSlack() const;
+
+		const std::vector<double>& getReducedCosts() const;
 
 	private:
 		friend LinearProgram;
 		std::vector<double> vector;
+		std::vector<double> slack;
+		std::vector<double> reduced;
 		double value;
 	};
 
@@ -70,8 +76,6 @@ public:
 	void setBound(int var, BoundType type, double value);
 
 	Goal getGoal();
-
-	std::vector<double> getSlack();
 
 	std::vector<double> getObjective();
 

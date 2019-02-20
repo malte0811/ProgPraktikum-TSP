@@ -86,6 +86,16 @@ void LinearProgram::solve(LinearProgram::Solution& out) {
 			if (result!=0) {
 				throw std::runtime_error("Failed to copy LP objective value: "+std::to_string(status));
 			}
+			out.slack.resize(static_cast<size_t>(getConstraintCount()));
+			result = QSget_slack_array(problem, out.slack.data());
+			if (result!=0) {
+				throw std::runtime_error("Failed to copy LP slack: "+std::to_string(status));
+			}
+			result = QSget_rc_array(problem, out.reduced.data());
+			if (result!=0) {
+				throw std::runtime_error("Failed to copy LP reduced cost: "+std::to_string(status));
+			}
+
 			break;
 		case QS_LP_INFEASIBLE:
 			out.value = NAN;
@@ -130,17 +140,8 @@ int LinearProgram::getConstraintCount() {
 	return QSget_rowcount(problem);
 }
 
-std::vector<double> LinearProgram::getSlack() {
-	std::vector<double> ret(getConstraintCount());
-	int status = QSget_slack_array(problem, ret.data());
-	if (status!=0) {
-		throw std::runtime_error("Could not get slack array: "+std::to_string(status));
-	}
-	return ret;
-}
-
 std::vector<double> LinearProgram::getObjective() {
-	std::vector<double> ret(getVariableCount());
+	std::vector<double> ret(static_cast<size_t>(getVariableCount()));
 	int status = QSget_obj(problem, ret.data());
 	if (status!=0) {
 		throw std::runtime_error("Could not get objective coefficients: "+std::to_string(status));
@@ -148,20 +149,28 @@ std::vector<double> LinearProgram::getObjective() {
 	return ret;
 }
 
-LinearProgram::Solution::Solution(size_t varCount) : vector(varCount) {}
+LinearProgram::Solution::Solution(size_t varCount) : vector(varCount), slack(0), reduced(varCount) {}
 
-double LinearProgram::Solution::operator[](size_t index) {
+double LinearProgram::Solution::operator[](size_t index) const {
 	return vector[index];
 }
 
-double LinearProgram::Solution::getValue() {
+double LinearProgram::Solution::getValue() const {
 	return value;
 }
 
-bool LinearProgram::Solution::isValid() {
+bool LinearProgram::Solution::isValid() const {
 	return !std::isnan(value);
 }
 
-const std::vector<double>& LinearProgram::Solution::getVector() {
+const std::vector<double>& LinearProgram::Solution::getVector() const {
 	return vector;
+}
+
+const std::vector<double>& LinearProgram::Solution::getReducedCosts() const {
+	return reduced;
+}
+
+const std::vector<double>& LinearProgram::Solution::getSlack() const {
+	return slack;
 }

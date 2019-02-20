@@ -49,7 +49,7 @@ private:
 
 	static bool isBetter(double a, double b, LinearProgram::Goal goal);
 
-	void branchAndBound(const BranchNode& node, bool setup);
+	void branchAndBound(BranchNode& node, bool setup);
 
 	void bound(int variable, long val, LinearProgram::BoundType bound,
 			   const std::map<variable_id, VariableBounds>& parent,
@@ -57,7 +57,7 @@ private:
 
 	void solveLP(LinearProgram::Solution& out);
 
-	void countSolutionSlack();
+	void countSolutionSlack(const LinearProgram::Solution& sol);
 
 	void setupBounds(std::map<variable_id, VariableBounds> bounds);
 };

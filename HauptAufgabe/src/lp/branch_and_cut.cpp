@@ -52,7 +52,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 					  << " constraints!" << std::endl;
 		}
 		problem.solve(out);
-		countSolutionSlack();
+		countSolutionSlack(out);
 		/*
 		 * Abbrechen, falls das LP unzulässig ist oder die optimale fraktionale Lösung nicht mehr besser als die beste
 		 * bekannte ganzzahlige ist
@@ -99,7 +99,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 			sinceSlack0.resize(sinceSlack0.size()-toRemove.size());
 			std::fill(sinceSlack0.begin(), sinceSlack0.end(), 0);
 			problem.removeConstraints(toRemove);
-			std::cout << "Removing " << toRemove.size() << std::endl;
+			//std::cout << "Removing " << toRemove.size() << std::endl;
 		}
 	}
 }
@@ -125,7 +125,7 @@ std::vector<long> BranchAndCut::solve() {
  * Findet die beste ganzzahlige Lösung des LP's (mit Cut-Generatoren) unter den aktuellen Grenzen für die Variablen.
  * Falls diese Lösung besser als upperBound bzw.
  */
-void BranchAndCut::branchAndBound(const BranchNode& node, bool setup) {
+void BranchAndCut::branchAndBound(BranchNode& node, bool setup) {
 	if (setup) {
 		setupBounds(node.bounds);
 	}
@@ -134,6 +134,7 @@ void BranchAndCut::branchAndBound(const BranchNode& node, bool setup) {
 		variable_id varToBound = -1;
 		double optDist = 1;
 		long varWeight = 0;
+		const std::vector<double>& reducedCosts = fractOpt.getReducedCosts();
 		for (variable_id i = 0; i<problem.getVariableCount(); ++i) {
 			long rounded = std::lround(fractOpt[i]);
 			double diff = rounded-fractOpt[i];
@@ -145,6 +146,18 @@ void BranchAndCut::branchAndBound(const BranchNode& node, bool setup) {
 					optDist = dist05;
 					varToBound = i;
 					varWeight = cost;
+				}
+			} else {
+				LinearProgram::BoundType upper = LinearProgram::upper, lower = LinearProgram::lower;
+				if (problem.getGoal()==LinearProgram::maximize) {
+					std::swap(upper, lower);
+				}
+				if (rounded==problem.getBound(i, upper) && reducedCosts[i]<-(upperBound-fractOpt.getValue())) {
+					problem.setBound(i, lower, rounded);
+					node.bounds[i] = {rounded, rounded};
+				} else if (rounded==problem.getBound(i, lower) && reducedCosts[i]>upperBound-fractOpt.getValue()) {
+					problem.setBound(i, upper, rounded);
+					node.bounds[i] = {rounded, rounded};
 				}
 			}
 		}
@@ -202,8 +215,8 @@ void BranchAndCut::bound(int variable, long val, LinearProgram::BoundType bound,
  * Erhöht die Zähler für die Constraints, die nicht mit Gleichheit erfüllt sind und setzt die Zähler für die anderen
  * zurück.
  */
-void BranchAndCut::countSolutionSlack() {
-	std::vector<double> slack = problem.getSlack();
+void BranchAndCut::countSolutionSlack(const LinearProgram::Solution& sol) {
+	const std::vector<double>& slack = sol.getSlack();
 	for (size_t constraint = constraintsAtStart; constraint<slack.size(); ++constraint) {
 		if (tolerance.nonZero(slack[constraint])) {
 			++sinceSlack0[constraint-constraintsAtStart];
