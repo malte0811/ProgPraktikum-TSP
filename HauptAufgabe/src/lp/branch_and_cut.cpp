@@ -88,18 +88,20 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 	} while (solutionValid!=CutGenerator::valid);
 	const double maxRatio = 3;
 	if (problem.getConstraintCount()>constraintsAtStart*maxRatio) {
-		std::vector<int> toRemove;
+		std::vector<int> toRemove(problem.getConstraintCount(), 0);
+		size_t removeCount = 0;
 		//Alle constraints, die seit 10 oder mehr Iterationen nicht mit Gleichheit erfüllt waren, werden entfernt
 		for (size_t i = 0; i<sinceSlack0.size(); ++i) {
 			if (sinceSlack0[i]>10) {
-				toRemove.push_back(static_cast<int>(i+constraintsAtStart));
+				toRemove[i+constraintsAtStart] = 1;
+				++removeCount;
 			}
 		}
 		if (!toRemove.empty()) {
-			sinceSlack0.resize(sinceSlack0.size()-toRemove.size());
+			sinceSlack0.resize(sinceSlack0.size()-removeCount);
 			std::fill(sinceSlack0.begin(), sinceSlack0.end(), 0);
-			problem.removeConstraints(toRemove);
-			//std::cout << "Removing " << toRemove.size() << std::endl;
+			problem.removeSetConstraints(toRemove);
+			std::cout << "Removing " << toRemove.size() << std::endl;
 		}
 	}
 }

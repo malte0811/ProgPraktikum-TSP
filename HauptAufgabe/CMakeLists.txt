@@ -15,7 +15,7 @@ set(COMMON_SOURCES src/lp/linear_program.cpp include/linear_program.hpp
 
 include_directories(include)
 link_directories(libs)
-link_libraries(qsopt lemon)
+link_libraries(cplex lemon dl pthread)
 
 add_executable(BranchBoundTest ${COMMON_SOURCES} src/tests/branch_bound_test.cpp)
 add_executable(BranchCutTest ${COMMON_SOURCES} src/tests/cut_test.cpp)

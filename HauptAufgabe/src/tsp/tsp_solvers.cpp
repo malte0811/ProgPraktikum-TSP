@@ -78,8 +78,8 @@ namespace tspsolvers {
 		return TSPSolution(inst, used);
 	}
 
-	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution* initial) {
-		LinearProgram lp(inst.getName(), LinearProgram::minimize);
+	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution* initial, CPXENVptr& lpEnv) {
+		LinearProgram lp(lpEnv, inst.getName(), LinearProgram::minimize);
 		inst.setupBasicLP(lp);
 		SubtourCutGen subtours(inst);
 		TwoMatchingCutGen matchings(inst, true);

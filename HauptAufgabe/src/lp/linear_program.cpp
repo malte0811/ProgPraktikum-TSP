@@ -3,13 +3,19 @@
 #include <linear_program.hpp>
 #include <cut_generator.hpp>
 #include <cmath>
+#include <ilcplex/cplex.h>
 
-LinearProgram::LinearProgram(std::string name, Goal opt) : problem(QScreate_prob(name.c_str(), opt)) {
-	assert(problem!=nullptr);
+LinearProgram::LinearProgram(CPXENVptr& env, std::string name, Goal opt) : env(env) {
+	int status;
+	problem = CPXcreateprob(env, &status, name.c_str());
+	if (status!=0) {
+		throw std::runtime_error("Could not create CPLEX problem: "+std::to_string(status));
+	}
+	CPXchgobjsen(env, problem, opt);
 }
 
 LinearProgram::~LinearProgram() {
-	QSfree_prob(problem);
+	CPXfreeprob(env, &problem);
 }
 
 /**
@@ -18,8 +24,12 @@ LinearProgram::~LinearProgram() {
  * @param lower Untere Schranke für die Variable
  * @param upper Obere Schranke für die variable
  */
-void LinearProgram::addVariable(double objCoeff, double lower, double upper) {
-	int result = QSnew_col(problem, objCoeff, lower, upper, nullptr);
+void LinearProgram::addVariables(const std::vector<double>& objCoeff, const std::vector<double>& lower,
+								 const std::vector<double>& upper) {
+	assert(objCoeff.size()==lower.size() && objCoeff.size()==upper.size());
+	int result = CPXnewcols(env, problem, static_cast<int>(objCoeff.size()), objCoeff.data(), lower.data(),
+							upper.data(),
+							nullptr, nullptr);
 	if (result!=0) {
 		throw std::runtime_error("Could not add variable to LP, return value was "+std::to_string(result));
 	}
@@ -35,21 +45,19 @@ void LinearProgram::addVariable(double objCoeff, double lower, double upper) {
 void LinearProgram::addConstraint(const std::vector<int>& indices, const std::vector<double>& coeffs, double rhs,
 								  LinearProgram::CompType sense) {
 	assert(indices.size()==coeffs.size());
-	int result = QSadd_row(problem, static_cast<int>(indices.size()),
-						   const_cast<int*>(indices.data()), const_cast<double*>(coeffs.data()),
-						   rhs, sense, nullptr);
+	//TODO andere Version, die mehrere Constraints hinzufügt?
+	char senseChar = static_cast<char>(sense);
+	int zero = 0;
+	int result = CPXaddrows(env, problem, 0, 1, static_cast<int>(indices.size()), &rhs, &senseChar, &zero,
+							indices.data(),
+							coeffs.data(), nullptr, nullptr);
 	if (result!=0) {
 		throw std::runtime_error("Could not add constraint to LP, return value was "+std::to_string(result));
 	}
 }
 
-/**
- * Entfernt die Constraints mit den angegebenen Indizes. Die Indizes der verbleibenden Constraints "rücken auf",
- * d.h. nach dem Entfernen von Constraint 0, 2 und 3 wird Constraint 1 zu Constraint 0, 4 zu 1, 5 zu 2, 6 zu 3, etc.
- * @param indices die Indizes der zu entfernenden Constraints
- */
-void LinearProgram::removeConstraints(const std::vector<int>& indices) {
-	int status = QSdelete_rows(problem, static_cast<int>(indices.size()), const_cast<int*>(indices.data()));
+void LinearProgram::removeSetConstraints(std::vector<int>& indices) {
+	int status = CPXdelsetrows(env, problem, indices.data());
 	if (status!=0) {
 		throw std::runtime_error("Error while deleting constraints: "+std::to_string(status));
 	}
@@ -71,55 +79,47 @@ LinearProgram::Solution LinearProgram::solve() {
  * @param out Eine Solution-Objekt der korrekten Größe. Dient als Ausgabe.
  */
 void LinearProgram::solve(LinearProgram::Solution& out) {
-	int status;
-	int result = QSopt_dual(problem, &status);
+	int result = CPXdualopt(env, problem);
 	if (result!=0) {
 		throw std::runtime_error("Could not solve LP, return value was "+std::to_string(result));
 	}
+	int status = CPXgetstat(env, problem);
 	switch (status) {
-		case QS_LP_OPTIMAL:
-			result = QSget_x_array(problem, out.vector.data());
+		case CPX_STAT_OPTIMAL:
+			out.slack.resize(static_cast<size_t>(getConstraintCount()));
+			//TODO ist nullptr ok?
+			result = CPXsolution(env, problem, &status, &out.value, out.vector.data(), nullptr, out.slack.data(),
+								 out.reduced.data());
 			if (result!=0) {
 				throw std::runtime_error("Failed to copy LP solution: "+std::to_string(status));
 			}
-			result = QSget_objval(problem, &out.value);
-			if (result!=0) {
-				throw std::runtime_error("Failed to copy LP objective value: "+std::to_string(status));
-			}
-			out.slack.resize(static_cast<size_t>(getConstraintCount()));
-			result = QSget_slack_array(problem, out.slack.data());
-			if (result!=0) {
-				throw std::runtime_error("Failed to copy LP slack: "+std::to_string(status));
-			}
-			result = QSget_rc_array(problem, out.reduced.data());
-			if (result!=0) {
-				throw std::runtime_error("Failed to copy LP reduced cost: "+std::to_string(status));
-			}
-
 			break;
-		case QS_LP_INFEASIBLE:
+		case CPX_STAT_INFEASIBLE:
+		case CPX_STAT_INForUNBD:
 			out.value = NAN;
 			break;
-		case QS_LP_UNBOUNDED:
+		case CPX_STAT_UNBOUNDED:
 			throw std::runtime_error("LP is unbounded");
-		case QS_LP_ITER_LIMIT:
-			throw std::runtime_error("LP solver reached iteration limit");
-		case QS_LP_TIME_LIMIT:
-			throw std::runtime_error("LP solver reached time limit");
-		case QS_LP_UNSOLVED:
-			throw std::runtime_error("LP solver failed to solve the problem");
 		default:
-			throw std::runtime_error("LP solver gave unknown status: "+std::to_string(status));
+			char errStr[510];
+			CPXgetstatstring(env, status, errStr);
+			throw std::runtime_error("LP solver gave error: "+std::string(errStr));
 	}
 }
 
 int LinearProgram::getVariableCount() {
-	return QSget_colcount(problem);
+	return CPXgetnumcols(env, problem);
 }
 
 double LinearProgram::getBound(int var, BoundType bound) {
 	double ret;
-	int result = QSget_bound(problem, var, bound, &ret);
+
+	int result;
+	if (bound==lower) {
+		result = CPXgetlb(env, problem, &ret, var, var);
+	} else {
+		result = CPXgetub(env, problem, &ret, var, var);
+	}
 	if (result!=0) {
 		throw std::runtime_error("Failed to get variable bound: "+std::to_string(result));
 	}
@@ -127,22 +127,22 @@ double LinearProgram::getBound(int var, BoundType bound) {
 }
 
 void LinearProgram::setBound(int var, LinearProgram::BoundType type, double value) {
-	QSchange_bound(problem, var, type, value);
+	char typeChar = static_cast<char>(type);
+	CPXchgbds(env, problem, 1, &var, &typeChar, &value);
 }
 
 LinearProgram::Goal LinearProgram::getGoal() {
-	int g;
-	QSget_objsense(problem, &g);
-	return static_cast<Goal>(g);
+	return static_cast<Goal>(CPXgetobjsen(env, problem));
 }
 
 int LinearProgram::getConstraintCount() {
-	return QSget_rowcount(problem);
+	return CPXgetnumrows(env, problem);
 }
 
 std::vector<double> LinearProgram::getObjective() {
-	std::vector<double> ret(static_cast<size_t>(getVariableCount()));
-	int status = QSget_obj(problem, ret.data());
+	int varCount = getVariableCount();
+	std::vector<double> ret(static_cast<size_t>(varCount));
+	int status = CPXgetobj(env, problem, ret.data(), 0, varCount-1);
 	if (status!=0) {
 		throw std::runtime_error("Could not get objective coefficients: "+std::to_string(status));
 	}

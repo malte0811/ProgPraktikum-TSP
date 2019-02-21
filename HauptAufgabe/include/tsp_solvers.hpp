@@ -7,6 +7,6 @@
 namespace tspsolvers {
 	TSPSolution solveGreedy(const TSPInstance& inst);
 
-	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution* initial);
+	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution* initial, CPXENVptr& lpEnv);
 }
 #endif

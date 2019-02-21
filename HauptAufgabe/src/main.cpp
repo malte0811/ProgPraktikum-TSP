@@ -13,10 +13,15 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 	try {
+		int status;
+		CPXENVptr env = CPXopenCPLEX(&status);
+		if (status!=0) {
+			throw std::runtime_error("Failed to open CPLEX environment: "+std::to_string(status));
+		}
 		TSPInstance inst(in);
 		in.close();
 		TSPSolution initial = tspsolvers::solveGreedy(inst);
-		TSPSolution optimal = tspsolvers::solveLP(inst, &initial);
+		TSPSolution optimal = tspsolvers::solveLP(inst, &initial, env);
 		if (argc==2) {
 			optimal.write(std::cout);
 		} else {
@@ -28,6 +33,7 @@ int main(int argc, char** argv) {
 			optimal.write(out);
 			out.close();
 		}
+		CPXcloseCPLEX(&env);
 	} catch (std::runtime_error& err) {
 		std::cout << "Error: " << err.what() << std::endl;
 	}

@@ -31,9 +31,17 @@ int shortestPath(const std::string& name) {
 		auto e = g.addArc(lemon::SmartDigraph::nodeFromId(edgeA), lemon::SmartDigraph::nodeFromId(edgeB));
 		costs[e] = cost;
 	}
-	LinearProgram lp("assignment", LinearProgram::minimize);
+	int status;
+	CPXENVptr env = CPXopenCPLEX(&status);
+	if (status!=0) {
+		throw std::runtime_error("Failed to open CPLEX environment: "+std::to_string(status));
+	}
+	LinearProgram lp(env, "assignment", LinearProgram::minimize);
+	std::vector<double> min{0};
+	std::vector<double> max{1};
 	for (unsigned i = 0; i<=g.maxArcId(); ++i) {
-		lp.addVariable(costs[lemon::SmartDigraph::arcFromId(i)], 0, 1);
+		std::vector<double> obj{static_cast<double>(costs[lemon::SmartDigraph::arcFromId(i)])};
+		lp.addVariables(obj, min, max);
 	}
 	for (lemon::SmartDigraph::NodeIt nIt(g); nIt!=lemon::INVALID; ++nIt) {
 		std::vector<int> indices;
@@ -62,6 +70,7 @@ int shortestPath(const std::string& name) {
 			totalCost += costs[arc];
 		}
 	}
+	CPXcloseCPLEX(&env);
 	return totalCost;
 }
 

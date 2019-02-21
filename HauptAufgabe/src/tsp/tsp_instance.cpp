@@ -223,10 +223,14 @@ void TSPInstance::setDistance(city_id a, city_id b, cost_t dist) {
 }
 
 void TSPInstance::setupBasicLP(LinearProgram& lp) const {
+	std::vector<double> objCoeffs(varToEdge.size());
 	for (variable_id i = 0; i<static_cast<variable_id>(varToEdge.size()); ++i) {
 		Graph::Edge e = getEdge(i);
-		lp.addVariable(graphDists[e], 0, 1);
+		objCoeffs[i] = graphDists[e];
 	}
+	std::vector<double> lower(varToEdge.size(), 0);
+	std::vector<double> upper(varToEdge.size(), 1);
+	lp.addVariables(objCoeffs, lower, upper);
 	for (Graph::NodeIt nIt(graph); nIt!=lemon::INVALID; ++nIt) {
 		std::vector<variable_id> adjancent;
 		for (Graph::IncEdgeIt eIt(graph, nIt); eIt!=lemon::INVALID; ++eIt) {

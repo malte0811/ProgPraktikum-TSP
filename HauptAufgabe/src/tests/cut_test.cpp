@@ -28,19 +28,19 @@ public:
 			if (it==start && std::fabs(sum-1)>eps) {
 				lp.addConstraint(edges, coeffs, 1, LinearProgram::equal);
 				std::cout << "Adding start cut" << std::endl;
-				return false;
+				return CutGenerator::recalc;
 			} else if (it==end && std::fabs(sum+1)>eps) {
 				lp.addConstraint(edges, coeffs, -1, LinearProgram::equal);
 				std::cout << "Adding end cut" << std::endl;
-				return false;
+				return CutGenerator::recalc;
 			} else if (it!=start && it!=end && std::fabs(sum)>eps) {
 				lp.addConstraint(edges, coeffs, 0, LinearProgram::equal);
 				int id = lemon::SmartDigraph::id(it);
 				if (id%100==0) std::cout << "Adding cut for " << id << std::endl;
-				return false;
+				return CutGenerator::recalc;
 			}
 		}
-		return true;//TODO
+		return CutGenerator::valid;//TODO
 	}
 
 private:
@@ -72,9 +72,17 @@ int shortestPath(const std::string& name) {
 		auto e = g.addArc(lemon::SmartDigraph::nodeFromId(edgeA), lemon::SmartDigraph::nodeFromId(edgeB));
 		costs[e] = cost;
 	}
-	LinearProgram lp("assignment", LinearProgram::minimize);
+	int status;
+	CPXENVptr env = CPXopenCPLEX(&status);
+	if (status!=0) {
+		throw std::runtime_error("Failed to open CPLEX environment: "+std::to_string(status));
+	}
+	LinearProgram lp(env, "assignment", LinearProgram::minimize);
+	std::vector<double> min{0};
+	std::vector<double> max{1};
 	for (unsigned i = 0; i<=g.maxArcId(); ++i) {
-		lp.addVariable(costs[lemon::SmartDigraph::arcFromId(i)], 0, 1);
+		std::vector<double> obj{static_cast<double>(costs[lemon::SmartDigraph::arcFromId(i)])};
+		lp.addVariables(obj, min, max);
 	}
 	//TODO is this necessary? Why?
 
@@ -98,6 +106,7 @@ int shortestPath(const std::string& name) {
 			totalCost += costs[arc];
 		}
 	}
+	CPXcloseCPLEX(&env);
 	return totalCost;
 }
 

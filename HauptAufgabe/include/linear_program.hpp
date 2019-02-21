@@ -2,8 +2,8 @@
 #define LINEAR_PROGRAM_HPP
 
 #include <vector>
-#include <qsopt.h>
 #include <string>
+#include <ilcplex/cplex.h>
 
 using variable_id = int;
 
@@ -15,8 +15,8 @@ public:
 		greater_eq = 'G'
 	};
 	enum Goal {
-		minimize = QS_MIN,
-		maximize = QS_MAX
+		minimize = CPX_MIN,
+		maximize = CPX_MAX
 	};
 	enum BoundType {
 		lower = 'L',
@@ -47,25 +47,23 @@ public:
 		double value;
 	};
 
-	LinearProgram(std::string name, Goal opt);
+	LinearProgram(CPXENVptr& env, std::string name, Goal opt);
 
 	LinearProgram(const LinearProgram& other) = delete;
 
 	~LinearProgram();
 
-	void addVariable(double objCoeff, double lower, double upper);
+	void addVariables(const std::vector<double>& objCoeff, const std::vector<double>& lower,
+					  const std::vector<double>& upper);
 
 	void addConstraint(const std::vector<int>& indices, const std::vector<double>& coeffs, double rhs,
 					   LinearProgram::CompType sense);
 
-	void removeConstraints(const std::vector<int>& indices);
+	void removeSetConstraints(std::vector<int>& indices);
 
 	Solution solve();
 
 	void solve(Solution& out);
-
-	static constexpr double pos_infinite = QS_MAXDOUBLE;
-	static constexpr double neg_infinite = -QS_MAXDOUBLE;
 
 	int getVariableCount();
 
@@ -80,7 +78,8 @@ public:
 	std::vector<double> getObjective();
 
 private:
-	QSprob problem;
+	CPXENVptr& env;
+	CPXLPptr problem;
 };
 
 

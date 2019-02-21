@@ -17,8 +17,14 @@ int main() {
 		ss >> val;
 		sol[index] = val;
 	}
-	LinearProgram lp("test", LinearProgram::minimize);
+	int status;
+	CPXENVptr env = CPXopenCPLEX(&status);
+	if (status!=0) {
+		throw std::runtime_error("Failed to open CPLEX environment: "+std::to_string(status));
+	}
+	LinearProgram lp(env, "test", LinearProgram::minimize);
 	inst.setupBasicLP(lp);
 	TwoMatchingCutGen cg(inst, false);
 	std::cout << cg.validate(lp, sol) << std::endl;
+	CPXcloseCPLEX(&env);
 }
