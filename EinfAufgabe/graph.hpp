@@ -5,18 +5,28 @@
 #include <vector>
 #include <cstdint>
 #include <string>
-#include "tour.hpp"
-
+#include <array>
 
 struct edge;
 
+enum EdgeWeightType {
+	euc_2d,
+	ceil_2d
+};
 
 class Graph {
 public:
 	using node_id = unsigned;
 	using edge_id = unsigned;
 	using cost_t = unsigned;
-	using Vec2 = std::array<double, 2>;
+
+	struct Vec2 {
+		double x, y;
+
+		cost_t length(EdgeWeightType norm) const;
+
+		Vec2 operator-(const Vec2& other) const;
+	};
 	using node = std::vector<edge_id>;
 
 	explicit Graph(std::istream& input);
@@ -24,10 +34,12 @@ public:
 	explicit Graph(node_id nodeCount, const std::string& name);
 	edge getEdge(edge_id id) const;
 	edge_id addEdge(node_id endA, node_id endB, cost_t c = 0);
-	Tour getReferenceTour();
-	Tour greedyTSP() const;
 	node_id getNodeCount() const;
 	edge_id getEdgeCount() const;
+
+	const std::vector<edge_id>& getEdgesAt(node_id node) const;
+
+	const std::string& getName() const;
 private:
 	void readNodes(std::istream& input, EdgeWeightType type);
 	std::string name;

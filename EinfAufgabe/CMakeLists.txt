@@ -10,4 +10,4 @@ add_executable(EinfAufgabe
         graph.hpp
         main.cpp
         union_find.cpp
-        union_find.hpp tour.cpp tour.hpp)
+        union_find.hpp tour.cpp tour.hpp tspsolvers.cpp tspsolvers.hpp)

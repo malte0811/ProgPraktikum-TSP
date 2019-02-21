@@ -1,4 +1,5 @@
 #include "graph.hpp"
+#include "tspsolvers.hpp"
 #include <ctime>
 #include <iostream>
 #include <fstream>
@@ -18,11 +19,11 @@ int main(int argc, char** argv) {
 	}
 	try {
 		Graph g(input);
-		Tour ref = g.getReferenceTour();
-		Tour greedy = g.greedyTSP();
+		Tour ref = tspsolvers::getReferenceTour(g);
+		Tour greedy = tspsolvers::greedyTSP(g);
 		std::cout << "Cost of reference tour: " << ref.length << std::endl;
 		std::cout << "Cost of greedy tour: " << greedy.length << std::endl;
-		//TODO Ausgabe der greedy-Tour
+		greedy.print(std::cout);
 	} catch (std::invalid_argument &x) {
 		std::cout << "ERROR: " << x.what() << std::endl;
 	}
