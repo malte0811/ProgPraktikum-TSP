@@ -58,6 +58,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 		 * bekannte ganzzahlige ist
 		 * TODO Annahme: Koeffs der Zielfunktion sind ganzzahlig
 		 * TODO ceil durch floor ersetzen, falls max. wird
+		 * TODO ceil durch "fuzzy ceil" ersetzen (d.h. ceil(x)-x<0.99 o.ä.)
 		 */
 		if (!out.isValid() || !isBetter(std::ceil(out.getValue()), upperBound, problem.getGoal())) {
 			break;
@@ -101,7 +102,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 			sinceSlack0.resize(sinceSlack0.size()-removeCount);
 			std::fill(sinceSlack0.begin(), sinceSlack0.end(), 0);
 			problem.removeSetConstraints(toRemove);
-			std::cout << "Removing " << toRemove.size() << std::endl;
+			//std::cout << "Removing " << toRemove.size() << std::endl;
 		}
 	}
 }
@@ -137,6 +138,7 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool setup) {
 		double optDist = 1;
 		long varWeight = 0;
 		const std::vector<double>& reducedCosts = fractOpt.getReducedCosts();
+		size_t nonIntCount = 0;
 		for (variable_id i = 0; i<problem.getVariableCount(); ++i) {
 			long rounded = std::lround(fractOpt[i]);
 			double diff = rounded-fractOpt[i];
@@ -149,6 +151,7 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool setup) {
 					varToBound = i;
 					varWeight = cost;
 				}
+				++nonIntCount;
 			} else {
 				LinearProgram::BoundType upper = LinearProgram::upper, lower = LinearProgram::lower;
 				if (problem.getGoal()==LinearProgram::maximize) {
@@ -179,10 +182,11 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool setup) {
 				lower = rounded+1;
 			}
 			long upper = lower-1;
-			//TODO use proper values (those of the nodes themselves rather than the parent)
 			double fractVal = fractOpt.getValue();
 			bound(varToBound, lower, LinearProgram::lower, node.bounds, node.level+1, fractVal, true);
-			bound(varToBound, upper, LinearProgram::upper, node.bounds, node.level+1, fractVal, false);
+			//TODO die Werte sind recht willkürlich gewählt. Funktioniert das so gut?
+			bound(varToBound, upper, LinearProgram::upper, node.bounds, node.level+1, fractVal,
+					nonIntCount<10||open.size()>512);
 		}
 	}
 }
