@@ -22,7 +22,11 @@ public:
 
 private:
 
-	using VariableBounds = std::array<long, 2>;
+	struct VariableBounds {
+		long min, max;
+
+		long& operator[](LinearProgram::BoundType b);
+	};
 
 	struct BranchNode {
 		std::map<variable_id, VariableBounds> bounds;
@@ -37,12 +41,15 @@ private:
 
 	LinearProgram& problem;
 	double upperBound;
+	const variable_id varCount;
+	const LinearProgram::Goal goal;
 	std::vector<long> currBest;
 	LinearProgram::Solution fractOpt;
 	std::vector<size_t> sinceSlack0;
 	std::vector<long> objCoefficients;
 	std::set<BranchNode> open;
 	std::vector<VariableBounds> defaultBounds;
+	std::vector<VariableBounds> currentBounds;
 	const std::vector<CutGenerator*> generators;
 	const size_t constraintsAtStart;
 	const lemon::Tolerance<double> tolerance;

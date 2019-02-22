@@ -28,45 +28,53 @@ T readOrThrow(std::istream& input) {
 Graph::Graph(std::istream& input) {
 	std::string line;
 	edgeType = euc_2d;
-	while (std::getline(input, line) && !line.empty()) {
-		std::stringstream ss(line);
-		std::string keyword;
-		ss >> keyword >> std::ws;
-		if (ss.peek()==':') {
-			ss.ignore();
-		} else if (keyword.back()==':') {
-			keyword = keyword.substr(0, keyword.size()-1);
-		}
-		if (keyword=="NAME") {
-			ss >> name;
-			std::cout << name << std::endl;
-		} else if (keyword=="COMMENT") {
-			//NOP
-		} else if (keyword=="DIMENSION") {
-			auto nodeCount = readOrThrow<node_id>(ss);
-			nodes.resize(nodeCount);
-			nodeLocations.resize(nodeCount);
-		} else if (keyword=="EDGE_WEIGHT_TYPE") {
-			auto type = readOrThrow<std::string>(ss);
-			if (type=="EUC_2D") {
-				edgeType = euc_2d;
-			} else if (type=="CEIL_2D") {
-				edgeType = ceil_2d;
+	bool emptyLines = false;
+	while (std::getline(input, line)) {
+		if (!line.empty()) {
+			if (emptyLines) {
+				std::cout << "Skipped empty line(s)!" << std::endl;
+				emptyLines = false;
 			}
-		} else if (keyword=="NODE_COORD_SECTION") {
-			readNodes(input, edgeType);
-		} else if (keyword=="TYPE") {
-			auto type = readOrThrow<std::string>(ss);
-			if (type!="TSP") {
-				throw std::invalid_argument("Input is not a symmetric TSP instance!");
+			std::stringstream ss(line);
+			std::string keyword;
+			ss >> keyword >> std::ws;
+			if (ss.peek()==':') {
+				ss.ignore();
+			} else if (keyword.back()==':') {
+				keyword = keyword.substr(0, keyword.size()-1);
 			}
-		} else if (keyword=="EOF") {
-			break;
+			if (keyword=="NAME") {
+				ss >> name;
+			} else if (keyword=="COMMENT") {
+				//NOP
+			} else if (keyword=="DIMENSION") {
+				auto nodeCount = readOrThrow<node_id>(ss);
+				nodes.resize(nodeCount);
+				nodeLocations.resize(nodeCount);
+			} else if (keyword=="EDGE_WEIGHT_TYPE") {
+				auto type = readOrThrow<std::string>(ss);
+				if (type=="EUC_2D") {
+					edgeType = euc_2d;
+				} else if (type=="CEIL_2D") {
+					edgeType = ceil_2d;
+				}
+			} else if (keyword=="NODE_COORD_SECTION") {
+				readNodes(input, edgeType);
+				input >> std::ws;
+			} else if (keyword=="TYPE") {
+				auto type = readOrThrow<std::string>(ss);
+				if (type!="TSP") {
+					throw std::invalid_argument("Input is not a symmetric TSP instance!");
+				}
+			} else if (keyword=="EOF") {
+				break;
+			} else {
+				throw std::invalid_argument("Invalid keyword in input: \""+keyword+"\"");
+			}
 		} else {
-			throw std::invalid_argument("Invalid keyword in input: \""+keyword+"\"");
+			emptyLines = true;
 		}
 	}
-	std::cout << "Finished reading" << std::endl;
 }
 
 void Graph::readNodes(std::istream& input, EdgeWeightType type) {
