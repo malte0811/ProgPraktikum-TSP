@@ -31,12 +31,11 @@ private:
 	struct BranchNode {
 		std::map<variable_id, VariableBounds> bounds;
 		double value;
-		size_t level;
 		LinearProgram::Goal goal;
 
-		bool operator<(const BranchNode& other) const {
-			return value<other.value;
-		}
+		bool operator<(const BranchNode& other) const;
+
+		size_t estimateSize() const;
 	};
 
 	LinearProgram& problem;
@@ -50,17 +49,18 @@ private:
 	std::set<BranchNode> open;
 	std::vector<VariableBounds> defaultBounds;
 	std::vector<VariableBounds> currentBounds;
+	size_t openSize = 0;
 	const std::vector<CutGenerator*> generators;
 	const size_t constraintsAtStart;
-	const lemon::Tolerance<double> tolerance;
+	const lemon::Tolerance<double> generalTolerance;
+	const lemon::Tolerance<double> intTolerance;
 
 	static bool isBetter(double a, double b, LinearProgram::Goal goal);
 
-	void branchAndBound(BranchNode& node, bool setup);
+	void branchAndBound(BranchNode& node);
 
-	void bound(int variable, long val, LinearProgram::BoundType bound,
-			   const std::map<variable_id, VariableBounds>& parent,
-			   size_t level, double objValue, bool immediate);
+	void branch(int variable, long val, LinearProgram::BoundType bound,
+				const std::map<variable_id, VariableBounds>& parent, double objValue, bool immediate);
 
 	void solveLP(LinearProgram::Solution& out);
 

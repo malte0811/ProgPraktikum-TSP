@@ -6,7 +6,7 @@
 #include <ctime>
 #include <queue>
 
-const size_t maxOpenSize = 512;
+const size_t maxOpenSize = 512*1024*1024;
 
 BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens) :
 		problem(program), varCount(program.getVariableCount()), goal(program.getGoal()),
@@ -14,7 +14,8 @@ BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerato
 		objCoefficients(static_cast<size_t>(varCount)), generators(gens),
 		constraintsAtStart(static_cast<size_t>(program.getConstraintCount())),
 		defaultBounds(static_cast<size_t>(varCount)),
-		currentBounds(static_cast<size_t>(varCount)) {
+		currentBounds(static_cast<size_t>(varCount)),
+		intTolerance(0.01) {
 	if (goal==LinearProgram::minimize) {
 		upperBound = std::numeric_limits<double>::max();
 	} else {
@@ -29,6 +30,15 @@ BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerato
 			defaultBounds[i][type] = std::lround(problem.getBound(i, type));
 		}
 		currentBounds[i] = defaultBounds[i];
+	}
+}
+
+double tolerantCeil(double in, lemon::Tolerance<double> tol) {
+	double ceil = std::ceil(in);
+	if (tol.different(ceil-in, 1)) {
+		return ceil;
+	} else {
+		return ceil-1;
 	}
 }
 
@@ -61,9 +71,8 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 		 * bekannte ganzzahlige ist
 		 * TODO Annahme: Koeffs der Zielfunktion sind ganzzahlig
 		 * TODO ceil durch floor ersetzen, falls max. wird
-		 * TODO ceil durch "fuzzy ceil" ersetzen (d.h. ceil(x)-x<0.99 o.ä.)
 		 */
-		if (!out.isValid() || !isBetter(std::ceil(out.getValue()), upperBound, goal)) {
+		if (!out.isValid() || !isBetter(tolerantCeil(out.getValue(), intTolerance), upperBound, goal)) {
 			break;
 		}
 		/*
@@ -114,14 +123,19 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
  * @return eine optimale ganzzahlige Lösung des LP, die von alle Cut-Generatoren akzeptiert wird.
  */
 std::vector<long> BranchAndCut::solve() {
-	open.insert({{}, 0, 0, goal});
+	BranchNode initNode{{}, 0, goal};
+	open.insert(initNode);
+	openSize += initNode.estimateSize();
 	while (!open.empty()) {
-		auto it = open.begin();
-		BranchNode next = *it;
-		open.erase(it);
-		if (isBetter(std::ceil(next.value), upperBound, goal)) {
-			branchAndBound(next, true);
+		BranchNode next;
+		{
+			auto it = open.begin();
+			next = *it;
+			open.erase(it);
+			openSize -= next.estimateSize();
 		}
+		branchAndBound(next);
+		std::cout << openSize << ", size: " << open.size() << std::endl;
 	}
 	return currBest;
 }
@@ -130,12 +144,10 @@ std::vector<long> BranchAndCut::solve() {
  * Findet die beste ganzzahlige Lösung des LP's (mit Cut-Generatoren) unter den aktuellen Grenzen für die Variablen.
  * Falls diese Lösung besser als upperBound bzw.
  */
-void BranchAndCut::branchAndBound(BranchNode& node, bool setup) {
-	if (setup) {
-		setupBounds(node.bounds);
-	}
+void BranchAndCut::branchAndBound(BranchNode& node) {
+	setupBounds(node.bounds);
 	solveLP(fractOpt);
-	if (fractOpt.isValid() && isBetter(std::lround(fractOpt.getValue()), upperBound, goal)) {
+	if (fractOpt.isValid() && isBetter(tolerantCeil(fractOpt.getValue(), intTolerance), upperBound, goal)) {
 		variable_id varToBound = -1;
 		double optDist = 1;
 		long varWeight = 0;
@@ -144,11 +156,11 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool setup) {
 		for (variable_id i = 0; i<varCount; ++i) {
 			long rounded = std::lround(fractOpt[i]);
 			double diff = rounded-fractOpt[i];
-			if (std::abs(diff)>0.01) {
+			if (intTolerance.nonZero(diff)) {
 				double dist05 = std::abs(std::abs(diff)-.5);
 				long cost = objCoefficients[i];
-				if (tolerance.less(dist05, optDist) ||
-					(!tolerance.less(optDist, dist05) && cost>varWeight)) {
+				if (generalTolerance.less(dist05, optDist) ||
+					(!generalTolerance.less(optDist, dist05) && cost>varWeight)) {
 					optDist = dist05;
 					varToBound = i;
 					varWeight = cost;
@@ -187,10 +199,10 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool setup) {
 			}
 			long upper = lower-1;
 			double fractVal = fractOpt.getValue();
-			bound(varToBound, lower, LinearProgram::lower, node.bounds, node.level+1, fractVal, true);
+			branch(varToBound, lower, LinearProgram::lower, node.bounds, fractVal, true);
 			//TODO die Werte sind recht willkürlich gewählt. Funktioniert das so gut?
-			bound(varToBound, upper, LinearProgram::upper, node.bounds, node.level+1, fractVal,
-				  nonIntCount<10 || open.size()>maxOpenSize);
+			branch(varToBound, upper, LinearProgram::upper, node.bounds, fractVal,
+				   nonIntCount<10 || openSize>maxOpenSize);
 		}
 	}
 }
@@ -203,23 +215,18 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool setup) {
  * @param bound Die "Richtung", in der die variable beschränkt werden soll
  * TODO update comment
  */
-void BranchAndCut::bound(int variable, long val, LinearProgram::BoundType bound,
-						 const std::map<variable_id, VariableBounds>& parent,
-						 size_t level, double objValue, bool immediate) {
-	BranchNode node{parent, objValue, level, goal};
+void BranchAndCut::branch(int variable, long val, LinearProgram::BoundType bound,
+						  const std::map<variable_id, VariableBounds>& parent, double objValue, bool immediate) {
+	BranchNode node{parent, objValue, goal};
 	if (!node.bounds.count(variable)) {
 		node.bounds[variable] = defaultBounds[variable];
 	}
 	node.bounds[variable][bound] = val;
 	if (immediate) {
-		long oldBound = currentBounds[variable][bound];
-		problem.setBound(variable, bound, val);
-		currentBounds[variable][bound] = val;
-		branchAndBound(node, false);
-		problem.setBound(variable, bound, oldBound);
-		currentBounds[variable][bound] = oldBound;
+		branchAndBound(node);
 	} else {
 		open.insert(node);
+		openSize += node.estimateSize();
 	}
 }
 
@@ -230,7 +237,7 @@ void BranchAndCut::bound(int variable, long val, LinearProgram::BoundType bound,
 void BranchAndCut::countSolutionSlack(const LinearProgram::Solution& sol) {
 	const std::vector<double>& slack = sol.getSlack();
 	for (size_t constraint = constraintsAtStart; constraint<slack.size(); ++constraint) {
-		if (tolerance.nonZero(slack[constraint])) {
+		if (generalTolerance.nonZero(slack[constraint])) {
 			++sinceSlack0[constraint-constraintsAtStart];
 		} else {
 			sinceSlack0[constraint-constraintsAtStart] = 0;
@@ -262,7 +269,8 @@ void BranchAndCut::setUpperBound(const std::vector<long>& value, long cost) {
 	currBest = value;
 	std::cout << "Setting upper bound as " << cost << std::endl;
 	auto it = open.cbegin();
-	while (it!=open.cend() && !isBetter(it->value, cost, goal)) {
+	while (it!=open.cend() && !isBetter(tolerantCeil(it->value, intTolerance), cost, goal)) {
+		openSize -= it->estimateSize();
 		it = open.erase(it);
 	}
 }
@@ -278,7 +286,7 @@ void BranchAndCut::setupBounds(std::map<variable_id, VariableBounds> bounds) {
 		for (LinearProgram::BoundType type:{LinearProgram::lower, LinearProgram::upper}) {
 			double currBound = currentBounds[i][type];
 			long newBound = boundsForVar[type];
-			if (tolerance.different(currBound, newBound)) {
+			if (generalTolerance.different(currBound, newBound)) {
 				problem.setBound(i, type, newBound);
 				currentBounds[i][type] = newBound;
 			}
@@ -292,4 +300,12 @@ long& BranchAndCut::VariableBounds::operator[](LinearProgram::BoundType b) {
 	} else {
 		return max;
 	}
+}
+
+size_t BranchAndCut::BranchNode::estimateSize() const {
+	return sizeof(value)+sizeof(goal)+bounds.size()*sizeof(bounds.at(0));
+}
+
+bool BranchAndCut::BranchNode::operator<(const BranchAndCut::BranchNode& other) const {
+	return value<other.value;
 }
