@@ -1,6 +1,6 @@
 #include <algorithm>
+#include <iostream>
 #include "tspsolvers.hpp"
-#include "union_find.hpp"
 
 using edge_id = Graph::edge_id;
 using cost_t = Graph::cost_t;
@@ -21,8 +21,15 @@ namespace tspsolvers {
 					  return edgeA.cost<edgeB.cost;
 				  }
 		);
-		//Union-Find-Struktur, in der die Zusammenhangskomponenten gespeichert werden
-		UnionFind connectedComps(g.getNodeCount());
+		/*
+		 * Falls an Knoten i weniger als 2 Kanten anliegen, gibt otherEnd[i] den anderen Knoten in der selben
+		 * Zusammenhangskomponente wie i an, der auch Grad <2 hat (Falls i Grad 0 hat, ist dies i selbst), d.h. das
+		 * andere Ende des Toursegments. Falls an i 2 Kanten anliegen, ist der Wert beliebig.
+		 */
+		std::vector<node_id> otherEnd(g.getNodeCount());
+		for (node_id i = 0; i<g.getNodeCount(); ++i) {
+			otherEnd[i] = i;
+		}
 		//Speichert die gewählten Kanten, die schon zu einem Knoten inzident sind
 		std::vector<std::vector<edge>> edgesAtNode(g.getNodeCount());
 		unsigned addedEdges = 0;
@@ -37,10 +44,11 @@ namespace tspsolvers {
 			if (edgesAtB.size()>=2) {
 				continue;
 			}
-			node_id rootA = connectedComps.find(e.endA);
-			node_id rootB = connectedComps.find(e.endB);
-			//Unterschiedliche Zusammenhangskomponenten->hinzufügen
-			if (rootA!=rootB) {
+			/*
+			 * Wenn die Enden beide Grad <2 haben (also Enden von Toursegmenten sind), können sie genau dann verbunden
+			 * werden, wenn sie nicht zum selben Segment gehören.
+			 */
+			if (otherEnd[e.endA]!=e.endB) {
 				++addedEdges;
 				totalCost += e.cost;
 				edgesAtA.push_back(e);
@@ -48,8 +56,12 @@ namespace tspsolvers {
 				if (addedEdges==g.getNodeCount()-1) {
 					break;//Tour ist fast vollständig, die letzte Kante ist aber eindeutig bestimmt
 				}
-				//mergeRoots, um find zu überspringen
-				connectedComps.mergeRoots(rootA, rootB);
+				//Enden des neuen Segments setzen
+				//newEndA/B zwischenspeichern, falls die Segmente aus einzelnen Knoten bestehen
+				node_id newEndA = otherEnd[e.endA];
+				node_id newEndB = otherEnd[e.endB];
+				otherEnd[newEndA] = newEndB;
+				otherEnd[newEndB] = newEndA;
 			}
 		}
 		closeHamiltonPath(g, edgesAtNode);

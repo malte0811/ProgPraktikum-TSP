@@ -9,5 +9,4 @@ add_executable(EinfAufgabe
         graph.cpp
         graph.hpp
         main.cpp
-        union_find.cpp
-        union_find.hpp tour.cpp tour.hpp tspsolvers.cpp tspsolvers.hpp)
+        tour.cpp tour.hpp tspsolvers.cpp tspsolvers.hpp)

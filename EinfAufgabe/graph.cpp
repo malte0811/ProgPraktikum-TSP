@@ -10,7 +10,6 @@
 #include <cassert>
 #include <cmath>
 #include "graph.hpp"
-#include "union_find.hpp"
 #include "tour.hpp"
 
 /*
