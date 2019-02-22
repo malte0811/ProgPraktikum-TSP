@@ -6,6 +6,8 @@
 #include <ctime>
 #include <queue>
 
+const size_t maxOpenSize = 512;
+
 BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens) :
 		problem(program), currBest(static_cast<size_t>(program.getVariableCount())),
 		fractOpt(static_cast<size_t>(program.getVariableCount())),
@@ -112,14 +114,13 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
  */
 std::vector<long> BranchAndCut::solve() {
 	open.insert({{}, 0, 0, problem.getGoal()});
-	while (!open.empty()/* && isBetter(std::ceil(open.top().value), upperBound, problem.getGoal())*/) {
+	while (!open.empty()) {
 		auto it = open.begin();
 		BranchNode next = *it;
 		open.erase(it);
 		if (isBetter(std::ceil(next.value), upperBound, problem.getGoal())) {
 			branchAndBound(next, true);
 		}
-		//std::cout << open.size() << std::endl;
 	}
 	return currBest;
 }
@@ -186,7 +187,7 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool setup) {
 			bound(varToBound, lower, LinearProgram::lower, node.bounds, node.level+1, fractVal, true);
 			//TODO die Werte sind recht willkürlich gewählt. Funktioniert das so gut?
 			bound(varToBound, upper, LinearProgram::upper, node.bounds, node.level+1, fractVal,
-					nonIntCount<10||open.size()>512);
+				  nonIntCount<10 || open.size()>maxOpenSize);
 		}
 	}
 }
