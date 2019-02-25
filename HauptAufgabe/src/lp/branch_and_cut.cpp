@@ -123,23 +123,20 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
  * @return eine optimale ganzzahlige Lösung des LP, die von alle Cut-Generatoren akzeptiert wird.
  */
 std::vector<long> BranchAndCut::solve() {
-	BranchNode initNode{{}, 0, goal};
+	BranchNode initNode{SystemBounds(this), 0, goal};
 	open.insert(initNode);
 	openSize += initNode.estimateSize();
 	while (!open.empty()) {
-		BranchNode next;
-		{
-			auto it = open.begin();
-			next = *it;
-			open.erase(it);
-			openSize -= next.estimateSize();
-		}
+		auto it = open.begin();
+		BranchNode next = *it;
+		open.erase(it);
+		openSize -= next.estimateSize();
 		branchAndBound(next, false);
 		std::cout << openSize << ", size: " << open.size() << std::endl;
 		while (openSize>maxOpenSize*0.95) {
 			auto maxIt = open.begin();
 			size_t size = maxIt->estimateSize();
-			for (auto it = open.begin(); it!=open.end(); ++it) {
+			for (it = open.begin(); it!=open.end(); ++it) {
 				if (it->estimateSize()>size) {
 					maxIt = it;
 					size = it->estimateSize();
@@ -187,14 +184,16 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 				if (goal==LinearProgram::maximize) {
 					std::swap(upper, lower);
 				}
-				if (rounded==currentBounds[i][upper] && reducedCosts[i]<-(upperBound-fractOpt.getValue())) {
-					problem.setBound(i, lower, rounded);
-					node.bounds[i] = {rounded, rounded};
-					currentBounds[i] = node.bounds[i];
-				} else if (rounded==currentBounds[i][lower] && reducedCosts[i]>upperBound-fractOpt.getValue()) {
-					problem.setBound(i, upper, rounded);
-					node.bounds[i] = {rounded, rounded};
-					currentBounds[i] = node.bounds[i];
+				if (node.bounds[i][upper]!=node.bounds[i][lower]) {
+					if (rounded==node.bounds[i][upper] && reducedCosts[i]<-(upperBound-fractOpt.getValue())) {
+						problem.setBound(i, lower, rounded);
+						node.bounds.fix(i, upper);
+						currentBounds[i] = node.bounds[i];
+					} else if (rounded==node.bounds[i][lower] && reducedCosts[i]>upperBound-fractOpt.getValue()) {
+						problem.setBound(i, upper, rounded);
+						node.bounds.fix(i, lower);
+						currentBounds[i] = node.bounds[i];
+					}
 				}
 			}
 		}
@@ -232,13 +231,12 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
  * TODO update comment
  */
 void BranchAndCut::branch(int variable, long val, LinearProgram::BoundType bound,
-						  const std::map<variable_id, VariableBounds>& parent, double objValue, bool immediate,
-						  bool dfs) {
+						  const SystemBounds& parent, double objValue, bool immediate, bool dfs) {
 	BranchNode node{parent, objValue, goal};
-	if (!node.bounds.count(variable)) {
-		node.bounds[variable] = defaultBounds[variable];
+	if (!node.bounds.bounds.count(variable)) {
+		node.bounds.bounds[variable] = defaultBounds[variable];
 	}
-	node.bounds[variable][bound] = val;
+	node.bounds.bounds[variable][bound] = val;
 	if (immediate) {
 		branchAndBound(node, dfs);
 	} else {
@@ -292,14 +290,9 @@ void BranchAndCut::setUpperBound(const std::vector<long>& value, long cost) {
 	}
 }
 
-void BranchAndCut::setupBounds(std::map<variable_id, VariableBounds> bounds) {
+void BranchAndCut::setupBounds(const SystemBounds& bounds) {
 	for (variable_id i = 0; i<varCount; ++i) {
-		VariableBounds boundsForVar{};
-		if (bounds.count(i)) {
-			boundsForVar = bounds[i];
-		} else {
-			boundsForVar = defaultBounds[i];
-		}
+		VariableBounds boundsForVar = bounds[i];
 		for (LinearProgram::BoundType type:{LinearProgram::lower, LinearProgram::upper}) {
 			double currBound = currentBounds[i][type];
 			long newBound = boundsForVar[type];
@@ -320,9 +313,38 @@ long& BranchAndCut::VariableBounds::operator[](LinearProgram::BoundType b) {
 }
 
 size_t BranchAndCut::BranchNode::estimateSize() const {
-	return sizeof(value)+sizeof(goal)+bounds.size()*sizeof(bounds.at(0));
+	return sizeof(*this)+bounds.bounds.size()*sizeof(*bounds.bounds.begin())+
+		   2*bounds.fixLower.size()/CHAR_BIT;
 }
 
 bool BranchAndCut::BranchNode::operator<(const BranchAndCut::BranchNode& other) const {
 	return value<other.value;
+}
+
+BranchAndCut::SystemBounds::SystemBounds(BranchAndCut* owner) : owner(owner),
+																fixLower(owner->varCount, false),
+																fixUpper(owner->varCount, false) {}
+
+BranchAndCut::VariableBounds BranchAndCut::SystemBounds::operator[](variable_id id) const {
+	VariableBounds basic{};
+	if (bounds.count(id)) {
+		basic = bounds.at(id);
+	} else {
+		basic = owner->defaultBounds[id];
+	}
+	if (fixUpper[id]) {
+		return {basic.max, basic.max};
+	} else if (fixLower[id]) {
+		return {basic.min, basic.min};
+	} else {
+		return basic;
+	}
+}
+
+void BranchAndCut::SystemBounds::fix(variable_id var, LinearProgram::BoundType b) {
+	if (b==LinearProgram::lower) {
+		fixLower[var] = true;
+	} else {
+		fixUpper[var] = true;
+	}
 }

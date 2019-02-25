@@ -28,8 +28,23 @@ private:
 		long& operator[](LinearProgram::BoundType b);
 	};
 
-	struct BranchNode {
+	struct SystemBounds {
 		std::map<variable_id, VariableBounds> bounds;
+		std::vector<bool> fixUpper;
+		std::vector<bool> fixLower;
+		BranchAndCut* owner;
+
+		explicit SystemBounds(BranchAndCut* owner);
+
+		VariableBounds operator[](variable_id id) const;
+
+		void fix(variable_id var, LinearProgram::BoundType b);
+	};
+
+	struct BranchNode {
+		BranchNode() = delete;
+
+		SystemBounds bounds;
 		double value;
 		LinearProgram::Goal goal;
 
@@ -60,13 +75,13 @@ private:
 	void branchAndBound(BranchNode& node, bool dfs);
 
 	void branch(int variable, long val, LinearProgram::BoundType bound,
-				const std::map<variable_id, VariableBounds>& parent, double objValue, bool immediate, bool dfs);
+				const SystemBounds& parent, double objValue, bool immediate, bool dfs);
 
 	void solveLP(LinearProgram::Solution& out);
 
 	void countSolutionSlack(const LinearProgram::Solution& sol);
 
-	void setupBounds(std::map<variable_id, VariableBounds> bounds);
+	void setupBounds(const SystemBounds& bounds);
 };
 
 
