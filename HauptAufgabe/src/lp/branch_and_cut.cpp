@@ -134,8 +134,24 @@ std::vector<long> BranchAndCut::solve() {
 			open.erase(it);
 			openSize -= next.estimateSize();
 		}
-		branchAndBound(next);
+		branchAndBound(next, false);
 		std::cout << openSize << ", size: " << open.size() << std::endl;
+		while (openSize>maxOpenSize*0.95) {
+			auto maxIt = open.begin();
+			size_t size = maxIt->estimateSize();
+			for (auto it = open.begin(); it!=open.end(); ++it) {
+				if (it->estimateSize()>size) {
+					maxIt = it;
+					size = it->estimateSize();
+				}
+			}
+			next = *maxIt;
+			std::cout << "Removing node of size " << next.estimateSize() << std::endl;
+			openSize -= next.estimateSize();
+			open.erase(maxIt);
+			branchAndBound(next, true);
+			std::cout << "Removed node, now at open size " << openSize << std::endl;
+		}
 	}
 	return currBest;
 }
@@ -144,7 +160,7 @@ std::vector<long> BranchAndCut::solve() {
  * Findet die beste ganzzahlige Lösung des LP's (mit Cut-Generatoren) unter den aktuellen Grenzen für die Variablen.
  * Falls diese Lösung besser als upperBound bzw.
  */
-void BranchAndCut::branchAndBound(BranchNode& node) {
+void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 	setupBounds(node.bounds);
 	solveLP(fractOpt);
 	if (fractOpt.isValid() && isBetter(tolerantCeil(fractOpt.getValue(), intTolerance), upperBound, goal)) {
@@ -199,10 +215,10 @@ void BranchAndCut::branchAndBound(BranchNode& node) {
 			}
 			long upper = lower-1;
 			double fractVal = fractOpt.getValue();
-			branch(varToBound, lower, LinearProgram::lower, node.bounds, fractVal, true);
-			//TODO die Werte sind recht willkürlich gewählt. Funktioniert das so gut?
+			branch(varToBound, lower, LinearProgram::lower, node.bounds, fractVal,
+				   dfs || openSize<maxOpenSize, dfs);
 			branch(varToBound, upper, LinearProgram::upper, node.bounds, fractVal,
-				   nonIntCount<10 || openSize>maxOpenSize);
+				   dfs || (nonIntCount<10 && openSize<maxOpenSize), dfs);
 		}
 	}
 }
@@ -216,14 +232,15 @@ void BranchAndCut::branchAndBound(BranchNode& node) {
  * TODO update comment
  */
 void BranchAndCut::branch(int variable, long val, LinearProgram::BoundType bound,
-						  const std::map<variable_id, VariableBounds>& parent, double objValue, bool immediate) {
+						  const std::map<variable_id, VariableBounds>& parent, double objValue, bool immediate,
+						  bool dfs) {
 	BranchNode node{parent, objValue, goal};
 	if (!node.bounds.count(variable)) {
 		node.bounds[variable] = defaultBounds[variable];
 	}
 	node.bounds[variable][bound] = val;
 	if (immediate) {
-		branchAndBound(node);
+		branchAndBound(node, dfs);
 	} else {
 		open.insert(node);
 		openSize += node.estimateSize();

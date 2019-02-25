@@ -57,10 +57,10 @@ private:
 
 	static bool isBetter(double a, double b, LinearProgram::Goal goal);
 
-	void branchAndBound(BranchNode& node);
+	void branchAndBound(BranchNode& node, bool dfs);
 
 	void branch(int variable, long val, LinearProgram::BoundType bound,
-				const std::map<variable_id, VariableBounds>& parent, double objValue, bool immediate);
+				const std::map<variable_id, VariableBounds>& parent, double objValue, bool immediate, bool dfs);
 
 	void solveLP(LinearProgram::Solution& out);
 
