@@ -101,12 +101,12 @@ namespace tspsolvers {
 		}
 	}
 
-	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution* initial, CPXENVptr& lpEnv) {
+	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution* initial, CPXENVptr& lpEnv, size_t maxOpenSize) {
 		LinearProgram lp(lpEnv, inst.getName(), LinearProgram::minimize);
 		inst.setupBasicLP(lp);
 		SubtourCutGen subtours(inst);
 		TwoMatchingCutGen matchings(inst, true);
-		BranchAndCut bac(lp, {&subtours, &matchings});
+		BranchAndCut bac(lp, {&subtours, &matchings}, maxOpenSize);
 		if (initial!=nullptr) {
 			std::vector<long> asVars(static_cast<size_t>(inst.getEdgeCount()));
 			for (variable_id i = 0; i<inst.getEdgeCount(); ++i) {

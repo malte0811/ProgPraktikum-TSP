@@ -6,6 +6,8 @@
 
 class TSPSolution {
 public:
+	TSPSolution() = default;
+
 	TSPSolution(const TSPInstance& inst, const std::vector<bool>& variables);
 
 	void write(std::ostream& out) const;
@@ -17,7 +19,7 @@ public:
 	const std::vector<city_id>& getOrder() const;
 
 private:
-	const TSPInstance& inst;
+	const TSPInstance* inst = nullptr;
 	std::vector<city_id> order;
 	std::vector<bool> variables;
 	cost_t cost = 0;

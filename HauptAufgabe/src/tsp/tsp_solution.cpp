@@ -2,7 +2,7 @@
 #include <tsp_instance.hpp>
 
 TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& variables)
-		: inst(inst), order(static_cast<size_t>(inst.getSize())), variables(variables) {
+		: inst(&inst), order(static_cast<size_t>(inst.getSize())), variables(variables) {
 	city_id previous = 0;
 	city_id currentCity = 0;
 	size_t indexInTour = 0;
@@ -47,9 +47,12 @@ const std::vector<city_id>& TSPSolution::getOrder() const {
  * Gibt die Lösung im TSPLIB-Format in out aus
  */
 void TSPSolution::write(std::ostream& out) const {
-	out << "NAME: " << inst.getName() << ".tsp.tour\n"
+	if (inst==nullptr) {
+		throw std::runtime_error("Tried to write invalid TSP solution!");
+	}
+	out << "NAME: " << inst->getName() << ".tsp.tour\n"
 		<< "TYPE: TOUR\n"
-		<< "DIMENSION: " << inst.getSize() << "\n"
+		<< "DIMENSION: " << inst->getSize() << "\n"
 		<< "TOUR_SECTION\n";
 	for (city_id c:getOrder()) {
 		out << c+1 << "\n";

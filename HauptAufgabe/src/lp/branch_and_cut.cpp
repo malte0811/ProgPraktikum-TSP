@@ -6,12 +6,10 @@
 #include <ctime>
 #include <queue>
 
-const size_t maxOpenSize = 512*1024*1024;
-
-BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens) :
+BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens, size_t maxOpenSize) :
 		problem(program), varCount(program.getVariableCount()), goal(program.getGoal()),
 		currBest(static_cast<size_t>(varCount)), fractOpt(static_cast<size_t>(varCount)),
-		objCoefficients(static_cast<size_t>(varCount)), generators(gens),
+		objCoefficients(static_cast<size_t>(varCount)), maxOpenSize(maxOpenSize), generators(gens),
 		constraintsAtStart(static_cast<size_t>(program.getConstraintCount())),
 		defaultBounds(static_cast<size_t>(varCount)),
 		currentBounds(static_cast<size_t>(varCount)),
@@ -133,21 +131,23 @@ std::vector<long> BranchAndCut::solve() {
 		openSize -= next.estimateSize();
 		branchAndBound(next, false);
 		std::cout << openSize << ", size: " << open.size() << std::endl;
-		while (openSize>maxOpenSize*0.95) {
-			auto maxIt = open.begin();
-			size_t size = maxIt->estimateSize();
-			for (it = open.begin(); it!=open.end(); ++it) {
-				if (it->estimateSize()>size) {
-					maxIt = it;
-					size = it->estimateSize();
+		if (maxOpenSize>0) {
+			while (openSize>maxOpenSize*0.95) {
+				auto maxIt = open.begin();
+				size_t size = maxIt->estimateSize();
+				for (it = open.begin(); it!=open.end(); ++it) {
+					if (it->estimateSize()>size) {
+						maxIt = it;
+						size = it->estimateSize();
+					}
 				}
+				next = *maxIt;
+				std::cout << "Removing node of size " << next.estimateSize() << std::endl;
+				openSize -= next.estimateSize();
+				open.erase(maxIt);
+				branchAndBound(next, true);
+				std::cout << "Removed node, now at open size " << openSize << std::endl;
 			}
-			next = *maxIt;
-			std::cout << "Removing node of size " << next.estimateSize() << std::endl;
-			openSize -= next.estimateSize();
-			open.erase(maxIt);
-			branchAndBound(next, true);
-			std::cout << "Removed node, now at open size " << openSize << std::endl;
 		}
 	}
 	return currBest;

@@ -14,7 +14,7 @@
 
 class BranchAndCut {
 public:
-	BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens);
+	BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens, size_t maxOpenSize);
 
 	void setUpperBound(const std::vector<long>& value, long cost);
 
@@ -65,6 +65,7 @@ private:
 	std::vector<VariableBounds> defaultBounds;
 	std::vector<VariableBounds> currentBounds;
 	size_t openSize = 0;
+	const size_t maxOpenSize;
 	const std::vector<CutGenerator*> generators;
 	const size_t constraintsAtStart;
 	const lemon::Tolerance<double> generalTolerance;

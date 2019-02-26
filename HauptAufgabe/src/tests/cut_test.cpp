@@ -97,7 +97,7 @@ int shortestPath(const std::string& name) {
 	values.resize(indices.size(), -1);
 	lp.addConstraint(indices, values, 1, LinearProgram::equal);
 	PathCutGenerator gen(g, lemon::SmartDigraph::nodeFromId(0), lemon::SmartDigraph::nodeFromId(1));
-	BranchAndCut bb(lp, {&gen});
+	BranchAndCut bb(lp, {&gen}, 0);
 	std::vector<long> sol = bb.solve();
 	int totalCost = 0;
 	for (int i = 0; i<sol.size(); ++i) {

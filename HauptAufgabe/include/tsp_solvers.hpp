@@ -7,7 +7,7 @@
 namespace tspsolvers {
 	TSPSolution solveGreedy(const TSPInstance& inst);
 
-	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution* initial, CPXENVptr& lpEnv);
+	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution* initial, CPXENVptr& lpEnv, size_t maxOpenSize);
 
 	void closeHamiltonPath(const TSPInstance& instance, std::vector<bool>& used, const Graph::NodeMap <size_t>& degree);
 }
