@@ -1,4 +1,7 @@
 #include <two_matching_cut_gen.hpp>
+#include <lemon/unionfind.h>
+#include <union_find.hpp>
+#include <cmath>
 
 TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst, bool contract)
 		: tsp(inst), enableContraction(contract), tolerance(1e-5) {}
@@ -146,70 +149,98 @@ void TwoMatchingCutGen::lemma1220(const Graph& graph, std::vector<XandF>& out, c
 	lemon::GomoryHu<Graph, Graph::EdgeMap<double>>
 	gh(graph, d);
 	gh.run();
-	double minCost = 1;
-	Graph::NodeMap<bool> x(graph);
-	Graph::EdgeMap<bool> f(graph);
+	Graph::NodeMap <size_t> childCount(graph);
+	size_t nodeCount = 0;
 	for (Graph::NodeIt it(graph); it!=lemon::INVALID; ++it) {
 		Graph::Node pred = gh.predNode(it);
+		if (pred!=lemon::INVALID) {
+			++childCount[pred];
+		}
+		++nodeCount;
+	}
+	Graph::NodeMap <size_t> ufMap(graph);
+	UnionFind components(nodeCount);
+	std::vector<Graph::Node> leaves;
+	{
+		size_t nextIndex = 0;
+		for (Graph::NodeIt it(graph); it!=lemon::INVALID; ++it, ++nextIndex) {
+			if (childCount[it]==0) {
+				leaves.push_back(it);
+			}
+			ufMap[it] = nextIndex;
+		}
+	}
+	double minCost = 1;
+	Graph::EdgeMap<bool> f(graph);
+	while (!leaves.empty()) {
+		Graph::Node currentNode = leaves.back();
+		leaves.pop_back();
+		Graph::Node pred = gh.predNode(currentNode);
 		if (pred==lemon::INVALID) {
 			continue;
 		}
-		double cutCost = gh.minCutValue(it, pred);
-		if (tolerance.less(minCost, cutCost)) {
-			continue;
-		}
-		gh.minCutMap(it, pred, x);
-		Graph::Edge minDiffEdge;
-		double minDiffVal = std::numeric_limits<double>::max();
-		bool hasMinEdge = false;
-		for (Graph::EdgeIt eIt(graph); eIt!=lemon::INVALID; ++eIt) {
-			if (x[graph.u(eIt)]!=x[graph.v(eIt)]) {
-				f[eIt] = c[eIt]>0.5;
-				if (std::abs(c[eIt]-0.5)<std::abs(minDiffVal)) {
-					minDiffEdge = eIt;
-					minDiffVal = c[eIt]-0.5;
-					hasMinEdge = true;
-				}
-			} else {
-				f[eIt] = false;
-			}
-		}
-		unsigned xAndTDash = 0;
-		for (Graph::NodeIt nIt(graph); nIt!=lemon::INVALID; ++nIt) {
-			if (x[nIt] && (adjacentEDash[nIt]%2==1)!=odd[nIt]) {
-				++xAndTDash;
-			}
-		}
-		if (xAndTDash%2==0) {
-			if (!hasMinEdge) {
-				continue;
-			}
-			if (f[minDiffEdge]) {
-				cutCost += 2*minDiffVal;
-				f[minDiffEdge] = false;
-			} else {
-				cutCost -= 2*minDiffVal;
-				f[minDiffEdge] = true;
-			}
-		}
-		if (!tolerance.less(minCost, cutCost)) {
-			if (tolerance.less(cutCost, minCost)) {
-				out.clear();
-				minCost = cutCost;
-			}
-			XandF curr;
-			curr.cost = cutCost;
-			for (Graph::EdgeIt cp(graph); cp!=lemon::INVALID; ++cp) {
-				if (f[cp]) {
-					curr.f.push_back(cp);
+		const size_t xIndex = components.find(ufMap[currentNode]);
+		double cutCost = gh.minCutValue(currentNode, pred);
+		if (!tolerance.less(minCost, cutCost) && tolerance.less(cutCost, 1)) {
+			Graph::Edge minDiffEdge;
+			double minDiffVal = std::numeric_limits<double>::max();
+			bool hasMinEdge = false;
+			for (Graph::EdgeIt eIt(graph); eIt!=lemon::INVALID; ++eIt) {
+				bool uInX = components.find(ufMap[graph.u(eIt)])==xIndex;
+				bool vInX = components.find(ufMap[graph.v(eIt)])==xIndex;
+				if (uInX!=vInX) {
+					f[eIt] = c[eIt]>0.5;
+					if (std::abs(c[eIt]-0.5)<std::abs(minDiffVal)) {
+						minDiffEdge = eIt;
+						minDiffVal = c[eIt]-0.5;
+						hasMinEdge = true;
+					}
+				} else {
+					f[eIt] = false;
 				}
 			}
-			for (Graph::NodeIt cp(graph); cp!=lemon::INVALID; ++cp) {
-				if (x[cp]) {
-					curr.x.push_back(cp);
+			unsigned xAndTDash = 0;
+			for (Graph::NodeIt nIt(graph); nIt!=lemon::INVALID; ++nIt) {
+				if (components.find(ufMap[nIt])==xIndex && (adjacentEDash[nIt]%2==1)!=odd[nIt]) {
+					++xAndTDash;
 				}
 			}
-			out.push_back(curr);
+			bool valid = true;
+			if (xAndTDash%2==0) {
+				if (!hasMinEdge) {
+					valid = false;
+				} else if (f[minDiffEdge]) {
+					cutCost += 2*minDiffVal;
+					f[minDiffEdge] = false;
+				} else {
+					cutCost -= 2*minDiffVal;
+					f[minDiffEdge] = true;
+				}
+			}
+			if (valid && !tolerance.less(minCost, cutCost) && tolerance.less(cutCost, 1)) {
+				if (tolerance.less(cutCost, minCost)) {
+					out.clear();
+					minCost = cutCost;
+				}
+				XandF curr;
+				curr.cost = cutCost;
+				for (Graph::EdgeIt cp(graph); cp!=lemon::INVALID; ++cp) {
+					if (f[cp]) {
+						curr.f.push_back(cp);
+					}
+				}
+				for (Graph::NodeIt cp(graph); cp!=lemon::INVALID; ++cp) {
+					if (components.find(ufMap[cp])==xIndex) {
+						curr.x.push_back(cp);
+					}
+				}
+				out.push_back(curr);
+			}
+		}
+		components.mergeRoots(xIndex, components.find(ufMap[pred]));
+		--childCount[pred];
+		if (childCount[pred]==0) {
+			leaves.push_back(pred);
 		}
 	}
 }
