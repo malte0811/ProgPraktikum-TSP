@@ -5,7 +5,6 @@
 Union-Find-Struktur auf der Menge 0,...,size-1.
 Entspricht praktisch direkt den Algorithmen aus der Vorlesung
 */
-
 UnionFind::UnionFind(size_t size) : entries(size) {
 	for (size_t i = 0; i<size; ++i) {
 		entry& e = entries[i];

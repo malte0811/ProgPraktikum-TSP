@@ -4,6 +4,12 @@
 #include <map>
 #include <string>
 
+/**
+ * Entfernt die Optionen (Parameter der Form --foo=bar) aus dem Vector der Argumente und gibt die Optionen als std::map
+ * zurück
+ * @param args Enthält vor dem Aufruf alle Argumente, nach dem Aufruf nur noch solche, die keine Optionen sind
+ * @return die Optionen
+ */
 std::map<std::string, std::string> parseArgs(std::vector<std::string>& args) {
 	std::map<std::string, std::string> ret;
 	auto it = args.begin();
@@ -26,6 +32,14 @@ std::map<std::string, std::string> parseArgs(std::vector<std::string>& args) {
 	return ret;
 }
 
+/**
+ * Liest den Wert der angegebenen Option aus, entfernt ihn aus der map und gibt ihn zurück
+ * @tparam T Der Typ des Wertes der Option
+ * @param options Alle Optionen
+ * @param key Der Name der Option
+ * @param defaultVal Der Standardwert (falls die Option nicht angegeben wurde)
+ * @return Den Wert der Option
+ */
 template<typename T>
 T getOption(std::map<std::string, std::string>& options, const std::string& key, T defaultVal) {
 	if (options.count(key)) {

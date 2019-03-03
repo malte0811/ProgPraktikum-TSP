@@ -43,13 +43,13 @@ int main() {
 			{"gr202",   40160},
 			{"gr229",   134602},
 			{"kroA200", 29368},
-			{"pr299",   48191},
-			{"gil262",  2378},
-			{"lin318",  42029},
-			{"Tnm52",   551609},
-			{"gr431",   171414},
-			{"fl417",   11861},
-			{"pcb442",  50778},
+			//{"pr299",   48191},
+			//{"gil262",  2378},
+			//{"lin318",  42029},
+			//{"Tnm52",   551609},
+			//{"gr431",   171414},
+			//{"fl417",   11861},
+			//{"pcb442",  50778},
 	};
 	int status;
 	CPXENVptr env = CPXopenCPLEX(&status);
@@ -70,13 +70,13 @@ int main() {
 		TSPSolution sol = tspsolvers::solveLP(tsp, &init, env, 1536*1024*1024);
 		clock_t end = std::clock();
 		double elapsed_secs = double(end-start)/CLOCKS_PER_SEC;
-		std::cout << "Found solution of length " << sol.getCost() << " (Optimum: " << inst.second << ")" << " for "
-				  << inst.first
-				  << " in " << elapsed_secs << " seconds"
-				  << std::endl;
 		if (sol.getCost()!=inst.second) {
-			std::cerr << "Failed to solve " << inst.first << std::endl;
+			std::cerr << "Failed to solve " << inst.first << ", found solution has cost " << sol.getCost()
+					  << ", but optimal cost is " << inst.second << std::endl;
 			break;
+		} else {
+			std::cout << "Found correct solution for " << inst.first << " in " << elapsed_secs << " seconds"
+					  << std::endl;
 		}
 	}
 	CPXcloseCPLEX(&env);

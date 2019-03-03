@@ -39,6 +39,9 @@ CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::ve
 	}
 }
 
+/**
+ * Fügt die Constraints hinzu, die den Zusammenhangskomponenten de Arbeitsgraphen entsprechen
+ */
 void SubtourCutGen::addConnectivityConstraints(LinearProgram& lp) {
 	Graph::NodeMap<bool> visited(workGraph);
 	bool firstComp = true;
@@ -80,6 +83,9 @@ void SubtourCutGen::addConnectivityConstraints(LinearProgram& lp) {
 	}
 }
 
+/**
+ * Fügt die Constraint hinzu, die dem (bereits berechneten) Min-Cut entspricht
+ */
 void SubtourCutGen::addCutConstraint(LinearProgram& lp) {
 	Graph::NodeMap<bool> inCut(workGraph);
 	minCut.minCutMap(inCut);
@@ -105,4 +111,3 @@ void SubtourCutGen::addCutConstraint(LinearProgram& lp) {
 	}
 	lp.addConstraint(induced, std::vector<double>(induced.size(), 1), cutSize-1, LinearProgram::less_eq);
 }
-

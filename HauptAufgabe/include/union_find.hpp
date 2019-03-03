@@ -19,10 +19,10 @@ public:
 	size_t mergeRoots(size_t rootA, size_t rootB);
 
 private:
-	typedef struct {
+	struct entry {
 		size_t parent;
 		rank_t rank;
-	} entry;
+	};
 	std::vector<entry> entries;
 };
 
