@@ -42,10 +42,10 @@ void LinearProgram::addVariables(const std::vector<double>& objCoeff, const std:
  * @param rhs Die rechte Seite der Ungleichung
  * @param sense Um welche Art von (Un)Gleichung es sich handelt (kleiner gleich, größer gleich, gleich)
  */
-void LinearProgram::addConstraint(const std::vector<int>& indices, const std::vector<double>& coeffs, double rhs,
+void LinearProgram::addConstraint(const std::vector<variable_id>& indices, const std::vector<double>& coeffs,
+								  double rhs,
 								  LinearProgram::CompType sense) {
 	assert(indices.size()==coeffs.size());
-	//TODO andere Version, die mehrere Constraints hinzufügt?
 	char senseChar = static_cast<char>(sense);
 	int zero = 0;
 	int result = CPXaddrows(env, problem, 0, 1, static_cast<int>(indices.size()), &rhs, &senseChar, &zero,
@@ -56,8 +56,29 @@ void LinearProgram::addConstraint(const std::vector<int>& indices, const std::ve
 	}
 }
 
-void LinearProgram::removeSetConstraints(std::vector<int>& indices) {
-	int status = CPXdelsetrows(env, problem, indices.data());
+void LinearProgram::addConstraints(const std::vector<variable_id>& indices, const std::vector<double>& coeffs,
+								   const std::vector<double>& rhs, const std::vector<int>& constrStarts,
+								   const std::vector<LinearProgram::CompType>& sense) {
+	const int nonZeroCount = static_cast<const int>(coeffs.size());
+	assert(nonZeroCount==indices.size());
+	const int addedCount = static_cast<const int>(constrStarts.size());
+	assert(addedCount==rhs.size() && addedCount==sense.size());
+	std::vector<char> senseChars(sense.size());
+	for (size_t i = 0; i<sense.size(); ++i) {
+		senseChars[i] = sense[i];
+	}
+	int result = CPXaddrows(env, problem, 0, addedCount, nonZeroCount, rhs.data(),
+							senseChars.data(), constrStarts.data(), indices.data(), coeffs.data(), nullptr, nullptr);
+	if (result!=0) {
+		throw std::runtime_error("Could not add constraint to LP, return value was "+std::to_string(result));
+	}
+}
+
+/**
+ * Entfernt die Constraints, die im Vector den Wert 1 haben
+ */
+void LinearProgram::removeSetConstraints(std::vector<int>& shouldDelete) {
+	int status = CPXdelsetrows(env, problem, shouldDelete.data());
 	if (status!=0) {
 		throw std::runtime_error("Error while deleting constraints: "+std::to_string(status));
 	}
@@ -96,6 +117,7 @@ void LinearProgram::solve(LinearProgram::Solution& out) {
 			break;
 		case CPX_STAT_INFEASIBLE:
 		case CPX_STAT_INForUNBD:
+			//TODO darf ich davon ausgehen, dass NAN existiert/definiert ist?
 			out.value = NAN;
 			break;
 		case CPX_STAT_UNBOUNDED:
@@ -107,11 +129,11 @@ void LinearProgram::solve(LinearProgram::Solution& out) {
 	}
 }
 
-int LinearProgram::getVariableCount() {
+variable_id LinearProgram::getVariableCount() {
 	return CPXgetnumcols(env, problem);
 }
 
-double LinearProgram::getBound(int var, BoundType bound) {
+double LinearProgram::getBound(variable_id var, BoundType bound) {
 	double ret;
 
 	int result;
@@ -126,7 +148,7 @@ double LinearProgram::getBound(int var, BoundType bound) {
 	return ret;
 }
 
-void LinearProgram::setBound(int var, LinearProgram::BoundType type, double value) {
+void LinearProgram::setBound(variable_id var, LinearProgram::BoundType type, double value) {
 	char typeChar = static_cast<char>(type);
 	CPXchgbds(env, problem, 1, &var, &typeChar, &value);
 }
@@ -140,7 +162,7 @@ int LinearProgram::getConstraintCount() {
 }
 
 std::vector<double> LinearProgram::getObjective() {
-	int varCount = getVariableCount();
+	variable_id varCount = getVariableCount();
 	std::vector<double> ret(static_cast<size_t>(varCount));
 	int status = CPXgetobj(env, problem, ret.data(), 0, varCount-1);
 	if (status!=0) {

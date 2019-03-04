@@ -18,9 +18,9 @@
 namespace tspsolvers {
 
 	/**
-		 * Berechnet eine "relative kurze" Tour in der gegebenen TSP-Instanz, indem immer die kürzeste mögliche Kante
-		 * hinzugefügt wird.
-		 */
+	 * Berechnet eine "relative kurze" Tour in der gegebenen TSP-Instanz, indem immer die kürzeste mögliche Kante
+	 * hinzugefügt wird.
+	 */
 	TSPSolution solveGreedy(const TSPInstance& inst) {
 		const Graph::EdgeMap <cost_t>& distances = inst.getGraphDistances();
 		std::vector<Graph::Edge> sortedEdges;
@@ -101,6 +101,14 @@ namespace tspsolvers {
 		}
 	}
 
+	/**
+	 * Löst eine TSP-Instanz exakt durch das Lösen eines linearen ganzzahligen Programms
+	 * @param inst Die zu lösende TSP-Instanz
+	 * @param initial Eine erste obere Schranke, oder nullptr falls ohne eine solche gearbeitet werden soll
+	 * @param lpEnv Die zu verwendende LP-Umgebung
+	 * @param maxOpenSize Die maximale Größe der offenen Menge in Bytes. Auf 0 setzen, um DFS zu verwenden
+	 * @return eine optimal Lösung der gegebenen TSP-Instanz
+	 */
 	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution* initial, CPXENVptr& lpEnv, size_t maxOpenSize) {
 		LinearProgram lp(lpEnv, inst.getName(), LinearProgram::minimize);
 		inst.setupBasicLP(lp);

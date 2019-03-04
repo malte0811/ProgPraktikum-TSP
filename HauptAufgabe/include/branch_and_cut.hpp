@@ -101,7 +101,7 @@ private:
 
 	void branchAndBound(BranchNode& node, bool dfs);
 
-	void branch(int variable, long val, LinearProgram::BoundType bound,
+	void branch(variable_id variable, long val, LinearProgram::BoundType bound,
 				const SystemBounds& parent, double objValue, bool immediate, bool dfs);
 
 	void solveLP(LinearProgram::Solution& out);

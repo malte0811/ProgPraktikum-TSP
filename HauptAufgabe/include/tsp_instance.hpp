@@ -61,13 +61,21 @@ private:
 
 	void setDistance(city_id a, city_id b, cost_t dist);
 
+	//Der vollständige Graph
 	Graph graph;
+	//Die Längen der Kanten in graph
 	Graph::EdgeMap <cost_t> graphDists;
+	//Die den Kanten in graph entsprechenden Variablen
 	Graph::EdgeMap <variable_id> edgeToVar;
+	//Die Umkehrabbildung zu edgeToVar
 	std::vector<Graph::Edge> varToEdge;
+	//Die den Knoten in graph entsprechenden IDs
 	Graph::NodeMap <city_id> nodeToCity;
+	//Die Umkehrabbildung zu nodeToCity
 	std::vector<Graph::Node> cityToNode;
+	//distances[a][b] mit a>=b gibt die Distanz zwischen den Städten a+1 und b an
 	std::vector<std::vector<cost_t>> distances;
+	//Der Name der Instanz
 	std::string name;
 };
 

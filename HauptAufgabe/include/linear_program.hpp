@@ -56,22 +56,26 @@ public:
 	void addVariables(const std::vector<double>& objCoeff, const std::vector<double>& lower,
 					  const std::vector<double>& upper);
 
-	void addConstraint(const std::vector<int>& indices, const std::vector<double>& coeffs, double rhs,
+	void addConstraint(const std::vector<variable_id>& indices, const std::vector<double>& coeffs, double rhs,
 					   LinearProgram::CompType sense);
 
-	void removeSetConstraints(std::vector<int>& indices);
+	void addConstraints(const std::vector<variable_id>& indices, const std::vector<double>& coeffs,
+						const std::vector<double>& rhs, const std::vector<int>& constrStarts,
+						const std::vector<LinearProgram::CompType>& sense);
+
+	void removeSetConstraints(std::vector<int>& shouldDelete);
 
 	Solution solve();
 
 	void solve(Solution& out);
 
-	int getVariableCount();
+	variable_id getVariableCount();
 
 	int getConstraintCount();
 
-	double getBound(int var, BoundType bound);
+	double getBound(variable_id var, BoundType bound);
 
-	void setBound(int var, BoundType type, double value);
+	void setBound(variable_id var, BoundType type, double value);
 
 	Goal getGoal();
 

@@ -237,7 +237,7 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 			 * bisherige obere Schranke; die Lösung wird also als neue obere Schranke gesetzt.
 			 */
 			std::vector<long> newOpt(varCount);
-			for (int i = 0; i<varCount; ++i) {
+			for (variable_id i = 0; i<varCount; ++i) {
 				newOpt[i] = std::lround(fractOpt[i]);
 			}
 			setUpperBound(newOpt, std::lround(fractOpt.getValue()));
@@ -277,7 +277,7 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
  * Knoten hinzugefügt werden soll
  * @param dfs Falls true, werden alle Kinder des entstehenden Knoten sofort behandelt (immediate = true)
  */
-void BranchAndCut::branch(int variable, long val, LinearProgram::BoundType bound,
+void BranchAndCut::branch(variable_id variable, long val, LinearProgram::BoundType bound,
 						  const SystemBounds& parent, double objValue, bool immediate, bool dfs) {
 	BranchNode node{parent, objValue, goal};
 	if (!node.bounds.bounds.count(variable)) {

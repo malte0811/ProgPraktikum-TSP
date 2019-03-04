@@ -1,13 +1,19 @@
 #include <tsp_solution.hpp>
 #include <tsp_instance.hpp>
 
+/**
+ * @param inst Die TSP-Instanz
+ * @param variables Die Belegung der LP-Variablen
+ */
 TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& variables)
 		: inst(&inst), order(static_cast<size_t>(inst.getSize())), variables(variables) {
 	city_id previous = 0;
 	city_id currentCity = 0;
 	size_t indexInTour = 0;
-	//TODO should I handle invalid tours?
 	do {
+		if (indexInTour>=order.size()) {
+			throw std::runtime_error("Invalid TSP solution, includes a cycle not containing node 1");
+		}
 		order[indexInTour] = currentCity;
 		++indexInTour;
 		for (city_id next = 0; next<inst.getSize(); ++next) {
@@ -19,6 +25,9 @@ TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& varia
 			}
 		}
 	} while (currentCity!=0);
+	if (indexInTour<order.size()) {
+		throw std::runtime_error("Invalid TSP solution, node 1 is in a short cycle");
+	}
 }
 
 /**

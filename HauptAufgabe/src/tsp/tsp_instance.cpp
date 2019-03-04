@@ -103,6 +103,7 @@ TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), edgeToVar(gra
 			emptyLines = true;
 		}
 	}
+	//Graph initialisieren
 	city_id nodeCount = getSize();
 	for (city_id city = 0; city<nodeCount; ++city) {
 		Graph::Node newNode = graph.addNode();
@@ -118,19 +119,24 @@ TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), edgeToVar(gra
 	}
 }
 
+/**
+ * Wandelt einen Wert der Form ggg.mm (ggg Grd und mm Minuten) in Bogenmaß um
+ */
 double coordToLatLong(double val) {
-	//TSPLIB-Beschreibung nutzt hier nint (round), das geht aber nicht für >=50 min
+	//TSPLIB-Beschreibung nutzt hier nint (round), das geht aber nicht für >=50 Minuten
 	int deg = static_cast<int>(val);
 	double min = val-deg;
 	return M_PI*(deg+5.0*min/3.0)/180.0;
 }
 
 void TSPInstance::readNodes(std::istream& input, EdgeWeightType type) {
+	//Knotenkoordinaten einlesen (Es werden nur Formate mit 2 Koordinaten pro Knoten unterstützt)
 	struct Vec2 {
 		double x, y;
 	};
 	city_id nodeCount = getSize();
 	std::vector<Vec2> nodeLocations(static_cast<size_t>(nodeCount));
+	//Wurde die Position eines gegebenen Knotens gesetzt?
 	std::vector<bool> set(static_cast<size_t>(nodeCount), false);
 	city_id setCount = 0;
 	for (city_id iteration = 0; iteration<nodeCount; ++iteration) {
@@ -147,6 +153,7 @@ void TSPInstance::readNodes(std::istream& input, EdgeWeightType type) {
 		throw std::runtime_error(
 				"Only "+std::to_string(setCount)+" of "+std::to_string(nodeCount)+" node locations have been set");
 	}
+	//Über alle Kanten iterieren und die Distanzen berechnen
 	for (city_id higherId = 1; higherId<nodeCount; ++higherId) {
 		for (city_id lowerId = 0; lowerId<higherId; ++lowerId) {
 			cost_t distance = 0;
@@ -166,6 +173,7 @@ void TSPInstance::readNodes(std::istream& input, EdgeWeightType type) {
 					double long1 = coordToLatLong(nodeLocations[lowerId].y);
 					double lat2 = coordToLatLong(nodeLocations[higherId].x);
 					double long2 = coordToLatLong(nodeLocations[higherId].y);
+					//Aus der TSPLib-Dokumentation
 					const double RRR = 6378.388;
 					double q1 = std::cos(long1-long2);
 					double q2 = std::cos(lat1-lat2);
@@ -174,6 +182,7 @@ void TSPInstance::readNodes(std::istream& input, EdgeWeightType type) {
 				}
 					break;
 				case att: {
+					//Aus der TSPLib-Dokumentation
 					double rij = sqrt((distX*distX+distY*distY)/10.0);
 					auto tij = static_cast<cost_t>(std::lround(rij));
 					if (tij<rij) {
@@ -196,7 +205,9 @@ void TSPInstance::readEdges(std::istream& input, TSPInstance::EdgeFormat type) {
 		rowCount--;
 	}
 	for (city_id row = 0; row<rowCount; ++row) {
+		//Die Spalte, der die erste Zahl entspricht
 		city_id minCol = 0;
+		//Die Anzahl der Spalten in dieser Zeile
 		city_id colCount = 0;
 		switch (type) {
 			case full_matrix:
@@ -228,6 +239,10 @@ void TSPInstance::setDistance(city_id a, city_id b, cost_t dist) {
 	}
 }
 
+/**
+ * Fügt Variablen für alle Kanten und Gradbedingungen für alle Knoten zum LP hinzu
+ * @param lp das zu initialisierende LP
+ */
 void TSPInstance::setupBasicLP(LinearProgram& lp) const {
 	std::vector<double> objCoeffs(varToEdge.size());
 	for (variable_id i = 0; i<static_cast<variable_id>(varToEdge.size()); ++i) {
@@ -237,13 +252,17 @@ void TSPInstance::setupBasicLP(LinearProgram& lp) const {
 	std::vector<double> lower(varToEdge.size(), 0);
 	std::vector<double> upper(varToEdge.size(), 1);
 	lp.addVariables(objCoeffs, lower, upper);
+	std::vector<variable_id> indices;
+	std::vector<int> rowStarts;
 	for (Graph::NodeIt nIt(graph); nIt!=lemon::INVALID; ++nIt) {
-		std::vector<variable_id> adjancent;
+		rowStarts.push_back(static_cast<int>(indices.size()));
 		for (Graph::IncEdgeIt eIt(graph, nIt); eIt!=lemon::INVALID; ++eIt) {
-			adjancent.push_back(getVariable(eIt));
+			indices.push_back(getVariable(eIt));
 		}
-		lp.addConstraint(adjancent, std::vector<double>(adjancent.size(), 1), 2, LinearProgram::equal);
 	}
+	lp.addConstraints(indices, std::vector<double>(indices.size(), 1), std::vector<double>(rowStarts.size(), 2),
+					  rowStarts,
+					  std::vector<LinearProgram::CompType>(rowStarts.size(), LinearProgram::equal));
 }
 
 std::string TSPInstance::getName() const {

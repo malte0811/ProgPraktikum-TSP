@@ -20,8 +20,11 @@ public:
 
 private:
 	const TSPInstance* inst = nullptr;
+	//Die Reihenfolge der Städte auf der gespeicherten Tour
 	std::vector<city_id> order;
+	//Die Belegung der LP-Variablen
 	std::vector<bool> variables;
+	//Die Kosten der Tour
 	cost_t cost = 0;
 };
 

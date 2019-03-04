@@ -42,6 +42,9 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 	std::vector<XandF> allMin;
 	lemma1220(workGraph, allMin, odd, c);
 	if (!allMin.empty() && tolerance.less(allMin.front().cost, 1)) {
+		std::vector<variable_id> indices;
+		std::vector<int> constrStarts;
+		std::vector<double> rhs;
 		for (XandF& min:allMin) {
 			Graph::NodeMap<bool> isInX(tsp.getGraph());
 			size_t sizeXTrue = 0;
@@ -92,41 +95,29 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 					}
 				}
 			}
-			std::vector<variable_id> inSum;
+			constrStarts.push_back(static_cast<int>(indices.size()));
+			size_t sizeF = 0;
 			for (Graph::Edge e:prelimF) {
 				if (fTSP[e]) {
-					inSum.push_back(tsp.getVariable(e));
+					indices.push_back(tsp.getVariable(e));
+					++sizeF;
 				}
 			}
-			const size_t sizeF = inSum.size();
 			std::vector<city_id> xElements;
 			const bool valForX = sizeXTrue<tsp.getSize()/2;
 			for (Graph::NodeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
 				if (isInX[it]==valForX) {
 					city_id curr = tsp.getCity(it);
 					for (city_id other:xElements) {
-						inSum.push_back(tsp.getVariable(curr, other));
+						indices.push_back(tsp.getVariable(curr, other));
 					}
 					xElements.push_back(curr);
 				}
 			}
-			size_t rhs = xElements.size()+sizeF/2;
-			/*double actualValue = 0;
-			unsigned hash = 0;
-			for (int a:inSum) hash = 31*hash+a, actualValue += solution[a];
-			if (actualValue<=rhs) {
-				std::cout << "2-Matching cut-generator produced invalid (non-separating) cut! LHS " << actualValue << ", RHS " << rhs << std::endl;
-				for (size_t id = 0;id<solution.size();++id) {
-					if (tolerance.nonZero(solution[id])) {
-						std::cout << id << ": " << solution[id] << "\n";
-					}
-				}
-				std::cout << std::flush;
-				return true;
-			}*/
-			lp.addConstraint(inSum, std::vector<double>(inSum.size(), 1),
-							 rhs, LinearProgram::less_eq);
+			rhs.push_back(static_cast<size_t>(xElements.size()+sizeF/2));
 		}
+		lp.addConstraints(indices, std::vector<double>(indices.size(), 1), rhs, constrStarts,
+						  std::vector<LinearProgram::CompType>(rhs.size(), LinearProgram::less_eq));
 		return CutGenerator::maybe_recalc;
 	} else {
 		return CutGenerator::valid;
