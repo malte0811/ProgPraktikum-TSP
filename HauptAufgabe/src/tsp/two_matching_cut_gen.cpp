@@ -8,30 +8,32 @@ TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst, bool contract)
 
 CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& solution) {
 	Graph workGraph;
-	Graph::NodeMap <Graph::Node> origToWork(tsp.getGraph());
+	std::vector<Graph::Node> origToWork(tsp.getCityCount());
 	ContractionMap workToOrig(workGraph);
-	for (Graph::NodeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
+	for (city_id i = 0; i<tsp.getCityCount(); ++i) {
 		Graph::Node newNode = workGraph.addNode();
-		origToWork[it] = newNode;
-		workToOrig[newNode] = {it};
+		origToWork[i] = newNode;
+		workToOrig[newNode] = {i};
 	}
 	Graph::NodeMap<bool> odd(workGraph);
-	Graph::EdgeMap <Graph::Edge> toOrigEdge(workGraph);
+	Graph::EdgeMap <variable_id> toVariable(workGraph);
 	Graph::EdgeMap<double> c(workGraph);
-	std::vector<Graph::Edge> oneEdges;
-	for (Graph::EdgeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
-		variable_id varId = tsp.getVariable(it);
-		if (tolerance.positive(solution[varId])) {
-			Graph::Node endU = origToWork[tsp.getGraph().u(it)];
-			Graph::Node endV = origToWork[tsp.getGraph().v(it)];
-			if (tolerance.less(solution[varId], 1)) {
-				Graph::Edge eWork = workGraph.addEdge(endU, endV);
-				toOrigEdge[eWork] = it;
-				c[eWork] = solution[varId];
-			} else {
-				odd[endU] = !odd[endU];
-				odd[endV] = !odd[endV];
-				oneEdges.push_back(it);
+	std::vector<variable_id> oneEdges;
+	for (city_id lower = 0; lower<tsp.getCityCount()-1; ++lower) {
+		for (city_id higher = lower+1; higher<tsp.getCityCount(); ++higher) {
+			variable_id varId = tsp.getVariable(higher, lower);
+			if (tolerance.positive(solution[varId])) {
+				Graph::Node endU = origToWork[lower];
+				Graph::Node endV = origToWork[higher];
+				if (tolerance.less(solution[varId], 1)) {
+					Graph::Edge eWork = workGraph.addEdge(endU, endV);
+					toVariable[eWork] = varId;
+					c[eWork] = solution[varId];
+				} else {
+					odd[endU] = !odd[endU];
+					odd[endV] = !odd[endV];
+					oneEdges.push_back(varId);
+				}
 			}
 		}
 	}
@@ -46,44 +48,41 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 		std::vector<int> constrStarts;
 		std::vector<double> rhs;
 		for (XandF& min:allMin) {
-			Graph::NodeMap<bool> isInX(tsp.getGraph());
+			std::vector<bool> isInX(tsp.getCityCount());
 			size_t sizeXTrue = 0;
 			for (Graph::Node contracted:min.x) {
-				for (Graph::Node orig:workToOrig[contracted]) {
+				for (city_id orig:workToOrig[contracted]) {
 					isInX[orig] = true;
 				}
 				sizeXTrue += workToOrig[contracted].size();
 			}
-			Graph::EdgeMap<bool> fTSP(tsp.getGraph());
-			std::vector<Graph::Edge> prelimF;
-			for (Graph::Edge e:oneEdges) {
-				Graph::Node endU = tsp.getGraph().u(e);
-				Graph::Node endV = tsp.getGraph().v(e);
+			std::vector<bool> fTSP(tsp.getEdgeCount());
+			std::vector<variable_id> prelimF;
+			for (variable_id e:oneEdges) {
+				city_id endU = tsp.getLowerEnd(e);
+				city_id endV = tsp.getHigherEnd(e);
 				if (isInX[endU]!=isInX[endV]) {
 					fTSP[e] = true;
 					prelimF.push_back(e);
 				}
 			}
 			for (Graph::Edge e:min.f) {
-				fTSP[toOrigEdge[e]] = true;
-				prelimF.push_back(toOrigEdge[e]);
+				fTSP[toVariable[e]] = true;
+				prelimF.push_back(toVariable[e]);
 			}
-			Graph::NodeMap <Graph::Edge> incidentF(tsp.getGraph());
-			for (Graph::NodeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
-				incidentF[it] = lemon::INVALID;//TODO is this necessary?
-			}
-			for (Graph::Edge e:prelimF) {
-				Graph::Node ends[2] = {tsp.getGraph().u(e), tsp.getGraph().v(e)};
-				for (Graph::Node end:ends) {
-					if (incidentF[end]==lemon::INVALID) {
+			std::vector<variable_id> incidentF(tsp.getEdgeCount(), LinearProgram::invalid_variable);
+			for (variable_id e:prelimF) {
+				city_id ends[2] = {tsp.getLowerEnd(e), tsp.getHigherEnd(e)};
+				for (city_id end:ends) {
+					if (incidentF[end]==LinearProgram::invalid_variable) {
 						incidentF[end] = e;
 					} else {
-						Graph::Edge oldEdge = incidentF[end];
+						variable_id oldEdge = incidentF[end];
 						fTSP[oldEdge] = false;
-						incidentF[tsp.getGraph().u(oldEdge)] = lemon::INVALID;
-						incidentF[tsp.getGraph().v(oldEdge)] = lemon::INVALID;
-						incidentF[tsp.getGraph().u(e)] = lemon::INVALID;
-						incidentF[tsp.getGraph().v(e)] = lemon::INVALID;
+						incidentF[tsp.getLowerEnd(oldEdge)] = LinearProgram::invalid_variable;
+						incidentF[tsp.getHigherEnd(oldEdge)] = LinearProgram::invalid_variable;
+						incidentF[tsp.getLowerEnd(e)] = LinearProgram::invalid_variable;
+						incidentF[tsp.getHigherEnd(e)] = LinearProgram::invalid_variable;
 						fTSP[e] = false;
 						isInX[end] = !isInX[end];
 						if (isInX[end]) {
@@ -97,21 +96,20 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 			}
 			constrStarts.push_back(static_cast<int>(indices.size()));
 			size_t sizeF = 0;
-			for (Graph::Edge e:prelimF) {
+			for (variable_id e:prelimF) {
 				if (fTSP[e]) {
-					indices.push_back(tsp.getVariable(e));
+					indices.push_back(e);
 					++sizeF;
 				}
 			}
 			std::vector<city_id> xElements;
-			const bool valForX = sizeXTrue<tsp.getSize()/2;
-			for (Graph::NodeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
-				if (isInX[it]==valForX) {
-					city_id curr = tsp.getCity(it);
+			const bool valForX = sizeXTrue<tsp.getCityCount()/2;
+			for (city_id i = 0; i<tsp.getCityCount(); ++i) {
+				if (isInX[i]==valForX) {
 					for (city_id other:xElements) {
-						indices.push_back(tsp.getVariable(curr, other));
+						indices.push_back(tsp.getVariable(i, other));
 					}
-					xElements.push_back(curr);
+					xElements.push_back(i);
 				}
 			}
 			rhs.push_back(static_cast<size_t>(xElements.size()+sizeF/2));
@@ -292,7 +290,7 @@ bool TwoMatchingCutGen::findAndContractPath(Graph& g, Graph::Node start, Contrac
 		}
 	}
 	bool resultOdd = odd[remainingNode];
-	std::vector<Graph::Node>& contractedSet = toOrig[remainingNode];
+	std::vector<city_id>& contractedSet = toOrig[remainingNode];
 	for (Graph::Node remove:toContract) {
 		if (odd[remove]) {
 			resultOdd = !resultOdd;

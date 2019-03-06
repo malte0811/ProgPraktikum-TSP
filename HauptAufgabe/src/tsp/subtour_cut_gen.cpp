@@ -4,16 +4,16 @@
 #include <stack>
 
 SubtourCutGen::SubtourCutGen(const TSPInstance& inst)
-		: tsp(inst), origToWork(tsp.getGraph()), workToOrig(workGraph), capacity(workGraph),
+		: tsp(inst), origToWork(tsp.getCityCount()), workToOrig(workGraph), capacity(workGraph),
 		  minCut(workGraph, capacity), tolerance(1e-5) {
 	/*
 	 * Grundzustand des Arbeitsgraphen abspeichern: So viele Knoten wie in der TSP-Instanz, aber keine Kanten.
 	 * Außerdem NodeMap's anlegen, um Knoten im TSP-Graphen in Knoten im Arbeitsgraphen umzuwandeln und umgekehrt
 	 */
-	for (Graph::NodeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
+	for (city_id i = 0; i<tsp.getCityCount(); ++i) {
 		Graph::Node newNode = workGraph.addNode();
-		origToWork[it] = newNode;
-		workToOrig[newNode] = it;
+		origToWork[i] = newNode;
+		workToOrig[newNode] = i;
 	}
 	baseState.save(workGraph);
 }
@@ -26,13 +26,13 @@ CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::ve
 	 * Alle Kanten einfügen, deren Variablen einen echt positiven Wert haben (Kanten mit Wert 0 ändern den minimalen
 	 * Schnitt nicht)
 	 */
-	for (variable_id i = 0; i<static_cast<variable_id>(solution.size()); ++i) {
-		if (tolerance.positive(solution[i])) {
-			Graph::Edge inOrig = tsp.getEdge(i);
-			Graph::Node uOrig = tsp.getGraph().u(inOrig);
-			Graph::Node vOrig = tsp.getGraph().v(inOrig);
-			Graph::Edge inWork = workGraph.addEdge(origToWork[uOrig], origToWork[vOrig]);
-			capacity[inWork] = solution[i];
+	for (city_id lowerEnd = 0; lowerEnd<tsp.getCityCount()-1; ++lowerEnd) {
+		for (city_id higherEnd = lowerEnd+1; higherEnd<tsp.getCityCount(); ++higherEnd) {
+			variable_id edgeVar = tsp.getVariable(higherEnd, lowerEnd);
+			if (tolerance.positive(solution[edgeVar])) {
+				Graph::Edge inWork = workGraph.addEdge(origToWork[lowerEnd], origToWork[higherEnd]);
+				capacity[inWork] = solution[edgeVar];
+			}
 		}
 	}
 	minCut.run();
@@ -65,7 +65,7 @@ void SubtourCutGen::addConnectivityConstraints(LinearProgram& lp) {
 	for (Graph::NodeIt startIt(workGraph); startIt!=lemon::INVALID; ++startIt) {
 		if (!visited[startIt]) {
 			std::stack<Graph::Node> open;
-			std::vector<city_id> currentComponent{tsp.getCity(workToOrig[startIt])};
+			std::vector<city_id> currentComponent{workToOrig[startIt]};
 			open.push(startIt);
 			visited[startIt] = true;
 			while (!open.empty()) {
@@ -76,7 +76,7 @@ void SubtourCutGen::addConnectivityConstraints(LinearProgram& lp) {
 					if (!visited[neighbor]) {
 						visited[neighbor] = true;
 						open.push(neighbor);
-						currentComponent.push_back(tsp.getCity(workToOrig[neighbor]));
+						currentComponent.push_back(workToOrig[neighbor]);
 					}
 				}
 			}
@@ -128,18 +128,18 @@ void SubtourCutGen::addCutConstraint(LinearProgram& lp) {
 	 * Falls der gefundene Cut mehr als die Hälfte aller Knoten enthält, wird das Komplement hinzugefügt. Wie oben
 	 * wird so die Anzahl an Einträgen ungleich 0 minimiert.
 	 */
-	const bool cutVal = cutSize<tsp.getSize()/2;
+	const bool cutVal = cutSize<tsp.getCityCount()/2;
 	if (!cutVal) {
-		cutSize = tsp.getSize()-cutSize;
+		cutSize = tsp.getCityCount()-cutSize;
 	}
 	std::vector<int> induced;
-	for (Graph::EdgeIt it(tsp.getGraph()); it!=lemon::INVALID; ++it) {
-		Graph::Node uOrig = tsp.getGraph().u(it);
-		Graph::Node vOrig = tsp.getGraph().v(it);
-		bool vInCut = inCut[origToWork[vOrig]];
-		bool uInCut = inCut[origToWork[uOrig]];
-		if (vInCut==cutVal && uInCut==cutVal) {
-			induced.push_back(tsp.getVariable(it));
+	for (city_id lowerEnd = 0; lowerEnd<tsp.getCityCount()-1; ++lowerEnd) {
+		for (city_id higherEnd = lowerEnd+1; higherEnd<tsp.getCityCount(); ++higherEnd) {
+			bool vInCut = inCut[origToWork[lowerEnd]];
+			bool uInCut = inCut[origToWork[higherEnd]];
+			if (vInCut==cutVal && uInCut==cutVal) {
+				induced.push_back(tsp.getVariable(higherEnd, lowerEnd));
+			}
 		}
 	}
 	lp.addConstraint(induced, std::vector<double>(induced.size(), 1), cutSize-1, LinearProgram::less_eq);

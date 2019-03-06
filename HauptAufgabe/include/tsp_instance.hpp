@@ -5,6 +5,7 @@
 #include <vector>
 #include <lemon/list_graph.h>
 #include <linear_program.hpp>
+#include <cmath>
 
 using cost_t = unsigned;
 using city_id = int;
@@ -16,21 +17,15 @@ public:
 
 	inline cost_t getDistance(city_id a, city_id b) const;
 
-	inline city_id getSize() const;
+	inline cost_t getCost(variable_id e) const;
 
-	inline const Graph& getGraph() const;
-
-	inline const Graph::EdgeMap <cost_t>& getGraphDistances() const;
-
-	inline variable_id getVariable(const Graph::Edge& e) const;
+	inline city_id getCityCount() const;
 
 	inline variable_id getVariable(city_id a, city_id b) const;
 
-	inline Graph::Edge getEdge(variable_id variable) const;
+	inline city_id getHigherEnd(variable_id var) const;
 
-	inline city_id getCity(const Graph::Node& e) const;
-
-	inline Graph::Node getNode(city_id city) const;
+	inline city_id getLowerEnd(variable_id var) const;
 
 	inline variable_id getEdgeCount() const;
 
@@ -61,18 +56,6 @@ private:
 
 	void setDistance(city_id a, city_id b, cost_t dist);
 
-	//Der vollständige Graph
-	Graph graph;
-	//Die Längen der Kanten in graph
-	Graph::EdgeMap <cost_t> graphDists;
-	//Die den Kanten in graph entsprechenden Variablen
-	Graph::EdgeMap <variable_id> edgeToVar;
-	//Die Umkehrabbildung zu edgeToVar
-	std::vector<Graph::Edge> varToEdge;
-	//Die den Knoten in graph entsprechenden IDs
-	Graph::NodeMap <city_id> nodeToCity;
-	//Die Umkehrabbildung zu nodeToCity
-	std::vector<Graph::Node> cityToNode;
 	//distances[a][b] mit a>=b gibt die Distanz zwischen den Städten a+1 und b an
 	std::vector<std::vector<cost_t>> distances;
 	//Der Name der Instanz
@@ -80,20 +63,8 @@ private:
 };
 
 
-city_id TSPInstance::getSize() const {
+city_id TSPInstance::getCityCount() const {
 	return static_cast<city_id>(distances.size()+1);
-}
-
-const Graph& TSPInstance::getGraph() const {
-	return graph;
-}
-
-const Graph::EdgeMap <cost_t>& TSPInstance::getGraphDistances() const {
-	return graphDists;
-}
-
-variable_id TSPInstance::getVariable(const Graph::Edge& e) const {
-	return edgeToVar[e];
 }
 
 variable_id TSPInstance::getVariable(city_id a, city_id b) const {
@@ -103,20 +74,18 @@ variable_id TSPInstance::getVariable(city_id a, city_id b) const {
 	return (a*(a-1))/2+b;
 }
 
-Graph::Edge TSPInstance::getEdge(variable_id variable) const {
-	return varToEdge[variable];
+city_id TSPInstance::getHigherEnd(variable_id var) const {
+	//TODO ist nicht wirklich schön...
+	return static_cast<city_id>(.5+std::sqrt(.25+2*var));
 }
 
-city_id TSPInstance::getCity(const Graph::Node& e) const {
-	return nodeToCity[e];
-}
-
-Graph::Node TSPInstance::getNode(city_id city) const {
-	return cityToNode[city];
+city_id TSPInstance::getLowerEnd(variable_id var) const {
+	city_id higher = getHigherEnd(var);
+	return var-(higher*(higher-1))/2;
 }
 
 variable_id TSPInstance::getEdgeCount() const {
-	city_id size = getSize();
+	city_id size = getCityCount();
 	return (size*(size-1))/2;
 }
 
@@ -128,6 +97,10 @@ cost_t TSPInstance::getDistance(city_id a, city_id b) const {
 	} else {
 		return 0;
 	}
+}
+
+cost_t TSPInstance::getCost(variable_id e) const {
+	return getDistance(getHigherEnd(e), getLowerEnd(e));
 }
 
 #endif

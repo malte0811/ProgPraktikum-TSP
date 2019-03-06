@@ -22,7 +22,7 @@ T readOrThrow(std::istream& input) {
  * Liest eine STSP im TSPLIB-Format ein
  * @param input Die Quelle der Eingabe
  */
-TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), edgeToVar(graph), nodeToCity(graph) {
+TSPInstance::TSPInstance(std::istream& input) {
 	std::string line;
 	EdgeWeightType edgeType = euc_2d;
 	EdgeFormat edgeFormat = full_matrix;
@@ -103,20 +103,6 @@ TSPInstance::TSPInstance(std::istream& input) : graphDists(graph), edgeToVar(gra
 			emptyLines = true;
 		}
 	}
-	//Graph initialisieren
-	city_id nodeCount = getSize();
-	for (city_id city = 0; city<nodeCount; ++city) {
-		Graph::Node newNode = graph.addNode();
-		nodeToCity[newNode] = city;
-		cityToNode.push_back(newNode);
-		for (city_id other = 0; other<city; ++other) {
-			Graph::Node nodeForCity = cityToNode[other];
-			Graph::Edge e = graph.addEdge(newNode, nodeForCity);
-			graphDists[e] = getDistance(city, getCity(nodeForCity));
-			edgeToVar[e] = static_cast<variable_id>(varToEdge.size());
-			varToEdge.push_back(e);
-		}
-	}
 }
 
 /**
@@ -134,7 +120,7 @@ void TSPInstance::readNodes(std::istream& input, EdgeWeightType type) {
 	struct Vec2 {
 		double x, y;
 	};
-	city_id nodeCount = getSize();
+	city_id nodeCount = getCityCount();
 	std::vector<Vec2> nodeLocations(static_cast<size_t>(nodeCount));
 	//Wurde die Position eines gegebenen Knotens gesetzt?
 	std::vector<bool> set(static_cast<size_t>(nodeCount), false);
@@ -199,7 +185,7 @@ void TSPInstance::readNodes(std::istream& input, EdgeWeightType type) {
 }
 
 void TSPInstance::readEdges(std::istream& input, TSPInstance::EdgeFormat type) {
-	const city_id nodeCount = getSize();
+	const city_id nodeCount = getCityCount();
 	city_id rowCount = nodeCount;
 	if (type==upper_row) {
 		rowCount--;
@@ -244,20 +230,21 @@ void TSPInstance::setDistance(city_id a, city_id b, cost_t dist) {
  * @param lp das zu initialisierende LP
  */
 void TSPInstance::setupBasicLP(LinearProgram& lp) const {
-	std::vector<double> objCoeffs(varToEdge.size());
-	for (variable_id i = 0; i<static_cast<variable_id>(varToEdge.size()); ++i) {
-		Graph::Edge e = getEdge(i);
-		objCoeffs[i] = graphDists[e];
+	auto varCount = static_cast<size_t>(getEdgeCount());
+	std::vector<double> objCoeffs(varCount);
+	for (variable_id i = 0; i<getEdgeCount(); ++i) {
+		objCoeffs[i] = getCost(i);
 	}
-	std::vector<double> lower(varToEdge.size(), 0);
-	std::vector<double> upper(varToEdge.size(), 1);
+	std::vector<double> lower(varCount, 0);
+	std::vector<double> upper(varCount, 1);
 	lp.addVariables(objCoeffs, lower, upper);
 	std::vector<variable_id> indices;
 	std::vector<int> rowStarts;
-	for (Graph::NodeIt nIt(graph); nIt!=lemon::INVALID; ++nIt) {
+	for (city_id i = 0; i<getCityCount(); ++i) {
 		rowStarts.push_back(static_cast<int>(indices.size()));
-		for (Graph::IncEdgeIt eIt(graph, nIt); eIt!=lemon::INVALID; ++eIt) {
-			indices.push_back(getVariable(eIt));
+		for (city_id otherEnd = 0; otherEnd<getCityCount(); ++otherEnd) {
+			if (otherEnd!=i)
+				indices.push_back(getVariable(i, otherEnd));
 		}
 	}
 	lp.addConstraints(indices, std::vector<double>(indices.size(), 1), std::vector<double>(rowStarts.size(), 2),

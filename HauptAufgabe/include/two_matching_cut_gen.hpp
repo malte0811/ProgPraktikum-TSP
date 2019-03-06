@@ -12,7 +12,7 @@ public:
 	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution) override;
 
 private:
-	using ContractionMap = Graph::NodeMap<std::vector<Graph::Node>>;
+	using ContractionMap = Graph::NodeMap<std::vector<city_id>>;
 	struct XandF {
 		std::vector<Graph::Node> x;
 		std::vector<Graph::Edge> f;

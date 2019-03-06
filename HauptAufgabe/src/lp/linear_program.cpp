@@ -5,6 +5,8 @@
 #include <cmath>
 #include <ilcplex/cplex.h>
 
+variable_id LinearProgram::invalid_variable = -1;
+
 LinearProgram::LinearProgram(CPXENVptr& env, std::string name, Goal opt) : env(env) {
 	int status;
 	problem = CPXcreateprob(env, &status, name.c_str());

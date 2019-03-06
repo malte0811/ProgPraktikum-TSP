@@ -22,15 +22,14 @@ namespace tspsolvers {
 	 * hinzugefügt wird.
 	 */
 	TSPSolution solveGreedy(const TSPInstance& inst) {
-		const Graph::EdgeMap <cost_t>& distances = inst.getGraphDistances();
-		std::vector<Graph::Edge> sortedEdges;
-		for (Graph::EdgeIt it(inst.getGraph()); it!=lemon::INVALID; ++it) {
-			sortedEdges.push_back(it);
+		std::vector<variable_id> sortedEdges;
+		for (variable_id i = 0; i<inst.getEdgeCount(); ++i) {
+			sortedEdges.push_back(i);
 		}
 		//Sortieren nach Kosten der entsprechenden Kanten
 		std::sort(sortedEdges.begin(), sortedEdges.end(),
-				  [&distances](const Graph::Edge& edgeA, const Graph::Edge& edgeB) {
-					  return distances[edgeA]<distances[edgeB];
+				  [&inst](variable_id edgeA, variable_id edgeB) {
+					  return inst.getCost(edgeA)<inst.getCost(edgeB);
 				  }
 		);
 		/*
@@ -38,21 +37,21 @@ namespace tspsolvers {
 		 * Zusammenhangskomponente wie i an, der auch Grad <2 hat (Falls i Grad 0 hat, ist dies i selbst), d.h. das
 		 * andere Ende des Toursegments. Falls an i 2 Kanten anliegen, ist der Wert beliebig.
 		 */
-		Graph::NodeMap <Graph::Node> otherEnd(inst.getGraph());
-		for (Graph::NodeIt it(inst.getGraph()); it!=lemon::INVALID; ++it) {
-			otherEnd[it] = it;
+		std::vector<city_id> otherEnd(inst.getCityCount());
+		for (city_id i = 0; i<inst.getCityCount(); ++i) {
+			otherEnd[i] = i;
 		}
 		std::vector<bool> used(static_cast<size_t>(inst.getEdgeCount()));
-		Graph::NodeMap <size_t> degree(inst.getGraph());
+		std::vector<size_t> degree(inst.getCityCount());
 		unsigned addedEdges = 0;
-		for (const Graph::Edge& e:sortedEdges) {
+		for (variable_id e:sortedEdges) {
 			//Falls an einem der beiden Enden schon 2 Kanten anliegen, kann die Kante nicht hinzugefügt werden
-			Graph::Node u = inst.getGraph().u(e);
+			city_id u = inst.getLowerEnd(e);
 			size_t& edgesAtU = degree[u];
 			if (edgesAtU>=2) {
 				continue;
 			}
-			Graph::Node v = inst.getGraph().v(e);
+			city_id v = inst.getHigherEnd(e);
 			size_t& edgesAtV = degree[v];
 			if (edgesAtV>=2) {
 				continue;
@@ -65,14 +64,14 @@ namespace tspsolvers {
 				++addedEdges;
 				++edgesAtU;
 				++edgesAtV;
-				used[inst.getVariable(e)] = true;
-				if (addedEdges==inst.getSize()-1) {
+				used[e] = true;
+				if (addedEdges==inst.getCityCount()-1) {
 					break;//Tour ist fast vollständig, die letzte Kante ist aber eindeutig bestimmt
 				}
 				//Enden des neuen Segments setzen
 				//newEndU/V zwischenspeichern, falls die Segmente aus einzelnen Knoten bestehen
-				Graph::Node newEndU = otherEnd[u];
-				Graph::Node newEndV = otherEnd[v];
+				city_id newEndU = otherEnd[u];
+				city_id newEndV = otherEnd[v];
 				otherEnd[newEndV] = newEndU;
 				otherEnd[newEndU] = newEndV;
 			}
@@ -85,17 +84,15 @@ namespace tspsolvers {
 	 * Fügt die fehlende Kante in einen Hamilton-Pfad in der TSP-Instanz inst ein
 	 */
 	void closeHamiltonPath(const TSPInstance& instance, std::vector<bool>& used,
-						   const Graph::NodeMap <size_t>& degree) {
-		Graph::Node firstEnd = lemon::INVALID;
-		for (Graph::NodeIt it(instance.getGraph()); it!=lemon::INVALID; ++it) {
-			if (degree[it]==1) {
-				if (firstEnd!=lemon::INVALID) {
-					city_id cityA = instance.getCity(firstEnd);
-					city_id cityB = instance.getCity(it);
-					used[instance.getVariable(cityA, cityB)] = true;
+						   const std::vector<size_t>& degree) {
+		city_id firstEnd = TSPInstance::invalid_city;
+		for (city_id currCity = 0; currCity<instance.getCityCount(); ++currCity) {
+			if (degree[currCity]==1) {
+				if (firstEnd!=TSPInstance::invalid_city) {
+					used[instance.getVariable(firstEnd, currCity)] = true;
 					break;
 				} else {
-					firstEnd = it;
+					firstEnd = currCity;
 				}
 			}
 		}

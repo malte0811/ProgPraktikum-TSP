@@ -23,10 +23,10 @@ private:
 	Graph workGraph;
 	//Der Grundzustand des Arbeitsgraphen: Keine Kanten, nur die korrekte Anzahl an Knoten
 	Graph::Snapshot baseState;
-	//Ordnet jedem Knoten im TSP-Graphen einen Knoten im Arbeitsgraphen zu
-	Graph::NodeMap <Graph::Node> origToWork;
+	//Ordnet jedem Stadt der TSP-Instanz einen Knoten im Arbeitsgraphen zu
+	std::vector<Graph::Node> origToWork;
 	//Die Umkehrabbildung zu origToWork
-	Graph::NodeMap <Graph::Node> workToOrig;
+	Graph::NodeMap <city_id> workToOrig;
 	//Die Kantenkapazitäten im Arbeitsgraphen
 	Graph::EdgeMap<double> capacity;
 	//Der Min-Cut-Löser

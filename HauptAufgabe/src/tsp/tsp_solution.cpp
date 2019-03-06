@@ -6,7 +6,7 @@
  * @param variables Die Belegung der LP-Variablen
  */
 TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& variables)
-		: inst(&inst), order(static_cast<size_t>(inst.getSize())), variables(variables) {
+		: inst(&inst), order(static_cast<size_t>(inst.getCityCount())), variables(variables) {
 	city_id previous = 0;
 	city_id currentCity = 0;
 	size_t indexInTour = 0;
@@ -16,7 +16,7 @@ TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& varia
 		}
 		order[indexInTour] = currentCity;
 		++indexInTour;
-		for (city_id next = 0; next<inst.getSize(); ++next) {
+		for (city_id next = 0; next<inst.getCityCount(); ++next) {
 			if (next!=previous && next!=currentCity && variables[inst.getVariable(currentCity, next)]) {
 				cost += inst.getDistance(currentCity, next);
 				previous = currentCity;
@@ -61,7 +61,7 @@ void TSPSolution::write(std::ostream& out) const {
 	}
 	out << "NAME: " << inst->getName() << ".tsp.tour\n"
 		<< "TYPE: TOUR\n"
-		<< "DIMENSION: " << inst->getSize() << "\n"
+		<< "DIMENSION: " << inst->getCityCount() << "\n"
 		<< "TOUR_SECTION\n";
 	for (city_id c:getOrder()) {
 		out << c+1 << "\n";

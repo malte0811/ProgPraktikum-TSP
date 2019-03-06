@@ -81,10 +81,10 @@ public:
 
 	std::vector<double> getObjective();
 
+	static variable_id invalid_variable;
 private:
 	CPXENVptr& env;
 	CPXLPptr problem;
 };
-
 
 #endif
