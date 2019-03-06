@@ -212,7 +212,7 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 					varWeight = cost;
 				}
 				++nonIntCount;
-			} else {
+			} else if (diff==0) {
 				LinearProgram::BoundType upper = LinearProgram::upper, lower = LinearProgram::lower;
 				if (goal==LinearProgram::maximize) {
 					std::swap(upper, lower);
@@ -223,9 +223,10 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 				 * werden
 				 */
 				if (node.bounds[i][upper]!=node.bounds[i][lower]) {
-					if (rounded==node.bounds[i][upper] && reducedCosts[i]<-(upperBound-fractOpt.getValue())) {
+					double costDifference = upperBound-fractOpt.getValue();
+					if (rounded==node.bounds[i][upper] && reducedCosts[i]+1<-costDifference) {
 						node.bounds.fix(i, upper);
-					} else if (rounded==node.bounds[i][lower] && reducedCosts[i]>upperBound-fractOpt.getValue()) {
+					} else if (rounded==node.bounds[i][lower] && costDifference+1<reducedCosts[i]) {
 						node.bounds.fix(i, lower);
 					}
 				}
