@@ -6,6 +6,7 @@
 #include <lemon/list_graph.h>
 #include <linear_program.hpp>
 #include <cmath>
+#include <cassert>
 
 using cost_t = unsigned;
 using city_id = int;
@@ -68,6 +69,7 @@ city_id TSPInstance::getCityCount() const {
 }
 
 variable_id TSPInstance::getVariable(city_id a, city_id b) const {
+	assert(a!=b);
 	if (b>a) {
 		std::swap(a, b);
 	}
@@ -76,7 +78,7 @@ variable_id TSPInstance::getVariable(city_id a, city_id b) const {
 
 city_id TSPInstance::getHigherEnd(variable_id var) const {
 	//TODO ist nicht wirklich schön...
-	return static_cast<city_id>(.5+std::sqrt(.25+2*var));
+	return std::lround(std::sqrt(.25+2*var));
 }
 
 city_id TSPInstance::getLowerEnd(variable_id var) const {

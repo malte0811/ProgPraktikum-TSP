@@ -11,7 +11,7 @@ BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerato
 		constraintsAtStart(static_cast<size_t>(program.getConstraintCount())),
 		defaultBounds(static_cast<size_t>(varCount)),
 		currentBounds(static_cast<size_t>(varCount)),
-		intTolerance(0.01) {
+		intTolerance(0.0001) {
 	//obere Schranke auf schlechtesten möglichen Wert setzen
 	if (goal==LinearProgram::minimize) {
 		upperBound = std::numeric_limits<double>::max();
@@ -64,7 +64,7 @@ long getNextWorse(double in, LinearProgram::Goal g, lemon::Tolerance<double> tol
  * 3. Die Lösung ist schlechter als die aktuelle obere Schranke.<br>
  * 4. Der Wert der Lösung hat sich in den letzten Iterationen nicht stark geändert und es wurde kein Schnitt hinzu-
  * gefügt, der eine Neuberechnung erzwingt.<br>
- * Amd Ende werden Constraints entfernt, die seit mindestens 10 Iterationen nicht mehr mit Gleichheit erfüllt waren.
+ * Am Ende werden Constraints entfernt, die seit mindestens 10 Iterationen nicht mehr mit Gleichheit erfüllt waren.
  * @param out Ein Solution-Objekt der korrekten Größe. Dient als Ausgabe.
  */
 void BranchAndCut::solveLP(LinearProgram::Solution& out) {
@@ -224,9 +224,10 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 				 */
 				if (node.bounds[i][upper]!=node.bounds[i][lower]) {
 					double costDifference = upperBound-fractOpt.getValue();
-					if (rounded==node.bounds[i][upper] && reducedCosts[i]+1<-costDifference) {
+					if (rounded==node.bounds[i][upper] && generalTolerance.less(reducedCosts[i], -costDifference)) {
 						node.bounds.fix(i, upper);
-					} else if (rounded==node.bounds[i][lower] && costDifference+1<reducedCosts[i]) {
+					} else if (rounded==node.bounds[i][lower] &&
+							   generalTolerance.less(costDifference, reducedCosts[i])) {
 						node.bounds.fix(i, lower);
 					}
 				}
@@ -237,11 +238,15 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 			 * Es wurde keine nicht-ganzzahlige Variable gefunden. Außerdem ist der Wert der Lösung besser als die
 			 * bisherige obere Schranke; die Lösung wird also als neue obere Schranke gesetzt.
 			 */
-			std::vector<long> newOpt(varCount);
+			std::vector<long> newOpt(static_cast<size_t>(varCount));
+			long value = 0;
 			for (variable_id i = 0; i<varCount; ++i) {
 				newOpt[i] = std::lround(fractOpt[i]);
+				value += newOpt[i]*objCoefficients[i];
 			}
-			setUpperBound(newOpt, std::lround(fractOpt.getValue()));
+			if (value!=std::lround(fractOpt.getValue()))
+				std::cerr << "Fractional: " << fractOpt.getValue() << ", integer: " << value << std::endl;
+			setUpperBound(newOpt, value);
 		} else {
 			long rounded = std::lround(fractOpt[varToBound]);
 			double diff = rounded-fractOpt[varToBound];
@@ -331,10 +336,17 @@ void BranchAndCut::setUpperBound(const std::vector<long>& value, long cost) {
 	upperBound = cost;
 	currBest = value;
 	std::cout << "Setting upper bound as " << cost << std::endl;
-	auto it = open.cbegin();
-	while (it!=open.cend() && !isBetter(getNextWorse(it->value, goal, intTolerance), cost, goal)) {
-		openSize -= it->estimateSize();
-		it = open.erase(it);
+	if (!open.empty()) {
+		//TODO geht das schöner?
+		auto it = open.end();
+		--it;
+		while (!open.empty() && !isBetter(getNextWorse(it->value, goal, intTolerance), cost, goal)) {
+			openSize -= it->estimateSize();
+			it = open.erase(it);
+			if (!open.empty()) {
+				--it;
+			}
+		}
 	}
 }
 

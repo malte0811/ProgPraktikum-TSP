@@ -2,13 +2,14 @@
 #include <lemon/unionfind.h>
 #include <union_find.hpp>
 #include <cmath>
+#include <cassert>
 
 TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst, bool contract)
 		: tsp(inst), enableContraction(contract), tolerance(1e-5) {}
 
 CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& solution) {
 	Graph workGraph;
-	std::vector<Graph::Node> origToWork(tsp.getCityCount());
+	std::vector<Graph::Node> origToWork(static_cast<size_t>(tsp.getCityCount()));
 	ContractionMap workToOrig(workGraph);
 	for (city_id i = 0; i<tsp.getCityCount(); ++i) {
 		Graph::Node newNode = workGraph.addNode();
@@ -71,6 +72,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 				prelimF.push_back(toVariable[e]);
 			}
 			std::vector<variable_id> incidentF(tsp.getEdgeCount(), LinearProgram::invalid_variable);
+			size_t sizeF = prelimF.size();
 			for (variable_id e:prelimF) {
 				city_id ends[2] = {tsp.getLowerEnd(e), tsp.getHigherEnd(e)};
 				for (city_id end:ends) {
@@ -78,11 +80,11 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 						incidentF[end] = e;
 					} else {
 						variable_id oldEdge = incidentF[end];
-						fTSP[oldEdge] = false;
 						incidentF[tsp.getLowerEnd(oldEdge)] = LinearProgram::invalid_variable;
 						incidentF[tsp.getHigherEnd(oldEdge)] = LinearProgram::invalid_variable;
 						incidentF[tsp.getLowerEnd(e)] = LinearProgram::invalid_variable;
 						incidentF[tsp.getHigherEnd(e)] = LinearProgram::invalid_variable;
+						fTSP[oldEdge] = false;
 						fTSP[e] = false;
 						isInX[end] = !isInX[end];
 						if (isInX[end]) {
@@ -90,33 +92,39 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 						} else {
 							--sizeXTrue;
 						}
+						sizeF -= 2;
 						break;
 					}
 				}
 			}
-			constrStarts.push_back(static_cast<int>(indices.size()));
-			size_t sizeF = 0;
-			for (variable_id e:prelimF) {
-				if (fTSP[e]) {
-					indices.push_back(e);
-					++sizeF;
-				}
-			}
-			std::vector<city_id> xElements;
-			const bool valForX = sizeXTrue<tsp.getCityCount()/2;
-			for (city_id i = 0; i<tsp.getCityCount(); ++i) {
-				if (isInX[i]==valForX) {
-					for (city_id other:xElements) {
-						indices.push_back(tsp.getVariable(i, other));
+			//Mit |F|==1 gibt es eine Subtour-Constraint, die die 2-Matching-Constraint impliziert
+			if (sizeF>1) {
+				constrStarts.push_back(static_cast<int>(indices.size()));
+				for (variable_id e:prelimF) {
+					if (fTSP[e]) {
+						indices.push_back(e);
 					}
-					xElements.push_back(i);
 				}
+				std::vector<city_id> xElements;
+				const bool valForX = sizeXTrue<tsp.getCityCount()/2;
+				for (city_id i = 0; i<tsp.getCityCount(); ++i) {
+					if (isInX[i]==valForX) {
+						for (city_id other:xElements) {
+							indices.push_back(tsp.getVariable(i, other));
+						}
+						xElements.push_back(i);
+					}
+				}
+				rhs.push_back(static_cast<size_t>(xElements.size()+sizeF/2));
 			}
-			rhs.push_back(static_cast<size_t>(xElements.size()+sizeF/2));
 		}
-		lp.addConstraints(indices, std::vector<double>(indices.size(), 1), rhs, constrStarts,
-						  std::vector<LinearProgram::CompType>(rhs.size(), LinearProgram::less_eq));
-		return CutGenerator::maybe_recalc;
+		if (indices.empty()) {
+			return CutGenerator::valid;
+		} else {
+			lp.addConstraints(indices, std::vector<double>(indices.size(), 1), rhs, constrStarts,
+							  std::vector<LinearProgram::CompType>(rhs.size(), LinearProgram::less_eq));
+			return CutGenerator::maybe_recalc;
+		}
 	} else {
 		return CutGenerator::valid;
 	}

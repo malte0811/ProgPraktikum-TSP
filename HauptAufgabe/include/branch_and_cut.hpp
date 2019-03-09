@@ -11,6 +11,7 @@
 #include <array>
 #include <map>
 #include <set>
+#include <relative_tolerance.hpp>
 
 /**
  * Bestimmt die optimale Lösung eines ganzzahligen linearen Programms, bei dem die Zielfunktion ganzzahlige
@@ -79,7 +80,7 @@ private:
 	//Die Koeffizienten der Zielfunktion
 	std::vector<long> objCoefficients;
 	//Die Menge der offenen Knoten, sortiert nach dem Wert der Zielfunktion
-	std::set<BranchNode> open;
+	std::multiset<BranchNode> open;
 	//Die Variablenschranken im ursprünglichen LP
 	std::vector<VariableBounds> defaultBounds;
 	//Die aktuellen Variablenschranken
@@ -93,7 +94,7 @@ private:
 	//Anzahl der Nebenbedingungen am Start der Berechnung
 	const size_t constraintsAtStart;
 	//Toleranz für allgemeine Verwendung
-	const lemon::Tolerance<double> generalTolerance;
+	const RelativeTolerance generalTolerance;
 	//Toleranz, nach der entschieden wird, ob ein Wert ganzzahlig ist
 	const lemon::Tolerance<double> intTolerance;
 
