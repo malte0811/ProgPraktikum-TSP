@@ -21,8 +21,8 @@ private:
 	void contractPaths(Graph& g, Graph::NodeMap<bool>& odd, Graph::EdgeMap<double>& c,
 					   ContractionMap& toOrig);
 
-	void lemma1220(const Graph& graph, std::vector<Blossom>& out, const Graph::NodeMap<bool>& odd,
-				   const Graph::EdgeMap<double>& c);
+	std::vector<Blossom> lemma1220(const Graph& graph, const Graph::NodeMap<bool>& odd,
+								   const Graph::EdgeMap<double>& c);
 
 	std::vector<Graph::Node> discoverPath(const Graph& graph, Graph::Node start, Graph::Node exclude,
 										  const Graph::NodeMap<bool>& odd, Graph::NodeMap<bool>& visited,
