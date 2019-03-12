@@ -1,6 +1,7 @@
 #include <relative_tolerance.hpp>
+#include <lemon/tolerance.h>
 
-const double RelativeTolerance::eps = 0.0001;
+const double RelativeTolerance::eps = lemon::Tolerance<double>::defaultEpsilon();
 
 bool RelativeTolerance::less(double a, double b) const {
 	if (a>=b) {

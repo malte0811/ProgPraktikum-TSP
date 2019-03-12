@@ -42,13 +42,13 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 		contractPaths(workGraph, odd, c, workToOrig);
 	}
 	//TODO explain why I don't have z (c is always 0, cDash always inf, so the edges are irrelevant)
-	std::vector<XandF> allMin;
+	std::vector<Blossom> allMin;
 	lemma1220(workGraph, allMin, odd, c);
-	if (!allMin.empty() && tolerance.less(allMin.front().cost, 1)) {
+	if (!allMin.empty()) {
 		std::vector<variable_id> indices;
 		std::vector<int> constrStarts;
 		std::vector<double> rhs;
-		for (XandF& min:allMin) {
+		for (Blossom& min:allMin) {
 			std::vector<bool> isInX(tsp.getCityCount());
 			size_t sizeXTrue = 0;
 			for (Graph::Node contracted:min.x) {
@@ -97,40 +97,43 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 					}
 				}
 			}
-			//Mit |F|==1 gibt es eine Subtour-Constraint, die die 2-Matching-Constraint impliziert
+			/*
+			 * Mit |F|==1 ist auch die Subtour-Constraint für X verletzt und impliziert die
+			 * 2-Matching-Constraint
+			 */
+			constrStarts.push_back(static_cast<int>(indices.size()));
 			if (sizeF>1) {
-				constrStarts.push_back(static_cast<int>(indices.size()));
 				for (variable_id e:prelimF) {
 					if (fTSP[e]) {
 						indices.push_back(e);
 					}
 				}
-				std::vector<city_id> xElements;
-				const bool valForX = sizeXTrue<tsp.getCityCount()/2;
-				for (city_id i = 0; i<tsp.getCityCount(); ++i) {
-					if (isInX[i]==valForX) {
-						for (city_id other:xElements) {
-							indices.push_back(tsp.getVariable(i, other));
-						}
-						xElements.push_back(i);
+			}
+			std::vector<city_id> xElements;
+			const bool valForX = sizeXTrue<tsp.getCityCount()/2;
+			for (city_id i = 0; i<tsp.getCityCount(); ++i) {
+				if (isInX[i]==valForX) {
+					for (city_id other:xElements) {
+						indices.push_back(tsp.getVariable(i, other));
 					}
+					xElements.push_back(i);
 				}
+			}
+			if (sizeF>1) {
 				rhs.push_back(static_cast<size_t>(xElements.size()+sizeF/2));
+			} else {
+				rhs.push_back(xElements.size()-1);
 			}
 		}
-		if (indices.empty()) {
-			return CutGenerator::valid;
-		} else {
-			lp.addConstraints(indices, std::vector<double>(indices.size(), 1), rhs, constrStarts,
-							  std::vector<LinearProgram::CompType>(rhs.size(), LinearProgram::less_eq));
-			return CutGenerator::maybe_recalc;
-		}
+		lp.addConstraints(indices, std::vector<double>(indices.size(), 1), rhs, constrStarts,
+						  std::vector<LinearProgram::CompType>(rhs.size(), LinearProgram::less_eq));
+		return CutGenerator::maybe_recalc;
 	} else {
 		return CutGenerator::valid;
 	}
 }
 
-void TwoMatchingCutGen::lemma1220(const Graph& graph, std::vector<XandF>& out, const Graph::NodeMap<bool>& odd,
+void TwoMatchingCutGen::lemma1220(const Graph& graph, std::vector<Blossom>& out, const Graph::NodeMap<bool>& odd,
 								  const Graph::EdgeMap<double>& c) {
 	Graph::EdgeMap<double> d(graph);
 	Graph::NodeMap<int> adjacentEDash(graph);
@@ -167,8 +170,6 @@ void TwoMatchingCutGen::lemma1220(const Graph& graph, std::vector<XandF>& out, c
 			ufMap[it] = nextIndex;
 		}
 	}
-	double minCost = 1;
-	Graph::EdgeMap<bool> f(graph);
 	while (!leaves.empty()) {
 		Graph::Node currentNode = leaves.back();
 		leaves.pop_back();
@@ -178,59 +179,55 @@ void TwoMatchingCutGen::lemma1220(const Graph& graph, std::vector<XandF>& out, c
 		}
 		const size_t xIndex = components.find(ufMap[currentNode]);
 		double cutCost = gh.minCutValue(currentNode, pred);
-		if (!tolerance.less(minCost, cutCost) && tolerance.less(cutCost, 1)) {
+		if (tolerance.less(cutCost, 1)) {
+			Blossom curr;
 			Graph::Edge minDiffEdge;
 			double minDiffVal = std::numeric_limits<double>::max();
 			bool hasMinEdge = false;
+			size_t minIndex = std::numeric_limits<size_t>::max();
 			for (Graph::EdgeIt eIt(graph); eIt!=lemon::INVALID; ++eIt) {
 				bool uInX = components.find(ufMap[graph.u(eIt)])==xIndex;
 				bool vInX = components.find(ufMap[graph.v(eIt)])==xIndex;
 				if (uInX!=vInX) {
-					f[eIt] = c[eIt]>0.5;
+					bool inF = c[eIt]>0.5;
+					if (inF) {
+						curr.f.push_back(eIt);
+					}
 					if (std::abs(c[eIt]-0.5)<std::abs(minDiffVal)) {
 						minDiffEdge = eIt;
 						minDiffVal = c[eIt]-0.5;
 						hasMinEdge = true;
+						if (inF) {
+							minIndex = curr.f.size()-1;
+						} else {
+							minIndex = std::numeric_limits<size_t>::max();
+						}
 					}
-				} else {
-					f[eIt] = false;
 				}
 			}
 			unsigned xAndTDash = 0;
 			for (Graph::NodeIt nIt(graph); nIt!=lemon::INVALID; ++nIt) {
-				if (components.find(ufMap[nIt])==xIndex && (adjacentEDash[nIt]%2==1)!=odd[nIt]) {
-					++xAndTDash;
+				if (components.find(ufMap[nIt])==xIndex) {
+					if ((adjacentEDash[nIt]%2==1)!=odd[nIt]) {
+						++xAndTDash;
+					}
+					curr.x.push_back(nIt);
 				}
 			}
 			bool valid = true;
 			if (xAndTDash%2==0) {
 				if (!hasMinEdge) {
 					valid = false;
-				} else if (f[minDiffEdge]) {
+				} else if (minIndex<curr.f.size()) {
 					cutCost += 2*minDiffVal;
-					f[minDiffEdge] = false;
+					curr.f[minIndex] = curr.f.back();
+					curr.f.pop_back();
 				} else {
 					cutCost -= 2*minDiffVal;
-					f[minDiffEdge] = true;
+					curr.f.push_back(minDiffEdge);
 				}
 			}
-			if (valid && !tolerance.less(minCost, cutCost) && tolerance.less(cutCost, 1)) {
-				if (tolerance.less(cutCost, minCost)) {
-					out.clear();
-					minCost = cutCost;
-				}
-				XandF curr;
-				curr.cost = cutCost;
-				for (Graph::EdgeIt cp(graph); cp!=lemon::INVALID; ++cp) {
-					if (f[cp]) {
-						curr.f.push_back(cp);
-					}
-				}
-				for (Graph::NodeIt cp(graph); cp!=lemon::INVALID; ++cp) {
-					if (components.find(ufMap[cp])==xIndex) {
-						curr.x.push_back(cp);
-					}
-				}
+			if (valid && tolerance.less(cutCost, 1)) {
 				out.push_back(curr);
 			}
 		}

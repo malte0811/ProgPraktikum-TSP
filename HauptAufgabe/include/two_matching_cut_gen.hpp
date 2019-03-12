@@ -13,16 +13,15 @@ public:
 
 private:
 	using ContractionMap = Graph::NodeMap<std::vector<city_id>>;
-	struct XandF {
+	struct Blossom {
 		std::vector<Graph::Node> x;
 		std::vector<Graph::Edge> f;
-		double cost;
 	};
 
 	void contractPaths(Graph& g, Graph::NodeMap<bool>& odd, Graph::EdgeMap<double>& c,
 					   ContractionMap& toOrig);
 
-	void lemma1220(const Graph& graph, std::vector<XandF>& out, const Graph::NodeMap<bool>& odd,
+	void lemma1220(const Graph& graph, std::vector<Blossom>& out, const Graph::NodeMap<bool>& odd,
 				   const Graph::EdgeMap<double>& c);
 
 	std::vector<Graph::Node> discoverPath(const Graph& graph, Graph::Node start, Graph::Node exclude,

@@ -94,9 +94,9 @@ int main(int argc, char** argv) {
 		if (args.size()==1) {
 			optimal.write(std::cout);
 		} else {
-			std::ofstream out(argv[1]);
+			std::ofstream out(args[1]);
 			if (!out) {
-				std::cout << "Could not create/write to output file: " << argv[1] << std::endl;
+				std::cout << "Could not create/write to output file: " << args[1] << std::endl;
 				return 1;
 			}
 			optimal.write(out);
