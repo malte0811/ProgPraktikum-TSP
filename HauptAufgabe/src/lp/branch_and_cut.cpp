@@ -156,8 +156,13 @@ std::vector<value_type> BranchAndCut::solve() {
 		}
 		if (maxOpenSize>0) {
 			/*
-			 * Falls die offenen Menge "groß" wird, werden die Knoten mit dem höchsten Speicherverbrauch entfernt (mit
-			 * DFS behandelt), bis die offenen Menge "klein" ist
+			 * Falls die offenen Menge "groß" wird, werden die Knoten entfernt (mit DFS behandelt), bis die offenen Menge
+			 * "klein" ist. Dabei werden Knoten gewählt, die möglichst viel Speicher verbrauchen, unter diesen solche mit
+			 * möglichst vielen festgelegten Variablen und unter diesen solche mit der kleinsten unteren Schranke. Die
+			 * erste Bedingung führt dazu, dass der Speicherverbrauch möglicht schnell klein wird; die zweite Bedingung
+			 * soll bewirken, dass die Knoten oft sehr schnell bearbeitet werden können; die letzte Bedingung soll dazu
+			 * führen, dass möglichst wenige Knoten bearbeitet werden, die durch eine bessere obere Schranke
+			 * ausgeschlossen werden könnten.
 			 */
 			while (openSize>maxOpenSize*0.95) {
 				auto maxIt = open.begin();
@@ -233,6 +238,8 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 				 * werden
 				 */
 				if (node.bounds[i][upper]!=node.bounds[i][lower]) {
+					//TODO upperBound ist für das ganze IP, nicht für diesen Zweig. Geht das trotzdem?
+					//Nach Intuition ja, für ein richtiges Argument brauche ich mehr LGO
 					double costDifference = upperBound-fractOpt.getValue();
 					if (rounded==node.bounds[i][upper] && reducedCosts[i]<-costDifference) {
 						node.bounds.fix(i, upper);

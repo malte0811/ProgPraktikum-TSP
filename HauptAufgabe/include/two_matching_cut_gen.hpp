@@ -24,12 +24,15 @@ private:
 	std::vector<Blossom> lemma1220(const Graph& graph, const Graph::NodeMap<bool>& odd,
 								   const Graph::EdgeMap<double>& c);
 
-	std::vector<Graph::Node> discoverPath(const Graph& graph, Graph::Node start, Graph::Node exclude,
+	std::vector<Graph::Node> discoverPath(const Graph& graph, Graph::Node start,
+										  lemon::ListGraphBase::Edge& exclude,
 										  const Graph::NodeMap<bool>& odd, Graph::NodeMap<bool>& visited,
-										  const Graph::EdgeMap<double>& c, double& firstEdgeVal);
+										  const Graph::EdgeMap<double>& c, double edgeVal);
 
 	bool findAndContractPath(Graph& g, Graph::Node start, ContractionMap& toOrig, Graph::NodeMap<bool>& odd,
-							 const Graph::EdgeMap<double>& c);
+							 const lemon::GraphExtender<lemon::ListGraphBase>::EdgeMap<double>& c);
+
+	double getPathValue(const Graph& g, Graph::Node start, const Graph::EdgeMap<double>& c);
 
 	const TSPInstance& tsp;
 

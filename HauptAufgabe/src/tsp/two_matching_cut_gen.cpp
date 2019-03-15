@@ -76,7 +76,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 		std::vector<double> rhs;
 		for (Blossom& min:allMin) {
 			//Gibt an, ob ein Knoten in der aktuellen Menge X ist
-			std::vector<bool> isInX(tsp.getCityCount());
+			std::vector<bool> isInX(static_cast<size_t>(tsp.getCityCount()));
 			//Die Größe der Menge X
 			size_t sizeX = 0;
 			for (Graph::Node contracted:min.x) {
@@ -86,7 +86,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 				sizeX += workToOrig[contracted].size();
 			}
 			//Gibt an, ob eine Variable/Kante im TSP-Graphen in F ist
-			std::vector<bool> fTSP(tsp.getEdgeCount());
+			std::vector<bool> fTSP(static_cast<size_t>(tsp.getEdgeCount()));
 			//Die Menge F vor dem Umwandeln zu einem Matching
 			std::vector<variable_id> prelimF;
 			//Alle 1-Kanten im Schnitt von X sind in F
@@ -139,10 +139,12 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 			 * Mit |F|==1 ist auch die Subtour-Constraint für X verletzt und impliziert die
 			 * 2-Matching-Constraint
 			 */
+			assert(sizeF%2==1);
 			if (sizeF>1) {
 				for (variable_id e:prelimF) {
 					if (fTSP[e]) {
 						indices.push_back(e);
+						assert(isInX[tsp.getLowerEnd(e)]!=isInX[tsp.getHigherEnd(e)]);
 					}
 				}
 			}
@@ -173,6 +175,10 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 						  std::vector<LinearProgram::CompType>(rhs.size(), LinearProgram::less_eq));
 		return CutGenerator::maybe_recalc;
 	} else {
+		//if (enableContraction) {
+		//	TwoMatchingCutGen tmp(tsp, false);
+		//	assert(tmp.validate(lp, solution)==CutGenerator::valid);
+		//}
 		return CutGenerator::valid;
 	}
 }
@@ -300,7 +306,7 @@ std::vector<TwoMatchingCutGen::Blossom> TwoMatchingCutGen::lemma1220(const Graph
 				}
 			}
 			//Ist der Schnitt gültig?
-			bool valid;
+			bool valid = true;
 			if (xAndTDash%2==0) {
 				if (minDiffEdge==lemon::INVALID) {
 					//Die Paritätsbedingung kann nicht erfüllt werden, es gibt keine Kante im Schnitt
@@ -315,9 +321,6 @@ std::vector<TwoMatchingCutGen::Blossom> TwoMatchingCutGen::lemma1220(const Graph
 					cutCost -= 2*minDiffVal;
 					curr.f.push_back(minDiffEdge);
 				}
-			} else {
-				//Die Paritätsbedingung ist schon erfüllt
-				valid = true;
 			}
 			//Falls die Blüte gültig ist und Wert kleiner als 1 hat, wird sie zurückgegeben
 			if (valid && tolerance.less(cutCost, 1)) {
@@ -347,52 +350,48 @@ void TwoMatchingCutGen::contractPaths(Graph& g, Graph::NodeMap<bool>& odd, Graph
 }
 
 bool TwoMatchingCutGen::findAndContractPath(Graph& g, Graph::Node start, ContractionMap& toOrig,
-											Graph::NodeMap<bool>& odd,
-											const Graph::EdgeMap<double>& c) {
+											Graph::NodeMap<bool>& odd, const Graph::EdgeMap<double>& c) {
 	Graph::NodeMap<bool> inPath(g);
-	double pathValue = -1;
+	double pathValue = getPathValue(g, start, c);
+	if (pathValue<0) {
+		return false;
+	}
 	//Teilpfad in eine Richtung ("links") finden
-	std::vector<Graph::Node> left = discoverPath(g, start, start, odd, inPath, c, pathValue);
-	if (left.empty()) {
-		return false;
-	}
-	pathValue = 1-pathValue;
-	//Anderen Teilpfad finden
-	std::vector<Graph::Node> right = discoverPath(g, start, left[0], odd, inPath, c, pathValue);
-	//TODO when can right be empty?
-	if (left.size()+right.size()<2 || right.empty()) {
-		return false;
-	}
-	std::vector<Graph::Node> toContract(left.begin(), left.end()-1);
-	if (!right.empty()) {
-		toContract.insert(toContract.end(), right.begin(), right.end()-1);
+	Graph::Edge firstEdge = lemon::INVALID;
+	std::vector<Graph::Node> left = discoverPath(g, start, firstEdge, odd, inPath, c, pathValue);
+	std::vector<Graph::Node> right;
+	bool isCycle = left.front()==left.back();
+	if (!isCycle) {
+		pathValue = 1-pathValue;
+		//Anderen Teilpfad finden
+		right = discoverPath(g, start, firstEdge, odd, inPath, c, pathValue);
+		//Kreis mit einem geraden Knoten
+		isCycle = right.back()==left.back();
 	}
 	Graph::Node remainingNode = left.back();
-	if (remainingNode!=start) {
-		toContract.push_back(start);
+	std::vector<Graph::Node> toRemove(left.begin()+1, left.end()-1);
+	if (right.size()>1) {
+		toRemove.insert(toRemove.end(), right.begin(), right.end()-1);
 	}
-	if (right.back()!=left.back()) {
-		inPath[right.back()] = false;
-		for (Graph::Node pathNode:toContract) {
-			std::vector<Graph::Edge> toMove;
-			for (Graph::OutArcIt out(g, pathNode); out!=lemon::INVALID; ++out) {
-				Graph::Node target = g.target(out);
-				if (!inPath[target]) {
-					toMove.push_back(out);
-				}
-			}
-			for (Graph::Edge e:toMove) {
-				if (g.u(e)==pathNode) {
-					g.changeU(e, remainingNode);
+	if (!isCycle) {
+		Graph::Node lastContracted = right[right.size()-2];
+		Graph::Node otherRemaining = right.back();
+		for (Graph::OutArcIt it(g, lastContracted); it!=lemon::INVALID; ++it) {
+			Graph::Node target = g.target(it);
+			if (target==otherRemaining) {
+				if (g.u(it)==lastContracted) {
+					g.changeU(it, remainingNode);
 				} else {
-					g.changeV(e, remainingNode);
+					g.changeV(it, remainingNode);
 				}
+				break;
 			}
 		}
 	}
 	bool resultOdd = odd[remainingNode];
 	std::vector<city_id>& contractedSet = toOrig[remainingNode];
-	for (Graph::Node remove:toContract) {
+	for (Graph::Node remove:toRemove) {
+		assert(remove!=remainingNode);
 		if (odd[remove]) {
 			resultOdd = !resultOdd;
 		}
@@ -403,51 +402,56 @@ bool TwoMatchingCutGen::findAndContractPath(Graph& g, Graph::Node start, Contrac
 	return true;
 }
 
-std::vector<Graph::Node> TwoMatchingCutGen::discoverPath(const Graph& graph, Graph::Node start, Graph::Node exclude,
+double TwoMatchingCutGen::getPathValue(const Graph& g, Graph::Node start, const Graph::EdgeMap<double>& c) {
+	double ret = -1;
+	size_t degree = 0;
+	double edgeSum = 0;
+	for (Graph::OutArcIt it(g, start); it!=lemon::INVALID; ++it) {
+		if (ret<0) {
+			ret = c[it];
+		}
+		++degree;
+		edgeSum += c[it];
+	}
+	if (degree>2 || tolerance.different(edgeSum, 1)) {
+		return -1;
+	} else {
+		return ret;
+	}
+}
+
+std::vector<Graph::Node> TwoMatchingCutGen::discoverPath(const Graph& graph, Graph::Node start,
+														 lemon::ListGraphBase::Edge& exclude,
 														 const Graph::NodeMap<bool>& odd, Graph::NodeMap<bool>& visited,
-														 const Graph::EdgeMap<double>& c, double& firstEdgeVal) {
+														 const Graph::EdgeMap<double>& c, double edgeVal) {
 	//Die Knoten auf dem Pfad
 	std::vector<Graph::Node> path;
 	Graph::Node current = start;
-	//Der Grad des aktuellen Knotens
-	size_t degree;
-	//Die Summe der Werte der inzidenten Kanten
-	double edgeSum;
-	//Der Wert der nächsten Kante
-	double nextEdgeVal = firstEdgeVal;
+	Graph::Edge lastEdge = exclude;
+	bool canContinuePath;
 	do {
-		if (current!=start) {
-			path.push_back(current);
-		}
+		path.push_back(current);
 		visited[current] = true;
-		degree = 0;
-		edgeSum = 0;
 		Graph::Node nextNode = lemon::INVALID;
-		Graph::Node forbidden;
-		if (path.empty()) {
-			forbidden = exclude;
-		} else if (path.size()==1) {
-			forbidden = start;
-		} else {
-			forbidden = path[path.size()-2];
-		}
 		for (Graph::OutArcIt it(graph, current); it!=lemon::INVALID; ++it) {
-			Graph::Node potential = graph.target(it);
-			if (potential!=forbidden && (tolerance.negative(nextEdgeVal) || !tolerance.different(c[it], nextEdgeVal))) {
+			//TODO warum gibt it!=lastEdge eigentlich einen Compiler-Error?
+			if (lastEdge!=it && nextNode==lemon::INVALID && !tolerance.different(c[it], edgeVal)) {
+				Graph::Node potential = graph.target(it);
 				nextNode = potential;
-				if (tolerance.negative(nextEdgeVal)) {
-					firstEdgeVal = c[it];
+				lastEdge = it;
+				if (exclude==lemon::INVALID) {
+					exclude = it;
 				}
-				nextEdgeVal = c[it];
+				edgeVal = 1-edgeVal;
 			}
-			++degree;
-			edgeSum += c[it];
 		}
-		nextEdgeVal = 1-nextEdgeVal;
+		canContinuePath = graph.valid(nextNode) && !visited[nextNode] && odd[nextNode];
+		if (canContinuePath) {
+			canContinuePath &= getPathValue(graph, nextNode, c)>0;
+		}
 		current = nextNode;
-	} while (graph.valid(current) && !visited[current] && odd[current] && degree==2 &&
-			 !tolerance.different(edgeSum, 1));
-	if (degree==2 && graph.valid(current) && !tolerance.different(edgeSum, 1)) {
+	} while (canContinuePath);
+	if (current!=lemon::INVALID) {
 		path.push_back(current);
 		visited[current] = true;
 	}
