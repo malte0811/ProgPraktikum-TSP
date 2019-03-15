@@ -27,12 +27,12 @@ private:
 	std::vector<Graph::Node> discoverPath(const Graph& graph, Graph::Node start,
 										  lemon::ListGraphBase::Edge& exclude,
 										  const Graph::NodeMap<bool>& odd, Graph::NodeMap<bool>& visited,
-										  const Graph::EdgeMap<double>& c, double edgeVal);
+										  const Graph::EdgeMap<double>& c);
 
 	bool findAndContractPath(Graph& g, Graph::Node start, ContractionMap& toOrig, Graph::NodeMap<bool>& odd,
 							 const lemon::GraphExtender<lemon::ListGraphBase>::EdgeMap<double>& c);
 
-	double getPathValue(const Graph& g, Graph::Node start, const Graph::EdgeMap<double>& c);
+	bool isValidInternalNode(const Graph& g, Graph::Node start, const Graph::EdgeMap<double>& c);
 
 	const TSPInstance& tsp;
 

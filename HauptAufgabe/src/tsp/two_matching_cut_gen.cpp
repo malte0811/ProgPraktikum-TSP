@@ -352,28 +352,38 @@ void TwoMatchingCutGen::contractPaths(Graph& g, Graph::NodeMap<bool>& odd, Graph
 bool TwoMatchingCutGen::findAndContractPath(Graph& g, Graph::Node start, ContractionMap& toOrig,
 											Graph::NodeMap<bool>& odd, const Graph::EdgeMap<double>& c) {
 	Graph::NodeMap<bool> inPath(g);
-	double pathValue = getPathValue(g, start, c);
-	if (pathValue<0) {
+	if (!isValidInternalNode(g, start, c)) {
 		return false;
 	}
-	//Teilpfad in eine Richtung ("links") finden
+	//Wird im ersten discoverPath-Aufruf auf die erste Kante des linken Teilpfades gesetzt
 	Graph::Edge firstEdge = lemon::INVALID;
-	std::vector<Graph::Node> left = discoverPath(g, start, firstEdge, odd, inPath, c, pathValue);
+	//Teilpfad in eine Richtung ("links") finden
+	std::vector<Graph::Node> left = discoverPath(g, start, firstEdge, odd, inPath, c);
 	std::vector<Graph::Node> right;
+	//Ein isolierter Kreis aus ungeraden Knoten
 	bool isCycle = left.front()==left.back();
+	//Falls der Pfad noch kein Kreis ist, gibt es einen rechten Teilpfad
 	if (!isCycle) {
-		pathValue = 1-pathValue;
 		//Anderen Teilpfad finden
-		right = discoverPath(g, start, firstEdge, odd, inPath, c, pathValue);
+		right = discoverPath(g, start, firstEdge, odd, inPath, c);
 		//Kreis mit einem geraden Knoten
 		isCycle = right.back()==left.back();
 	}
+	//Der Knoten, der von der kontrahierten Menge übrig bleibt
 	Graph::Node remainingNode = left.back();
+	//Die restlichen Knoten der kontrahierten Menge:
+	//Der letzte Knoten von left wird nie kontrahiert (er bleibt übrig), der erste Knoten ist entweder auch der letzte
+	//Knoten oder gleich dem ersten Knoten der rechten Seite
 	std::vector<Graph::Node> toRemove(left.begin()+1, left.end()-1);
 	if (right.size()>1) {
+		//Der letzte rechte Knoten wird nicht hinzugefügt: Falls der Pfad ein Kreis ist, ist dies der verbleibende Knoten;
+		//sonst kann nur P-u_1 kontrahiert werden
 		toRemove.insert(toRemove.end(), right.begin(), right.end()-1);
 	}
 	if (!isCycle) {
+		//Falls der Pfad kein Kreis ist, muss die Kante zwischen dem letzten kontrahierten Knoten und u_1 verbleiben
+		//Es kann nicht einfach die Kante gelöscht und durch eine neue ersetzt werden, da sonst Werte in EdgeMap's
+		//verloren gehen (z.B. toVariable in validate)
 		Graph::Node lastContracted = right[right.size()-2];
 		Graph::Node otherRemaining = right.back();
 		for (Graph::OutArcIt it(g, lastContracted); it!=lemon::INVALID; ++it) {
@@ -388,8 +398,10 @@ bool TwoMatchingCutGen::findAndContractPath(Graph& g, Graph::Node start, Contrac
 			}
 		}
 	}
+	//Ob der durch die Kontraktion entstehende Knoten ungerade ist
 	bool resultOdd = odd[remainingNode];
 	std::vector<city_id>& contractedSet = toOrig[remainingNode];
+	//Kontrahieren
 	for (Graph::Node remove:toRemove) {
 		assert(remove!=remainingNode);
 		if (odd[remove]) {
@@ -402,53 +414,67 @@ bool TwoMatchingCutGen::findAndContractPath(Graph& g, Graph::Node start, Contrac
 	return true;
 }
 
-double TwoMatchingCutGen::getPathValue(const Graph& g, Graph::Node start, const Graph::EdgeMap<double>& c) {
-	double ret = -1;
+/**
+ * Gibt den Wert einer Kante in einem alternierenden Pfad an, der start als inneren Knoten enthält, oder -1, falls es
+ * keinen solchen gibt
+ * @param g Der Graph, in dem der alternierende Pfad existieren soll
+ * @param start der Knoten, der im Pfad enthalten sein soll
+ * @param c Die Kantengewichte
+ * @return das gewicht einer Kante im alternierenden Pfad oder -1, falls es keinen gibt
+ */
+bool TwoMatchingCutGen::isValidInternalNode(const Graph& g, Graph::Node start, const Graph::EdgeMap<double>& c) {
 	size_t degree = 0;
 	double edgeSum = 0;
-	for (Graph::OutArcIt it(g, start); it!=lemon::INVALID; ++it) {
-		if (ret<0) {
-			ret = c[it];
-		}
+	for (Graph::OutArcIt it(g, start); it!=lemon::INVALID && degree<=2 && !tolerance.less(1, edgeSum); ++it) {
 		++degree;
 		edgeSum += c[it];
 	}
-	if (degree>2 || tolerance.different(edgeSum, 1)) {
-		return -1;
-	} else {
-		return ret;
-	}
+	return degree==2 && !tolerance.different(edgeSum, 1);
 }
 
+/**
+ * Findet einen Teil eines alternierenden Pfades
+ * @param graph der Graph, in dem der alternierende Pfad gefunden werden soll
+ * @param start der Ausgangsknoten. Muss als innerer Knoten eines alternierenden Pfades gültig sein.
+ * @param exclude Entweder lemon::INVALID: in diesem Fall wird die erste Kante im Teilpfad hier gespeichert; oder eine
+ * Kante, die nicht im Teilpfad genutzt werden darf
+ * @param odd Die ungeraden Knoten
+ * @param visited Gibt an, ob ein Knoten schon im Pfad enthalten ist
+ * @param c Die Kantengewichte
+ * @return den Teilpfad eines alternierenden Pfades mit den angegebenen Eigenschaften. Das erste Element ist immer start
+ */
 std::vector<Graph::Node> TwoMatchingCutGen::discoverPath(const Graph& graph, Graph::Node start,
 														 lemon::ListGraphBase::Edge& exclude,
 														 const Graph::NodeMap<bool>& odd, Graph::NodeMap<bool>& visited,
-														 const Graph::EdgeMap<double>& c, double edgeVal) {
+														 const Graph::EdgeMap<double>& c) {
 	//Die Knoten auf dem Pfad
 	std::vector<Graph::Node> path;
 	Graph::Node current = start;
+	//Die letzte Kante im Pfad, also die Kante, die nicht als nächste Kante genutzt werden kann.
 	Graph::Edge lastEdge = exclude;
+	//Gibt an, ob der aktuelle Knoten ein innerer Knoten in einem alternierenden Pfad sein kann.
 	bool canContinuePath;
 	do {
 		path.push_back(current);
 		visited[current] = true;
 		Graph::Node nextNode = lemon::INVALID;
-		for (Graph::OutArcIt it(graph, current); it!=lemon::INVALID; ++it) {
+		for (Graph::OutArcIt it(graph, current); it!=lemon::INVALID && nextNode==lemon::INVALID; ++it) {
 			//TODO warum gibt it!=lastEdge eigentlich einen Compiler-Error?
-			if (lastEdge!=it && nextNode==lemon::INVALID && !tolerance.different(c[it], edgeVal)) {
-				Graph::Node potential = graph.target(it);
-				nextNode = potential;
+			//current ist ein gültiger innerer Knoten, hat also Grad 2 und Kantensumme 1. it ist nicht die vorherige
+			//Kante im Pfad, also muss it die nächste Kante des Pfades sein
+			if (lastEdge!=it) {
+				nextNode = graph.target(it);
 				lastEdge = it;
+				//Erster Fall der Definition von exclude
 				if (exclude==lemon::INVALID) {
 					exclude = it;
 				}
-				edgeVal = 1-edgeVal;
 			}
 		}
-		canContinuePath = graph.valid(nextNode) && !visited[nextNode] && odd[nextNode];
-		if (canContinuePath) {
-			canContinuePath &= getPathValue(graph, nextNode, c)>0;
-		}
+		//Prüfen, ob der nächste Knoten ein gültiger innerer Knoten ist
+		assert(graph.valid(nextNode));
+		canContinuePath = graph.valid(nextNode) && !visited[nextNode] && odd[nextNode]
+						  && isValidInternalNode(graph, nextNode, c);
 		current = nextNode;
 	} while (canContinuePath);
 	if (current!=lemon::INVALID) {

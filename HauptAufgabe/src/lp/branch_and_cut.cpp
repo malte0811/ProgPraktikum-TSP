@@ -239,11 +239,11 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 				 */
 				if (node.bounds[i][upper]!=node.bounds[i][lower]) {
 					//TODO upperBound ist für das ganze IP, nicht für diesen Zweig. Geht das trotzdem?
-					//Nach Intuition ja, für ein richtiges Argument brauche ich mehr LGO
+					//Nach Intuition ja, für ein richtiges Argument brauche ich mehr LGO. <= ist auch nach Intuition
 					double costDifference = upperBound-fractOpt.getValue();
-					if (rounded==node.bounds[i][upper] && reducedCosts[i]<-costDifference) {
+					if (rounded==node.bounds[i][upper] && reducedCosts[i]<=-costDifference) {
 						node.bounds.fix(i, upper);
-					} else if (rounded==node.bounds[i][lower] && costDifference<reducedCosts[i]) {
+					} else if (rounded==node.bounds[i][lower] && costDifference<=reducedCosts[i]) {
 						node.bounds.fix(i, lower);
 					}
 				}
@@ -306,6 +306,12 @@ void BranchAndCut::branch(variable_id variable, coeff_type val, LinearProgram::B
 		node.bounds.bounds[variable] = defaultBounds[variable];
 	}
 	node.bounds.bounds[variable][bound] = val;
+	//for (const BranchNode& bn:open) {
+	//	if (bn.bounds==node.bounds) {
+	//		std::cout << "Node is already in open set!" << std::endl;
+	//		return;
+	//	}
+	//}
 	if (immediate || dfs) {
 		branchAndBound(node, dfs);
 	} else {
