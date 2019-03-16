@@ -13,8 +13,8 @@
 #include <set>
 #include <relative_tolerance.hpp>
 
-using value_type = long;
-using coeff_type = long;
+using value_t = long;
+using coeff_t = long;
 /**
  * Bestimmt die optimale Lösung eines ganzzahligen linearen Programms, bei dem die Zielfunktion ganzzahlige
  * Koeffizienten hat
@@ -23,9 +23,9 @@ class BranchAndCut {
 public:
 	BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens, size_t maxOpenSize);
 
-	void setUpperBound(const std::vector<value_type>& value, value_type cost);
+	void setUpperBound(const std::vector<value_t>& value, value_t cost);
 
-	std::vector<value_type> solve();
+	std::vector<value_t> solve();
 
 private:
 
@@ -33,9 +33,9 @@ private:
 	 * Speichert die Beschränkungen für eine einzelne LP-Variable
 	 */
 	struct VariableBounds {
-		value_type min, max;
+		value_t min, max;
 
-		value_type& operator[](LinearProgram::BoundType b);
+		value_t& operator[](LinearProgram::BoundType b);
 
 		bool operator==(const VariableBounds& other) const;
 
@@ -45,19 +45,28 @@ private:
 	/**
 	 * Speichert die Beschränkungen für alle Variablen des LPs
 	 */
-	struct SystemBounds {
-		std::map<variable_id, VariableBounds> bounds;
-		std::vector<bool> fixUpper;
-		std::vector<bool> fixLower;
-		BranchAndCut* owner;
-
+	class SystemBounds {
+	public:
 		explicit SystemBounds(BranchAndCut* owner);
 
 		VariableBounds operator[](variable_id id) const;
 
 		void fix(variable_id var, LinearProgram::BoundType b);
 
+		void setBound(variable_id var, LinearProgram::BoundType b, value_t newBound);
+
 		bool operator==(const SystemBounds& other) const;
+
+		size_t getFixedCount() const;
+
+		size_t estimateSize() const;
+
+	private:
+		std::map<variable_id, VariableBounds> bounds;
+		std::vector<bool> fixUpper;
+		std::vector<bool> fixLower;
+		BranchAndCut* owner;
+		size_t fixedCount;
 	};
 
 	struct BranchNode {
@@ -71,7 +80,7 @@ private:
 
 		size_t estimateSize() const;
 
-		size_t fixedCount() const;
+		size_t getFixedCount() const;
 
 		bool operator==(const BranchNode& other) const;
 	};
@@ -84,13 +93,13 @@ private:
 	//Das Ziel des LP's
 	const LinearProgram::Goal goal;
 	//Die Variablenbelegung, mit der die obere Schranke erreicht wird
-	std::vector<value_type> currBest;
+	std::vector<value_t> currBest;
 	//Die aktuelle fraktionale Lösung
 	LinearProgram::Solution fractOpt;
 	//Die Einträge geben an, wie lange eine gegebenen Ungleichung nicht mehr mit Gleichheit erfüllt war
 	std::vector<size_t> sinceSlack0;
 	//Die Koeffizienten der Zielfunktion
-	std::vector<coeff_type> objCoefficients;
+	std::vector<coeff_t> objCoefficients;
 	//Die Menge der offenen Knoten, sortiert nach dem Wert der Zielfunktion
 	std::multiset<BranchNode> open;
 	//Die Variablenschranken im ursprünglichen LP
@@ -114,7 +123,7 @@ private:
 
 	void branchAndBound(BranchNode& node, bool dfs);
 
-	void branch(variable_id variable, value_type val, LinearProgram::BoundType bound,
+	void branch(variable_id variable, value_t val, LinearProgram::BoundType bound,
 				const SystemBounds& parent, double objValue, bool immediate, bool dfs);
 
 	void solveLP(LinearProgram::Solution& out);

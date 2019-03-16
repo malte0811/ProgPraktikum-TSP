@@ -35,8 +35,8 @@ BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerato
 /**
  * Berechnet die kleinste ganze Zahl, die mit der angegebenen Toleranz tol nicht kleiner als in ist
  */
-value_type tolerantCeil(double in, lemon::Tolerance<double> tol) {
-	auto ceil = static_cast<value_type>(std::ceil(in));
+value_t tolerantCeil(double in, lemon::Tolerance<double> tol) {
+	auto ceil = static_cast<value_t>(std::ceil(in));
 	if (tol.different(ceil-in, 1)) {
 		return ceil;
 	} else {
@@ -48,7 +48,7 @@ value_type tolerantCeil(double in, lemon::Tolerance<double> tol) {
  * Berechnet den besten möglichen ganzzahligen Wert, der schlechter als in ist. Besser/Schlechter bezieht sich auf g,
  * außerdem wird Ganzzahligkeit mit der Toleranz tol entschieden
  */
-value_type getNextWorse(double in, LinearProgram::Goal g, lemon::Tolerance<double> tol) {
+value_t getNextWorse(double in, LinearProgram::Goal g, lemon::Tolerance<double> tol) {
 	if (g==LinearProgram::minimize) {
 		return tolerantCeil(in, tol);
 	} else {
@@ -136,7 +136,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 /**
  * @return eine optimale ganzzahlige Lösung des LP, die von alle Cut-Generatoren akzeptiert wird.
  */
-std::vector<value_type> BranchAndCut::solve() {
+std::vector<value_t> BranchAndCut::solve() {
 	//Wurzel des Suchbaums zur offenen Menge hinzufügen
 	BranchNode initNode{SystemBounds(this), 0, goal};
 	open.insert(initNode);
@@ -165,12 +165,13 @@ std::vector<value_type> BranchAndCut::solve() {
 			 * ausgeschlossen werden könnten.
 			 */
 			while (openSize>maxOpenSize*0.95) {
+				std::cout << "Open set has size " << openSize << ", looking for node to remove" << std::endl;
 				auto maxIt = open.begin();
 				size_t maxSize = maxIt->estimateSize();
 				size_t maxFixed = 0;
 				for (it = open.begin(); it!=open.end(); ++it) {
 					size_t estSize = it->estimateSize();
-					size_t fixedCount = it->fixedCount();
+					size_t fixedCount = it->getFixedCount();
 					if (estSize>maxSize || (estSize==maxSize && fixedCount>maxFixed)) {
 						maxIt = it;
 						maxSize = estSize;
@@ -205,11 +206,11 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 	if (fractOpt.isValid() && isBetter(getNextWorse(fractOpt.getValue(), goal, intTolerance), upperBound, goal)) {
 		variable_id varToBound = -1;
 		double optDist = 1;
-		coeff_type varWeight = 0;
+		coeff_t varWeight = 0;
 		const std::vector<double>& reducedCosts = fractOpt.getReducedCosts();
 		size_t nonIntCount = 0;
 		for (variable_id i = 0; i<varCount; ++i) {
-			value_type rounded = std::lround(fractOpt[i]);
+			value_t rounded = std::lround(fractOpt[i]);
 			double diff = rounded-fractOpt[i];
 			if (intTolerance.nonZero(diff)) {
 				/*
@@ -219,7 +220,7 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 				 */
 				double distInt = std::abs(diff);
 				//TODO Obj.-Koeff. oder reduzierte Kosten?
-				coeff_type cost = std::abs(objCoefficients[i]);
+				coeff_t cost = std::abs(objCoefficients[i]);
 				if (varToBound<0 || generalTolerance.less(optDist, distInt) ||
 					(!generalTolerance.less(distInt, optDist) && cost>varWeight)) {
 					optDist = distInt;
@@ -239,11 +240,11 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 				 */
 				if (node.bounds[i][upper]!=node.bounds[i][lower]) {
 					//TODO upperBound ist für das ganze IP, nicht für diesen Zweig. Geht das trotzdem?
-					//Nach Intuition ja, für ein richtiges Argument brauche ich mehr LGO. <= ist auch nach Intuition
-					double costDifference = upperBound-fractOpt.getValue();
-					if (rounded==node.bounds[i][upper] && reducedCosts[i]<=-costDifference) {
+					//Nach Intuition ja, für ein richtiges Argument brauche ich mehr LGO. -1 ist auch nach Intuition
+					double minDifference = upperBound-1-fractOpt.getValue();
+					if (rounded==node.bounds[i][upper] && intTolerance.less(reducedCosts[i], -minDifference)) {
 						node.bounds.fix(i, upper);
-					} else if (rounded==node.bounds[i][lower] && costDifference<=reducedCosts[i]) {
+					} else if (rounded==node.bounds[i][lower] && intTolerance.less(minDifference, reducedCosts[i])) {
 						node.bounds.fix(i, lower);
 					}
 				}
@@ -254,8 +255,8 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 			 * Es wurde keine nicht-ganzzahlige Variable gefunden. Außerdem ist der Wert der Lösung besser als die
 			 * bisherige obere Schranke; die Lösung wird also als neue obere Schranke gesetzt.
 			 */
-			std::vector<value_type> newOpt(static_cast<size_t>(varCount));
-			coeff_type value = 0;
+			std::vector<value_t> newOpt(static_cast<size_t>(varCount));
+			coeff_t value = 0;
 			for (variable_id i = 0; i<varCount; ++i) {
 				newOpt[i] = std::lround(fractOpt[i]);
 				value += newOpt[i]*objCoefficients[i];
@@ -264,15 +265,15 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 				std::cerr << "Fractional: " << fractOpt.getValue() << ", integer: " << value << std::endl;
 			setUpperBound(newOpt, value);
 		} else {
-			value_type rounded = std::lround(fractOpt[varToBound]);
+			value_t rounded = std::lround(fractOpt[varToBound]);
 			double diff = rounded-fractOpt[varToBound];
-			value_type ceil;
+			value_t ceil;
 			if (diff>0) {
 				ceil = rounded;
 			} else {
 				ceil = rounded+1;
 			}
-			value_type floor = ceil-1;
+			value_t floor = ceil-1;
 			double fractVal = fractOpt.getValue();
 			//Sofort bearbeiten, es sei denn, die offene Menge wird zu groß
 			branch(varToBound, ceil, LinearProgram::lower, node.bounds, fractVal,
@@ -299,13 +300,10 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
  * Knoten hinzugefügt werden soll
  * @param dfs Falls true, werden alle Kinder des entstehenden Knoten sofort behandelt (immediate = true)
  */
-void BranchAndCut::branch(variable_id variable, coeff_type val, LinearProgram::BoundType bound,
+void BranchAndCut::branch(variable_id variable, value_t val, LinearProgram::BoundType bound,
 						  const SystemBounds& parent, double objValue, bool immediate, bool dfs) {
 	BranchNode node{parent, objValue, goal};
-	if (!node.bounds.bounds.count(variable)) {
-		node.bounds.bounds[variable] = defaultBounds[variable];
-	}
-	node.bounds.bounds[variable][bound] = val;
+	node.bounds.setBound(variable, bound, val);
 	//for (const BranchNode& bn:open) {
 	//	if (bn.bounds==node.bounds) {
 	//		std::cout << "Node is already in open set!" << std::endl;
@@ -354,7 +352,7 @@ bool BranchAndCut::isBetter(double a, double b, LinearProgram::Goal goal) {
  * @param value Die Werte der Variablen
  * @param cost Die Kosten der angegebenen Lösung
  */
-void BranchAndCut::setUpperBound(const std::vector<value_type>& value, coeff_type cost) {
+void BranchAndCut::setUpperBound(const std::vector<value_t>& value, coeff_t cost) {
 	upperBound = cost;
 	currBest = value;
 	std::cout << "Setting upper bound as " << cost << std::endl;
@@ -383,7 +381,7 @@ void BranchAndCut::setupBounds(const SystemBounds& bounds) {
 		VariableBounds boundsForVar = bounds[i];
 		for (LinearProgram::BoundType type:{LinearProgram::lower, LinearProgram::upper}) {
 			double currBound = currentBounds[i][type];
-			value_type newBound = boundsForVar[type];
+			value_t newBound = boundsForVar[type];
 			if (generalTolerance.different(currBound, newBound)) {
 				problem.setBound(i, type, newBound);
 				currentBounds[i][type] = newBound;
@@ -392,7 +390,7 @@ void BranchAndCut::setupBounds(const SystemBounds& bounds) {
 	}
 }
 
-value_type& BranchAndCut::VariableBounds::operator[](LinearProgram::BoundType b) {
+value_t& BranchAndCut::VariableBounds::operator[](LinearProgram::BoundType b) {
 	if (b==LinearProgram::lower) {
 		return min;
 	} else {
@@ -413,18 +411,11 @@ bool BranchAndCut::VariableBounds::operator==(const BranchAndCut::VariableBounds
  * effizient implementiert wurde, d.h. dass in einem byte CHAR_BIT Elemente gespeichert werden
  */
 size_t BranchAndCut::BranchNode::estimateSize() const {
-	return sizeof(*this)+bounds.bounds.size()*sizeof(*bounds.bounds.begin())+
-		   2*bounds.fixLower.size()/CHAR_BIT;
+	return sizeof(*this)+bounds.estimateSize()-sizeof(bounds);
 }
 
-size_t BranchAndCut::BranchNode::fixedCount() const {
-	size_t fixed = 0;
-	for (variable_id var = 0; var<bounds.fixLower.size(); ++var) {
-		if (bounds[var].isFixed()) {
-			++fixed;
-		}
-	}
-	return fixed;
+size_t BranchAndCut::BranchNode::getFixedCount() const {
+	return bounds.getFixedCount();
 }
 
 bool BranchAndCut::BranchNode::operator<(const BranchAndCut::BranchNode& other) const {
@@ -460,10 +451,28 @@ BranchAndCut::VariableBounds BranchAndCut::SystemBounds::operator[](variable_id 
  * Setzt den Wert der Variablen var auf den durch b angegebenen "Extremwert" des aktuellen Bereichs fest
  */
 void BranchAndCut::SystemBounds::fix(variable_id var, LinearProgram::BoundType b) {
+	assert(!(*this)[var].isFixed());
 	if (b==LinearProgram::lower) {
 		fixLower[var] = true;
 	} else {
 		fixUpper[var] = true;
+	}
+	++fixedCount;
+}
+
+void BranchAndCut::SystemBounds::setBound(variable_id var, LinearProgram::BoundType b, value_t newBound) {
+	VariableBounds varBounds = (*this)[var];
+	bool wasFixed = varBounds.isFixed();
+	varBounds[b] = newBound;
+	if (varBounds.isFixed()) {
+		if (!wasFixed) {
+			fix(var, b==LinearProgram::lower ? LinearProgram::upper : LinearProgram::lower);
+		}
+	} else {
+		bounds[var] = varBounds;
+		if (wasFixed) {
+			--fixedCount;
+		}
 	}
 }
 
@@ -474,4 +483,13 @@ bool BranchAndCut::SystemBounds::operator==(const BranchAndCut::SystemBounds& ot
 		}
 	}
 	return true;
+}
+
+size_t BranchAndCut::SystemBounds::getFixedCount() const {
+	return fixedCount;
+}
+
+size_t BranchAndCut::SystemBounds::estimateSize() const {
+	return bounds.size()*sizeof(*bounds.begin())+
+		   2*fixLower.size()/CHAR_BIT;
 }

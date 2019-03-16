@@ -67,6 +67,7 @@ int main(int argc, char** argv) {
 		}
 		bool useGreedy = getOption(options, "useGreedy", true);
 		auto maxOpenSize = getOption<size_t>(options, "maxOpenSize", 1536*1024*1024);
+		cost_t expectedValue = getOption(options, "expectedResult", 0U);
 		if (!options.empty()) {
 			std::cerr << "Found unknown options:" << std::endl;
 			for (const auto& entry:options) {
@@ -101,6 +102,10 @@ int main(int argc, char** argv) {
 			}
 			optimal.write(out);
 			out.close();
+		}
+		if (expectedValue>0 && optimal.getCost()!=expectedValue) {
+			std::cerr << "Found tour of cost " << optimal.getCost() << ", but expected cost " << expectedValue
+					  << std::endl;
 		}
 		CPXcloseCPLEX(&env);
 	} catch (std::runtime_error& err) {
