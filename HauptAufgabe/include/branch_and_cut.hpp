@@ -108,6 +108,8 @@ private:
 	std::vector<VariableBounds> currentBounds;
 	//Die geschätzte Größe der offenen Menge in Bytes
 	size_t openSize = 0;
+
+	std::vector<LinearProgram::Constraint> recentlyRemoved;
 	//Die maximale Größe der offenen Menge
 	const size_t maxOpenSize;
 	//Die Schnittebenen-Generatoren, die erfüllt sein müssen

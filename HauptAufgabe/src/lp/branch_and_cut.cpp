@@ -99,11 +99,25 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 		}
 		oldVal = std::abs(out.getValue());
 		solutionValid = CutGenerator::valid;
-		for (CutGenerator* gen:generators) {
-			CutGenerator::CutStatus genStatus = gen->validate(problem, out.getVector());
-			//a>b bedeutet, dass a eine Neuberechnung "dringender" macht als b
-			if (genStatus>solutionValid) {
-				solutionValid = genStatus;
+		for (int i = 0; i<recentlyRemoved.size(); ++i) {
+			const LinearProgram::Constraint& constr = recentlyRemoved[i];
+			double lhs = constr.evalLHS(out.getVector());
+			//TODO intTolerance, general oder was anderes?
+			if (!constr.isValidLHS(lhs, intTolerance)) {
+				solutionValid = CutGenerator::recalc;
+				problem.addConstraint(constr);
+				recentlyRemoved[i] = std::move(recentlyRemoved.back());
+				recentlyRemoved.pop_back();
+				--i;
+			}
+		}
+		if (solutionValid==CutGenerator::valid) {
+			for (CutGenerator* gen:generators) {
+				CutGenerator::CutStatus genStatus = gen->validate(problem, out.getVector());
+				//a>b bedeutet, dass a eine Neuberechnung "dringender" macht als b
+				if (genStatus>solutionValid) {
+					solutionValid = genStatus;
+				}
 			}
 		}
 		//sinceSlack0 vergrößern, da Constraints hinzugefügt wurden
@@ -118,17 +132,22 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 	if (problem.getConstraintCount()>constraintsAtStart*maxRatio) {
 		std::vector<int> toRemove(problem.getConstraintCount(), 0);
 		size_t removeCount = 0;
+		std::vector<LinearProgram::Constraint> removed;
 		//Alle constraints, die seit 10 oder mehr Iterationen nicht mit Gleichheit erfüllt waren, werden entfernt
 		for (size_t i = 0; i<sinceSlack0.size(); ++i) {
 			if (sinceSlack0[i]>10) {
-				toRemove[i+constraintsAtStart] = 1;
+				size_t indexInLP = i+constraintsAtStart;
+				toRemove[indexInLP] = 1;
 				++removeCount;
+				removed.push_back(problem.getConstraint(static_cast<int>(indexInLP)));
 			}
 		}
 		if (removeCount>0) {
 			sinceSlack0.resize(sinceSlack0.size()-removeCount);
 			std::fill(sinceSlack0.begin(), sinceSlack0.end(), 0);
 			problem.removeSetConstraints(toRemove);
+			//TODO maybe keep some of the old ones?
+			recentlyRemoved = removed;
 		}
 	}
 }
@@ -219,7 +238,6 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 				 * ist und (unter diesen Variablen) die Kosten der Variable betragsmäßig maximal sind.
 				 */
 				double distInt = std::abs(diff);
-				//TODO Obj.-Koeff. oder reduzierte Kosten?
 				coeff_t cost = std::abs(objCoefficients[i]);
 				if (varToBound<0 || generalTolerance.less(optDist, distInt) ||
 					(!generalTolerance.less(distInt, optDist) && cost>varWeight)) {

@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <ilcplex/cplex.h>
+#include <lemon/tolerance.h>
 
 using variable_id = int;
 
@@ -47,6 +48,29 @@ public:
 		double value;
 	};
 
+	class Constraint {
+	public:
+		Constraint(const std::vector<int>& indices, const std::vector<double>& coeffs, CompType cmp, double rhs);
+
+		const std::vector<int>& getNonzeroes() const;
+
+		const std::vector<double>& getCoeffs() const;
+
+		CompType getSense() const;
+
+		double getRHS() const;
+
+		bool isValidLHS(double lhs, lemon::Tolerance<double> tolerance) const;
+
+		double evalLHS(const std::vector<double>& variables) const;
+
+	private:
+		std::vector<int> indices;
+		std::vector<double> coeffs;
+		CompType comp;
+		double rhs;
+	};
+
 	LinearProgram(CPXENVptr& env, std::string name, Goal opt);
 
 	LinearProgram(const LinearProgram& other) = delete;
@@ -56,12 +80,12 @@ public:
 	void addVariables(const std::vector<double>& objCoeff, const std::vector<double>& lower,
 					  const std::vector<double>& upper);
 
-	void addConstraint(const std::vector<variable_id>& indices, const std::vector<double>& coeffs, double rhs,
-					   LinearProgram::CompType sense);
+	//TODO Constraint-Objekte nutzen?
+	void addConstraint(const Constraint& constr);
 
-	void addConstraints(const std::vector<variable_id>& indices, const std::vector<double>& coeffs,
-						const std::vector<double>& rhs, const std::vector<int>& constrStarts,
-						const std::vector<LinearProgram::CompType>& sense);
+	void addConstraints(const std::vector<Constraint>& constrs);
+
+	Constraint getConstraint(int index) const;
 
 	void removeSetConstraints(std::vector<int>& shouldDelete);
 
@@ -85,6 +109,7 @@ public:
 private:
 	CPXENVptr& env;
 	CPXLPptr problem;
+	std::vector<Constraint> constraints;
 };
 
 #endif

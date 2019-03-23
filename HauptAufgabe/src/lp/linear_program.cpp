@@ -44,46 +44,50 @@ void LinearProgram::addVariables(const std::vector<double>& objCoeff, const std:
  * @param rhs Die rechte Seite der Ungleichung
  * @param sense Um welche Art von (Un)Gleichung es sich handelt (kleiner gleich, größer gleich, gleich)
  */
-void LinearProgram::addConstraint(const std::vector<variable_id>& indices, const std::vector<double>& coeffs,
-								  double rhs,
-								  LinearProgram::CompType sense) {
-	assert(indices.size()==coeffs.size());
-	char senseChar = static_cast<char>(sense);
-	int zero = 0;
-	int result = CPXaddrows(env, problem, 0, 1, static_cast<int>(indices.size()), &rhs, &senseChar, &zero,
-							indices.data(),
-							coeffs.data(), nullptr, nullptr);
-	if (result!=0) {
-		throw std::runtime_error("Could not add constraint to LP, return value was "+std::to_string(result));
-	}
+void LinearProgram::addConstraint(const Constraint& constr) {
+	addConstraints({constr});
 }
 
-void LinearProgram::addConstraints(const std::vector<variable_id>& indices, const std::vector<double>& coeffs,
-								   const std::vector<double>& rhs, const std::vector<int>& constrStarts,
-								   const std::vector<LinearProgram::CompType>& sense) {
-	const int nonZeroCount = static_cast<const int>(coeffs.size());
-	assert(nonZeroCount==indices.size());
-	const int addedCount = static_cast<const int>(constrStarts.size());
-	assert(addedCount==rhs.size() && addedCount==sense.size());
-	std::vector<char> senseChars(sense.size());
-	for (size_t i = 0; i<sense.size(); ++i) {
-		senseChars[i] = sense[i];
+void LinearProgram::addConstraints(const std::vector<Constraint>& constrs) {
+	std::vector<double> rhs;
+	std::vector<double> coeffs;
+	std::vector<int> indices;
+	std::vector<int> constrStarts;
+	std::vector<char> sense;
+	constrStarts.reserve(constrs.size());
+	sense.reserve(constrs.size());
+	rhs.reserve(constrs.size());
+	for (const Constraint& c:constrs) {
+		constrStarts.push_back(indices.size());
+		rhs.push_back(c.getRHS());
+		sense.push_back(c.getSense());
+		indices.insert(indices.end(), c.getNonzeroes().begin(), c.getNonzeroes().end());
+		coeffs.insert(coeffs.end(), c.getCoeffs().begin(), c.getCoeffs().end());
 	}
-	int result = CPXaddrows(env, problem, 0, addedCount, nonZeroCount, rhs.data(),
-							senseChars.data(), constrStarts.data(), indices.data(), coeffs.data(), nullptr, nullptr);
+	int result = CPXaddrows(env, problem, 0, constrs.size(), indices.size(), rhs.data(),
+							sense.data(), constrStarts.data(), indices.data(), coeffs.data(), nullptr, nullptr);
 	if (result!=0) {
 		throw std::runtime_error("Could not add constraint to LP, return value was "+std::to_string(result));
 	}
+	constraints.insert(constraints.end(), constrs.begin(), constrs.end());
 }
 
 /**
  * Entfernt die Constraints, die im Vector den Wert 1 haben
  */
 void LinearProgram::removeSetConstraints(std::vector<int>& shouldDelete) {
+	assert(constraints.size()==shouldDelete.size());
 	int status = CPXdelsetrows(env, problem, shouldDelete.data());
 	if (status!=0) {
 		throw std::runtime_error("Error while deleting constraints: "+std::to_string(status));
 	}
+	std::vector<Constraint> newConstrs;
+	for (size_t i = 0; i<constraints.size(); ++i) {
+		if (shouldDelete[i]>=0) {
+			newConstrs.push_back(constraints[i]);
+		}
+	}
+	constraints = std::move(newConstrs);
 }
 
 /**
@@ -137,7 +141,6 @@ variable_id LinearProgram::getVariableCount() {
 
 double LinearProgram::getBound(variable_id var, BoundType bound) {
 	double ret;
-
 	int result;
 	if (bound==lower) {
 		result = CPXgetlb(env, problem, &ret, var, var);
@@ -173,6 +176,10 @@ std::vector<double> LinearProgram::getObjective() {
 	return ret;
 }
 
+LinearProgram::Constraint LinearProgram::getConstraint(int index) const {
+	return constraints[index];
+}
+
 LinearProgram::Solution::Solution(size_t varCount) : vector(varCount), slack(0), reduced(varCount) {}
 
 double LinearProgram::Solution::operator[](size_t index) const {
@@ -197,4 +204,46 @@ const std::vector<double>& LinearProgram::Solution::getReducedCosts() const {
 
 const std::vector<double>& LinearProgram::Solution::getSlack() const {
 	return slack;
+}
+
+LinearProgram::Constraint::Constraint(const std::vector<int>& indices, const std::vector<double>& coeffs,
+									  LinearProgram::CompType cmp, double rhs) :
+		indices(indices), coeffs(coeffs), comp(cmp), rhs(rhs) {
+	assert(indices.size()==coeffs.size());
+}
+
+const std::vector<int>& LinearProgram::Constraint::getNonzeroes() const {
+	return indices;
+}
+
+const std::vector<double>& LinearProgram::Constraint::getCoeffs() const {
+	return coeffs;
+}
+
+LinearProgram::CompType LinearProgram::Constraint::getSense() const {
+	return comp;
+}
+
+double LinearProgram::Constraint::getRHS() const {
+	return rhs;
+}
+
+bool LinearProgram::Constraint::isValidLHS(double lhs, lemon::Tolerance<double> tolerance) const {
+	switch (comp) {
+		case less_eq:
+			return !tolerance.less(rhs, lhs);
+		case equal:
+			return !tolerance.different(lhs, rhs);
+		case greater_eq:
+			return !tolerance.less(lhs, rhs);
+	}
+	return false;
+}
+
+double LinearProgram::Constraint::evalLHS(const std::vector<double>& variables) const {
+	double ret = 0;
+	for (size_t i = 0; i<indices.size(); ++i) {
+		ret += variables[indices[i]]*coeffs[i];
+	}
+	return ret;
 }

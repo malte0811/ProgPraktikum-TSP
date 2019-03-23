@@ -88,9 +88,8 @@ void SubtourCutGen::addConnectivityConstraints(LinearProgram& lp) {
 			components.push_back(currentComponent);
 		}
 	}
-	std::vector<variable_id> indices;
-	std::vector<double> rhs;
-	std::vector<int> constrStarts;
+	std::vector<LinearProgram::Constraint> constrs;
+	constrs.reserve(components.size()-1);
 	/*
 	 * Constraints für alle Komponenten außer der größten hinzufügen: Die letzte Constraint wird von den anderen
 	 * impliziert, muss also nicht hinzugefügt werden. Außerdem ist der LP-Solver schneller, je dünner die Constraints
@@ -98,18 +97,18 @@ void SubtourCutGen::addConnectivityConstraints(LinearProgram& lp) {
 	 */
 	for (size_t i = 0; i<components.size(); ++i) {
 		if (i!=maxIndex) {
+			std::vector<variable_id> indices;
 			const std::vector<city_id>& currentComponent = components[i];
-			constrStarts.push_back(static_cast<int>(indices.size()));
-			rhs.push_back(currentComponent.size()-1);
 			for (size_t aId = 1; aId<currentComponent.size(); ++aId) {
 				for (size_t bId = 0; bId<aId; ++bId) {
 					indices.push_back(tsp.getVariable(currentComponent[aId], currentComponent[bId]));
 				}
 			}
+			constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::less_eq,
+								 currentComponent.size()-1);
 		}
 	}
-	lp.addConstraints(indices, std::vector<double>(indices.size(), 1), rhs, constrStarts,
-					  std::vector<LinearProgram::CompType>(rhs.size(), LinearProgram::less_eq));
+	lp.addConstraints(constrs);
 }
 
 /**
@@ -142,5 +141,6 @@ void SubtourCutGen::addCutConstraint(LinearProgram& lp) {
 			}
 		}
 	}
-	lp.addConstraint(induced, std::vector<double>(induced.size(), 1), cutSize-1, LinearProgram::less_eq);
+	lp.addConstraint(LinearProgram::Constraint(induced, std::vector<double>(induced.size(), 1), LinearProgram::less_eq,
+											   cutSize-1));
 }

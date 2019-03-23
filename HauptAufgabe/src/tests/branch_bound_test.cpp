@@ -54,11 +54,11 @@ int shortestPath(const std::string& name) {
 		}
 		values.resize(indices.size(), -1);
 		if (nIt==start) {
-			lp.addConstraint(indices, values, 1, LinearProgram::equal);
+			lp.addConstraint(<#initializer#>);
 		} else if (nIt==end) {
-			lp.addConstraint(indices, values, -1, LinearProgram::equal);
+			lp.addConstraint(<#initializer#>);
 		} else {
-			lp.addConstraint(indices, values, 0, LinearProgram::equal);
+			lp.addConstraint(<#initializer#>);
 		}
 	}
 	BranchAndCut bb(lp, std::vector<CutGenerator*>(), 0);

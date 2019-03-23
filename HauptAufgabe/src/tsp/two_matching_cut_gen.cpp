@@ -68,12 +68,8 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 	}
 	std::vector<Blossom> allMin = lemma1220(workGraph, odd, c);
 	if (!allMin.empty()) {
-		//Die Indizes der Variablen in den hinzugefügten Constraints
-		std::vector<variable_id> indices;
-		//Die Indizes in indices, an denen die Constraints anfangen
-		std::vector<int> constrStarts;
-		//Die rechten Seiten der Constraints
-		std::vector<double> rhs;
+		std::vector<LinearProgram::Constraint> constrs;
+		constrs.reserve(allMin.size());
 		for (Blossom& min:allMin) {
 			//Gibt an, ob ein Knoten in der aktuellen Menge X ist
 			std::vector<bool> isInX(static_cast<size_t>(tsp.getCityCount()));
@@ -134,12 +130,13 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 					}
 				}
 			}
-			constrStarts.push_back(static_cast<int>(indices.size()));
 			/*
 			 * Mit |F|==1 ist auch die Subtour-Constraint für X verletzt und impliziert die
 			 * 2-Matching-Constraint
 			 */
 			assert(sizeF%2==1);
+			//Die Indizes der Variablen in den hinzugefügten Constraints
+			std::vector<variable_id> indices;
 			if (sizeF>1) {
 				for (variable_id e:prelimF) {
 					if (fTSP[e]) {
@@ -165,14 +162,15 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 			}
 			if (sizeF>1) {
 				//2-Matching-Constraint
-				rhs.push_back(static_cast<size_t>(xElements.size()+sizeF/2));
+				constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::less_eq,
+									 static_cast<size_t>(xElements.size()+sizeF/2));
 			} else {
 				//Subtour-Constraint
-				rhs.push_back(xElements.size()-1);
+				constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::less_eq,
+									 xElements.size()-1);
 			}
 		}
-		lp.addConstraints(indices, std::vector<double>(indices.size(), 1), rhs, constrStarts,
-						  std::vector<LinearProgram::CompType>(rhs.size(), LinearProgram::less_eq));
+		lp.addConstraints(constrs);
 		return CutGenerator::maybe_recalc;
 	} else {
 		//if (enableContraction) {

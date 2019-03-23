@@ -238,18 +238,18 @@ void TSPInstance::setupBasicLP(LinearProgram& lp) const {
 	std::vector<double> lower(varCount, 0);
 	std::vector<double> upper(varCount, 1);
 	lp.addVariables(objCoeffs, lower, upper);
-	std::vector<variable_id> indices;
-	std::vector<int> rowStarts;
+	std::vector<LinearProgram::Constraint> constrs;
+	constrs.reserve(getCityCount());
 	for (city_id i = 0; i<getCityCount(); ++i) {
-		rowStarts.push_back(static_cast<int>(indices.size()));
+		std::vector<variable_id> indices;
 		for (city_id otherEnd = 0; otherEnd<getCityCount(); ++otherEnd) {
 			if (otherEnd!=i)
 				indices.push_back(getVariable(i, otherEnd));
 		}
+		constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::equal,
+							 2);
 	}
-	lp.addConstraints(indices, std::vector<double>(indices.size(), 1), std::vector<double>(rowStarts.size(), 2),
-					  rowStarts,
-					  std::vector<LinearProgram::CompType>(rowStarts.size(), LinearProgram::equal));
+	lp.addConstraints(constrs);
 }
 
 std::string TSPInstance::getName() const {

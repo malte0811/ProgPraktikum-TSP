@@ -26,15 +26,15 @@ public:
 			coeffs.resize(edges.size(), -1);
 			//TODO rounding errors?
 			if (it==start && std::fabs(sum-1)>eps) {
-				lp.addConstraint(edges, coeffs, 1, LinearProgram::equal);
+				lp.addConstraint(<#initializer#>);
 				std::cout << "Adding start cut" << std::endl;
 				return CutGenerator::recalc;
 			} else if (it==end && std::fabs(sum+1)>eps) {
-				lp.addConstraint(edges, coeffs, -1, LinearProgram::equal);
+				lp.addConstraint(<#initializer#>);
 				std::cout << "Adding end cut" << std::endl;
 				return CutGenerator::recalc;
 			} else if (it!=start && it!=end && std::fabs(sum)>eps) {
-				lp.addConstraint(edges, coeffs, 0, LinearProgram::equal);
+				lp.addConstraint(<#initializer#>);
 				int id = lemon::SmartDigraph::id(it);
 				if (id%100==0) std::cout << "Adding cut for " << id << std::endl;
 				return CutGenerator::recalc;
@@ -95,7 +95,7 @@ int shortestPath(const std::string& name) {
 		indices.push_back(lemon::SmartDigraph::id(it));
 	}
 	values.resize(indices.size(), -1);
-	lp.addConstraint(indices, values, 1, LinearProgram::equal);
+	lp.addConstraint(<#initializer#>);
 	PathCutGenerator gen(g, lemon::SmartDigraph::nodeFromId(0), lemon::SmartDigraph::nodeFromId(1));
 	BranchAndCut bb(lp, {&gen}, 0);
 	std::vector<long> sol = bb.solve();
