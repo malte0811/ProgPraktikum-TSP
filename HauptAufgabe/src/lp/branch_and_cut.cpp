@@ -9,9 +9,7 @@ BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerato
 		currBest(static_cast<size_t>(varCount)), fractOpt(static_cast<size_t>(varCount)),
 		objCoefficients(static_cast<size_t>(varCount)), maxOpenSize(maxOpenSize), generators(gens),
 		constraintsAtStart(static_cast<size_t>(program.getConstraintCount())),
-		defaultBounds(static_cast<size_t>(varCount)),
-		currentBounds(static_cast<size_t>(varCount)),
-		intTolerance(0.01) {
+		defaultBounds(static_cast<size_t>(varCount)), currentBounds(static_cast<size_t>(varCount)), intTolerance(0.01) {
 	//obere Schranke auf schlechtesten möglichen Wert setzen
 	if (goal==LinearProgram::minimize) {
 		upperBound = std::numeric_limits<double>::max();
@@ -98,19 +96,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 			slowIterations = 0;
 		}
 		oldVal = std::abs(out.getValue());
-		solutionValid = CutGenerator::valid;
-		for (int i = 0; i<recentlyRemoved.size(); ++i) {
-			const LinearProgram::Constraint& constr = recentlyRemoved[i];
-			double lhs = constr.evalLHS(out.getVector());
-			//TODO intTolerance, general oder was anderes?
-			if (!constr.isValidLHS(lhs, intTolerance)) {
-				solutionValid = CutGenerator::recalc;
-				problem.addConstraint(constr);
-				recentlyRemoved[i] = std::move(recentlyRemoved.back());
-				recentlyRemoved.pop_back();
-				--i;
-			}
-		}
+		solutionValid = readdRemovedConstraints(out);
 		if (solutionValid==CutGenerator::valid) {
 			for (CutGenerator* gen:generators) {
 				CutGenerator::CutStatus genStatus = gen->validate(problem, out.getVector());
@@ -128,28 +114,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 			solutionValid = CutGenerator::valid;
 		}
 	} while (solutionValid!=CutGenerator::valid);
-	const double maxRatio = 3;
-	if (problem.getConstraintCount()>constraintsAtStart*maxRatio) {
-		std::vector<int> toRemove(problem.getConstraintCount(), 0);
-		size_t removeCount = 0;
-		std::vector<LinearProgram::Constraint> removed;
-		//Alle constraints, die seit 10 oder mehr Iterationen nicht mit Gleichheit erfüllt waren, werden entfernt
-		for (size_t i = 0; i<sinceSlack0.size(); ++i) {
-			if (sinceSlack0[i]>10) {
-				size_t indexInLP = i+constraintsAtStart;
-				toRemove[indexInLP] = 1;
-				++removeCount;
-				removed.push_back(problem.getConstraint(static_cast<int>(indexInLP)));
-			}
-		}
-		if (removeCount>0) {
-			sinceSlack0.resize(sinceSlack0.size()-removeCount);
-			std::fill(sinceSlack0.begin(), sinceSlack0.end(), 0);
-			problem.removeSetConstraints(toRemove);
-			//TODO maybe keep some of the old ones?
-			recentlyRemoved = removed;
-		}
-	}
+	cleanupOldConstraints();
 }
 
 /**
@@ -248,6 +213,7 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 				++nonIntCount;
 			} else {
 				LinearProgram::BoundType upper = LinearProgram::upper, lower = LinearProgram::lower;
+				//TODO stimmt das so für max.?
 				if (goal==LinearProgram::maximize) {
 					std::swap(upper, lower);
 				}
@@ -293,7 +259,13 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 			}
 			value_t floor = ceil-1;
 			double fractVal = fractOpt.getValue();
-			//Sofort bearbeiten, es sei denn, die offene Menge wird zu groß
+			/*
+			 * Sofort bearbeiten, es sei denn, die offene Menge wird zu groß. So wird die offene Menge relativ klein
+			 * gehalten, es werden schneller obere Schranken gefunden und die LPs können schneller gelöst werden, da
+			 * das duale Simplexverfahren genutzt wird und das LP nach dem hinzufügen neuer Constraints schnell neu
+			 * gelöst werden kann (TODO genauer beschreiben, wenn das in LGO besprochen wurde)
+			 * TODO warum wird das beim vertauschen von lower und upper deutlich langsamer?
+			 */
 			branch(varToBound, ceil, LinearProgram::lower, node.bounds, fractVal,
 				   openSize<maxOpenSize, dfs);
 			/*
@@ -322,12 +294,6 @@ void BranchAndCut::branch(variable_id variable, value_t val, LinearProgram::Boun
 						  const SystemBounds& parent, double objValue, bool immediate, bool dfs) {
 	BranchNode node{parent, objValue, goal};
 	node.bounds.setBound(variable, bound, val);
-	//for (const BranchNode& bn:open) {
-	//	if (bn.bounds==node.bounds) {
-	//		std::cout << "Node is already in open set!" << std::endl;
-	//		return;
-	//	}
-	//}
 	if (immediate || dfs) {
 		branchAndBound(node, dfs);
 	} else {
@@ -404,6 +370,54 @@ void BranchAndCut::setupBounds(const SystemBounds& bounds) {
 				problem.setBound(i, type, newBound);
 				currentBounds[i][type] = newBound;
 			}
+		}
+	}
+}
+
+/**
+ * Fügt vor kurzem entfernte Constraints zum LP hinzu, die von der übergebenen Lösung verletzt werden
+ * @return valid, falls keine Constraints hinzugefügt wurden, sonst recalc
+ */
+CutGenerator::CutStatus BranchAndCut::readdRemovedConstraints(const LinearProgram::Solution& sol) {
+	CutGenerator::CutStatus ret = CutGenerator::valid;
+	size_t i = 0;
+	while (i<recentlyRemoved.size()) {
+		const LinearProgram::Constraint& constr = recentlyRemoved[i];
+		double lhs = constr.evalLHS(sol.getVector());
+		//TODO intTolerance, general oder was anderes?
+		if (!constr.isValidLHS(lhs, intTolerance)) {
+			ret = CutGenerator::recalc;
+			problem.addConstraint(constr);
+			recentlyRemoved[i] = std::move(recentlyRemoved.back());
+			recentlyRemoved.pop_back();
+		} else {
+			++i;
+		}
+	}
+	return ret;
+}
+
+void BranchAndCut::cleanupOldConstraints() {
+	const double maxRatio = 3;
+	if (problem.getConstraintCount()>constraintsAtStart*maxRatio) {
+		std::vector<int> toRemove(problem.getConstraintCount(), 0);
+		size_t removeCount = 0;
+		std::vector<LinearProgram::Constraint> removed;
+		//Alle constraints, die seit 10 oder mehr Iterationen nicht mit Gleichheit erfüllt waren, werden entfernt
+		for (size_t i = 0; i<sinceSlack0.size(); ++i) {
+			if (sinceSlack0[i]>10) {
+				size_t indexInLP = i+constraintsAtStart;
+				toRemove[indexInLP] = 1;
+				++removeCount;
+				removed.push_back(problem.getConstraint(static_cast<int>(indexInLP)));
+			}
+		}
+		if (removeCount>0) {
+			sinceSlack0.resize(sinceSlack0.size()-removeCount);
+			std::fill(sinceSlack0.begin(), sinceSlack0.end(), 0);
+			problem.removeSetConstraints(toRemove);
+			//TODO maybe keep some of the old ones?
+			recentlyRemoved = removed;
 		}
 	}
 }
@@ -509,5 +523,5 @@ size_t BranchAndCut::SystemBounds::getFixedCount() const {
 
 size_t BranchAndCut::SystemBounds::estimateSize() const {
 	return bounds.size()*sizeof(*bounds.begin())+
-		   2*fixLower.size()/CHAR_BIT;
+		   2*fixLower.size()/CHAR_BIT+sizeof(*this);
 }

@@ -163,7 +163,7 @@ LinearProgram::Goal LinearProgram::getGoal() {
 }
 
 int LinearProgram::getConstraintCount() {
-	return CPXgetnumrows(env, problem);
+	return constraints.size();
 }
 
 std::vector<double> LinearProgram::getObjective() {

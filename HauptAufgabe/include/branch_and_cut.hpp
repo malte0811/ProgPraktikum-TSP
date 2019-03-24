@@ -15,9 +15,11 @@
 
 using value_t = long;
 using coeff_t = long;
+
 /**
  * Bestimmt die optimale Lösung eines ganzzahligen linearen Programms, bei dem die Zielfunktion ganzzahlige
  * Koeffizienten hat
+ * TODO evtl auf 0-1-Programme einschränken? Dann ist die map im VariableBounds nicht mehr nötig
  */
 class BranchAndCut {
 public:
@@ -133,6 +135,10 @@ private:
 	void countSolutionSlack(const LinearProgram::Solution& sol);
 
 	void setupBounds(const SystemBounds& bounds);
+
+	CutGenerator::CutStatus readdRemovedConstraints(const LinearProgram::Solution& sol);
+
+	void cleanupOldConstraints();
 };
 
 

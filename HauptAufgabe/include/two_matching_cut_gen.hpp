@@ -4,6 +4,7 @@
 #include <tsp_instance.hpp>
 #include <cut_generator.hpp>
 #include <lemon/gomory_hu.h>
+#include "union_find.hpp"
 
 class TwoMatchingCutGen : public CutGenerator {
 public:
@@ -17,6 +18,14 @@ private:
 		std::vector<Graph::Node> x;
 		std::vector<Graph::Edge> f;
 	};
+
+	void finalizeBlossom(const std::vector<variable_id>& oneEdges, std::vector<bool>& isInX,
+						 std::vector<variable_id>& f, size_t& sizeX);
+
+	Blossom calculateAndAddBlossom(const Graph::NodeMap <size_t>& nodeToUF, UnionFind& components,
+								   size_t xIndex, const Graph& g, double cutCost,
+								   const Graph::EdgeMap<double>& c, const Graph::NodeMap<bool>& odd,
+								   const Graph::NodeMap <size_t>& adjacentEDash);
 
 	void contractPaths(Graph& g, Graph::NodeMap<bool>& odd, Graph::EdgeMap<double>& c,
 					   ContractionMap& toOrig);

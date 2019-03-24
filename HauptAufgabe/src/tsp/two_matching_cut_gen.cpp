@@ -81,55 +81,13 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 				}
 				sizeX += workToOrig[contracted].size();
 			}
-			//Gibt an, ob eine Variable/Kante im TSP-Graphen in F ist
-			std::vector<bool> fTSP(static_cast<size_t>(tsp.getEdgeCount()));
-			//Die Menge F vor dem Umwandeln zu einem Matching
-			std::vector<variable_id> prelimF;
-			//Alle 1-Kanten im Schnitt von X sind in F
-			for (variable_id e:oneEdges) {
-				city_id endU = tsp.getLowerEnd(e);
-				city_id endV = tsp.getHigherEnd(e);
-				if (isInX[endU]!=isInX[endV]) {
-					fTSP[e] = true;
-					prelimF.push_back(e);
-				}
-			}
-			//Die Kanten im berechneten F zu F hinzufügen
+			std::vector<variable_id> f;
+			f.reserve(min.f.size());
 			for (Graph::Edge e:min.f) {
-				fTSP[toVariable[e]] = true;
-				prelimF.push_back(toVariable[e]);
+				f.push_back(toVariable[e]);
 			}
-			//Ordnet jedem Knoten die inzidente Kante in F zu
-			std::vector<variable_id> incidentF(tsp.getCityCount(), LinearProgram::invalid_variable);
-			size_t sizeF = prelimF.size();
-			for (variable_id e:prelimF) {
-				city_id ends[2] = {tsp.getLowerEnd(e), tsp.getHigherEnd(e)};
-				for (city_id end:ends) {
-					if (incidentF[end]==LinearProgram::invalid_variable) {
-						//Es ist noch keine Kante in F zu end inzident
-						incidentF[end] = e;
-					} else {
-						//Die Kanten entfernen, die ein gemeinsames Ende haben
-						variable_id oldEdge = incidentF[end];
-						incidentF[tsp.getLowerEnd(oldEdge)] = LinearProgram::invalid_variable;
-						incidentF[tsp.getHigherEnd(oldEdge)] = LinearProgram::invalid_variable;
-						incidentF[tsp.getLowerEnd(e)] = LinearProgram::invalid_variable;
-						incidentF[tsp.getHigherEnd(e)] = LinearProgram::invalid_variable;
-						fTSP[oldEdge] = false;
-						fTSP[e] = false;
-						//Das gemeinsame Ende aus X entfernen bzw zu X hinzufügen
-						isInX[end] = !isInX[end];
-						//Die Größen von X und F aktualisieren
-						if (isInX[end]) {
-							++sizeX;
-						} else {
-							--sizeX;
-						}
-						sizeF -= 2;
-						break;
-					}
-				}
-			}
+			finalizeBlossom(oneEdges, isInX, f, sizeX);
+			const size_t sizeF = f.size();
 			/*
 			 * Mit |F|==1 ist auch die Subtour-Constraint für X verletzt und impliziert die
 			 * 2-Matching-Constraint
@@ -138,11 +96,9 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 			//Die Indizes der Variablen in den hinzugefügten Constraints
 			std::vector<variable_id> indices;
 			if (sizeF>1) {
-				for (variable_id e:prelimF) {
-					if (fTSP[e]) {
-						indices.push_back(e);
-						assert(isInX[tsp.getLowerEnd(e)]!=isInX[tsp.getHigherEnd(e)]);
-					}
+				for (variable_id e:f) {
+					indices.push_back(e);
+					assert(isInX[tsp.getLowerEnd(e)]!=isInX[tsp.getHigherEnd(e)]);
 				}
 			}
 			std::vector<city_id> xElements;
@@ -227,7 +183,7 @@ std::vector<TwoMatchingCutGen::Blossom> TwoMatchingCutGen::lemma1220(const Graph
 		++nodeCount;
 	}
 	//Ordnet jedem Knoten eine ID im Union-Find zu
-	Graph::NodeMap <size_t> ufMap(graph);
+	Graph::NodeMap <size_t> nodeToUF(graph);
 	UnionFind components(nodeCount);
 	/*
 	 * Die Blätter der Arboreszenz. Wenn eine Kante behandelt wurde, wird ihr "unterer" Endknoten aus der Arboreszenz
@@ -240,7 +196,7 @@ std::vector<TwoMatchingCutGen::Blossom> TwoMatchingCutGen::lemma1220(const Graph
 			if (childCount[it]==0) {
 				leaves.push_back(it);
 			}
-			ufMap[it] = nextIndex;
+			nodeToUF[it] = nextIndex;
 		}
 	}
 	std::vector<Blossom> ret;
@@ -253,79 +209,16 @@ std::vector<TwoMatchingCutGen::Blossom> TwoMatchingCutGen::lemma1220(const Graph
 			continue;
 		}
 		//Repräsentant der "unteren" Seite der aktuellen Kante
-		const size_t xIndex = components.find(ufMap[currentNode]);
+		const size_t xIndex = components.find(nodeToUF[currentNode]);
 		double cutCost = gh.predValue(currentNode);
 		//Der Wert der Blüte ist mindestens der Wert des Schnitts
 		if (tolerance.less(cutCost, 1)) {
-			//Die Blüte zur aktuellen Kante
-			Blossom curr;
-			//Informationen zur Kante mit abs(c'(e)-c(e)) bzw. abs(c(e)-0.5) minimal:
-			//Die Kante selbst
-			Graph::Edge minDiffEdge = lemon::INVALID;
-			//c(e)-0.5
-			double minDiffVal = std::numeric_limits<double>::max();
-			/*
-			 * Der Index der Kante in curr.f, um sie schnell entfernen zu können, oder std::numeric_limits<size_t>::max(),
-			 * falls die Kante nicht in curr.f enthalten ist.
-			 */
-			size_t minIndex = std::numeric_limits<size_t>::max();
-			//F ohne Beachtung der Parität berechnen
-			for (Graph::EdgeIt eIt(graph); eIt!=lemon::INVALID; ++eIt) {
-				bool uInX = components.find(ufMap[graph.u(eIt)])==xIndex;
-				bool vInX = components.find(ufMap[graph.v(eIt)])==xIndex;
-				//Ein Ende ist in der "unteren" Komponente, das andere nicht
-				if (uInX!=vInX) {
-					bool inF = c[eIt]>0.5;
-					if (inF) {
-						curr.f.push_back(eIt);
-					}
-					//Neue minimale Kante gefunden
-					if (std::abs(c[eIt]-0.5)<std::abs(minDiffVal)) {
-						minDiffEdge = eIt;
-						minDiffVal = c[eIt]-0.5;
-						if (inF) {
-							minIndex = curr.f.size()-1;
-						} else {
-							minIndex = std::numeric_limits<size_t>::max();
-						}
-					}
-				}
-			}
-			//Die Kardinalität von Xf geschnitten mit T'
-			unsigned xAndTDash = 0;
-			for (Graph::NodeIt nIt(graph); nIt!=lemon::INVALID; ++nIt) {
-				//Ist der Knoten in X?
-				if (components.find(ufMap[nIt])==xIndex) {
-					//Ist der Knoten in T delta V'?
-					if (odd[nIt]!=(adjacentEDash[nIt]%2==1)) {
-						++xAndTDash;
-					}
-					curr.x.push_back(nIt);
-				}
-			}
-			//Ist der Schnitt gültig?
-			bool valid = true;
-			if (xAndTDash%2==0) {
-				if (minDiffEdge==lemon::INVALID) {
-					//Die Paritätsbedingung kann nicht erfüllt werden, es gibt keine Kante im Schnitt
-					valid = false;
-				} else if (minIndex<curr.f.size()) {
-					//Kante aus F entfernen
-					cutCost += 2*minDiffVal;
-					curr.f[minIndex] = curr.f.back();
-					curr.f.pop_back();
-				} else {
-					//Kante zu F hinzufügen
-					cutCost -= 2*minDiffVal;
-					curr.f.push_back(minDiffEdge);
-				}
-			}
-			//Falls die Blüte gültig ist und Wert kleiner als 1 hat, wird sie zurückgegeben
-			if (valid && tolerance.less(cutCost, 1)) {
-				ret.push_back(curr);
+			Blossom b = calculateAndAddBlossom(nodeToUF, components, xIndex, graph, cutCost, c, odd, adjacentEDash);
+			if (!b.x.empty()) {
+				ret.push_back(b);
 			}
 		}
-		components.mergeRoots(xIndex, components.find(ufMap[pred]));
+		components.mergeRoots(xIndex, components.find(nodeToUF[pred]));
 		--childCount[pred];
 		if (childCount[pred]==0) {
 			leaves.push_back(pred);
@@ -334,6 +227,9 @@ std::vector<TwoMatchingCutGen::Blossom> TwoMatchingCutGen::lemma1220(const Graph
 	return ret;
 }
 
+/**
+ * Kontrahiert so lange alternierende Pfade in G, bis es keine mehr gibt, und speichert die Kontraktionen in toOrig
+ */
 void TwoMatchingCutGen::contractPaths(Graph& g, Graph::NodeMap<bool>& odd, Graph::EdgeMap<double>& c,
 									  ContractionMap& toOrig) {
 	bool contracted;
@@ -347,12 +243,16 @@ void TwoMatchingCutGen::contractPaths(Graph& g, Graph::NodeMap<bool>& odd, Graph
 	} while (contracted);
 }
 
+/**
+ * Findet und kontrahiert einen start enthaltenden alternierenden Pfad in G, falls es einen solchen gibt
+ * @return true, genau dann wenn ein Pfad kontrahiert wurde
+ */
 bool TwoMatchingCutGen::findAndContractPath(Graph& g, Graph::Node start, ContractionMap& toOrig,
 											Graph::NodeMap<bool>& odd, const Graph::EdgeMap<double>& c) {
-	Graph::NodeMap<bool> inPath(g);
 	if (!isValidInternalNode(g, start, c)) {
 		return false;
 	}
+	Graph::NodeMap<bool> inPath(g);
 	//Wird im ersten discoverPath-Aufruf auf die erste Kante des linken Teilpfades gesetzt
 	Graph::Edge firstEdge = lemon::INVALID;
 	//Teilpfad in eine Richtung ("links") finden
@@ -480,4 +380,141 @@ std::vector<Graph::Node> TwoMatchingCutGen::discoverPath(const Graph& graph, Gra
 		visited[current] = true;
 	}
 	return path;
+}
+
+//TODO better name?
+void TwoMatchingCutGen::finalizeBlossom(const std::vector<variable_id>& oneEdges, std::vector<bool>& isInX,
+										std::vector<variable_id>& f, size_t& sizeX) {
+//Gibt an, ob eine Variable/Kante im TSP-Graphen in F ist
+	std::vector<bool> fTSP(static_cast<size_t>(tsp.getEdgeCount()));
+	//Die Menge F vor dem Umwandeln zu einem Matching
+	//Alle 1-Kanten im Schnitt von X sind in F
+	for (variable_id e:oneEdges) {
+		city_id endU = tsp.getLowerEnd(e);
+		city_id endV = tsp.getHigherEnd(e);
+		if (isInX[endU]!=isInX[endV]) {
+			fTSP[e] = true;
+			f.push_back(e);
+		}
+	}
+	//Die Kanten im berechneten F zu F hinzufügen
+	for (variable_id e:f) {
+		fTSP[e] = true;
+	}
+	//Ordnet jedem Knoten die inzidente Kante in F zu
+	std::vector<variable_id> incidentF(tsp.getCityCount(), LinearProgram::invalid_variable);
+	for (variable_id e:f) {
+		city_id ends[2] = {tsp.getLowerEnd(e), tsp.getHigherEnd(e)};
+		for (city_id end:ends) {
+			if (incidentF[end]==LinearProgram::invalid_variable) {
+				//Es ist noch keine Kante in F zu end inzident
+				incidentF[end] = e;
+			} else {
+				//Die Kanten entfernen, die ein gemeinsames Ende haben
+				variable_id oldEdge = incidentF[end];
+				incidentF[tsp.getLowerEnd(oldEdge)] = LinearProgram::invalid_variable;
+				incidentF[tsp.getHigherEnd(oldEdge)] = LinearProgram::invalid_variable;
+				incidentF[tsp.getLowerEnd(e)] = LinearProgram::invalid_variable;
+				incidentF[tsp.getHigherEnd(e)] = LinearProgram::invalid_variable;
+				fTSP[oldEdge] = false;
+				fTSP[e] = false;
+				//Das gemeinsame Ende aus X entfernen bzw zu X hinzufügen
+				isInX[end] = !isInX[end];
+				//Die Größen von X und F aktualisieren
+				if (isInX[end]) {
+					++sizeX;
+				} else {
+					--sizeX;
+				}
+				break;
+			}
+		}
+	}
+	size_t i = 0;
+	while (i<f.size()) {
+		variable_id fElement = f[i];
+		if (!fTSP[fElement]) {
+			std::swap(f[i], f.back());
+			f.pop_back();
+		} else {
+			++i;
+		}
+	}
+}
+
+TwoMatchingCutGen::Blossom TwoMatchingCutGen::calculateAndAddBlossom(const Graph::NodeMap <size_t>& nodeToUF,
+																	 UnionFind& components,
+																	 size_t xIndex, const Graph& g, double cutCost,
+																	 const Graph::EdgeMap<double>& c,
+																	 const Graph::NodeMap<bool>& odd,
+																	 const Graph::NodeMap <size_t>& adjacentEDash) {
+//Die Blüte zur aktuellen Kante
+	Blossom curr;
+	//Informationen zur Kante mit abs(c'(e)-c(e)) bzw. abs(c(e)-0.5) minimal:
+	//Die Kante selbst
+	Graph::Edge minDiffEdge = lemon::INVALID;
+	//c(e)-0.5
+	double minDiffVal = std::numeric_limits<double>::max();
+	/*
+	 * Der Index der Kante in curr.f, um sie schnell entfernen zu können, oder std::numeric_limits<size_t>::max(),
+	 * falls die Kante nicht in curr.f enthalten ist.
+	 */
+	size_t minIndex = std::numeric_limits<size_t>::max();
+	//F ohne Beachtung der Parität berechnen
+	for (Graph::EdgeIt eIt(g); eIt!=lemon::INVALID; ++eIt) {
+		bool uInX = components.find(nodeToUF[g.u(eIt)])==xIndex;
+		bool vInX = components.find(nodeToUF[g.v(eIt)])==xIndex;
+		//Ein Ende ist in der "unteren" Komponente, das andere nicht
+		if (uInX!=vInX) {
+			bool inF = c[eIt]>0.5;
+			if (inF) {
+				curr.f.push_back(eIt);
+			}
+			//Neue minimale Kante gefunden
+			if (std::abs(c[eIt]-0.5)<std::abs(minDiffVal)) {
+				minDiffEdge = eIt;
+				minDiffVal = c[eIt]-0.5;
+				if (inF) {
+					minIndex = curr.f.size()-1;
+				} else {
+					minIndex = std::numeric_limits<size_t>::max();
+				}
+			}
+		}
+	}
+	//Die Kardinalität von Xf geschnitten mit T'
+	unsigned xAndTDash = 0;
+	for (Graph::NodeIt nIt(g); nIt!=lemon::INVALID; ++nIt) {
+		//Ist der Knoten in X?
+		if (components.find(nodeToUF[nIt])==xIndex) {
+			//Ist der Knoten in T delta V'?
+			if (odd[nIt]!=(adjacentEDash[nIt]%2==1)) {
+				++xAndTDash;
+			}
+			curr.x.push_back(nIt);
+		}
+	}
+	//Ist der Schnitt gültig?
+	bool valid = true;
+	if (xAndTDash%2==0) {
+		if (minDiffEdge==lemon::INVALID) {
+			//Die Paritätsbedingung kann nicht erfüllt werden, es gibt keine Kante im Schnitt
+			valid = false;
+		} else if (minIndex<curr.f.size()) {
+			//Kante aus F entfernen
+			cutCost += 2*minDiffVal;
+			curr.f[minIndex] = curr.f.back();
+			curr.f.pop_back();
+		} else {
+			//Kante zu F hinzufügen
+			cutCost -= 2*minDiffVal;
+			curr.f.push_back(minDiffEdge);
+		}
+	}
+	//Falls die Blüte gültig ist und Wert kleiner als 1 hat, wird sie zurückgegeben
+	if (valid && tolerance.less(cutCost, 1)) {
+		return curr;
+	} else {
+		return {};
+	}
 }

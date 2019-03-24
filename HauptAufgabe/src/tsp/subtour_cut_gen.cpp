@@ -4,7 +4,7 @@
 #include <stack>
 
 SubtourCutGen::SubtourCutGen(const TSPInstance& inst)
-		: tsp(inst), origToWork(tsp.getCityCount()), workToOrig(workGraph), capacity(workGraph),
+		: tsp(inst), origToWork(static_cast<size_t>(tsp.getCityCount())), workToOrig(workGraph), capacity(workGraph),
 		  minCut(workGraph, capacity), tolerance(1e-5) {
 	/*
 	 * Grundzustand des Arbeitsgraphen abspeichern: So viele Knoten wie in der TSP-Instanz, aber keine Kanten.
