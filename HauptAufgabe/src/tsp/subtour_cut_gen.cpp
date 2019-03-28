@@ -18,7 +18,8 @@ SubtourCutGen::SubtourCutGen(const TSPInstance& inst)
 	baseState.save(workGraph);
 }
 
-CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::vector<double>& solution) {
+CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
+												CutStatus currentStatus) {
 	//Grundzustand wiederherstellen und speichern
 	baseState.restore();
 	baseState.save(workGraph);

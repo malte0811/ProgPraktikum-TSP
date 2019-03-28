@@ -58,6 +58,7 @@ void LinearProgram::addConstraints(const std::vector<Constraint>& constrs) {
 	sense.reserve(constrs.size());
 	rhs.reserve(constrs.size());
 	for (const Constraint& c:constrs) {
+		assert(c.isValid());
 		constrStarts.push_back(indices.size());
 		rhs.push_back(c.getRHS());
 		sense.push_back(c.getSense());
@@ -246,4 +247,10 @@ double LinearProgram::Constraint::evalLHS(const std::vector<double>& variables) 
 		ret += variables[indices[i]]*coeffs[i];
 	}
 	return ret;
+}
+
+LinearProgram::Constraint::Constraint() : Constraint({}, {}, less_eq, -1) {}
+
+bool LinearProgram::Constraint::isValid() const {
+	return !indices.empty();
 }

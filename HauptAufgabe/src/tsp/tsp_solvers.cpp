@@ -14,6 +14,7 @@
 #include <subtour_cut_gen.hpp>
 #include <two_matching_cut_gen.hpp>
 #include <branch_and_cut.hpp>
+#include <comb_cut_gen.hpp>
 
 namespace tspsolvers {
 
@@ -111,7 +112,8 @@ namespace tspsolvers {
 		inst.setupBasicLP(lp);
 		SubtourCutGen subtours(inst);
 		TwoMatchingCutGen matchings(inst, true);
-		BranchAndCut bac(lp, {&subtours, &matchings}, maxOpenSize);
+		CombCutGen combs(inst);
+		BranchAndCut bac(lp, {&subtours, &combs, &matchings}, maxOpenSize);
 		if (initial!=nullptr) {
 			std::vector<long> asVars(static_cast<size_t>(inst.getEdgeCount()));
 			for (variable_id i = 0; i<inst.getEdgeCount(); ++i) {

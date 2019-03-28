@@ -66,7 +66,7 @@ value_t getNextWorse(double in, LinearProgram::Goal g, lemon::Tolerance<double> 
  * @param out Ein Solution-Objekt der korrekten Größe. Dient als Ausgabe.
  */
 void BranchAndCut::solveLP(LinearProgram::Solution& out) {
-	CutGenerator::CutStatus solutionValid;
+	CutGenerator::CutStatus solutionStatus;
 	double oldVal = 0;
 	size_t slowIterations = 0;
 	unsigned iterations = 0;
@@ -96,31 +96,33 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 			slowIterations = 0;
 		}
 		oldVal = std::abs(out.getValue());
-		solutionValid = readdRemovedConstraints(out);
-		if (solutionValid==CutGenerator::valid) {
+		solutionStatus = readdRemovedConstraints(out);
+		if (solutionStatus==CutGenerator::valid) {
 			for (CutGenerator* gen:generators) {
-				CutGenerator::CutStatus genStatus = gen->validate(problem, out.getVector());
+				CutGenerator::CutStatus genStatus = gen->validate(problem, out.getVector(), solutionStatus);
 				//a>b bedeutet, dass a eine Neuberechnung "dringender" macht als b
-				if (genStatus>solutionValid) {
-					solutionValid = genStatus;
+				if (genStatus>solutionStatus) {
+					solutionStatus = genStatus;
 				}
 			}
 		}
 		//sinceSlack0 vergrößern, da Constraints hinzugefügt wurden
-		if (solutionValid!=CutGenerator::valid) {
+		if (solutionStatus!=CutGenerator::valid) {
 			sinceSlack0.resize(problem.getConstraintCount()-constraintsAtStart, 0);
 		}
-		if (slowIterations>6 && solutionValid==CutGenerator::maybe_recalc) {
-			solutionValid = CutGenerator::valid;
+		if (slowIterations>6 && solutionStatus==CutGenerator::maybe_recalc) {
+			solutionStatus = CutGenerator::valid;
 		}
-	} while (solutionValid!=CutGenerator::valid);
+	} while (solutionStatus!=CutGenerator::valid);
 	cleanupOldConstraints();
 }
 
+size_t handledNodes = 0;
 /**
  * @return eine optimale ganzzahlige Lösung des LP, die von alle Cut-Generatoren akzeptiert wird.
  */
 std::vector<value_t> BranchAndCut::solve() {
+	handledNodes = 0;
 	//Wurzel des Suchbaums zur offenen Menge hinzufügen
 	BranchNode initNode{SystemBounds(this), 0, goal};
 	open.insert(initNode);
@@ -171,6 +173,7 @@ std::vector<value_t> BranchAndCut::solve() {
 			}
 		}
 	}
+	std::cout << "Found solution in " << handledNodes << " nodes" << std::endl;
 	return currBest;
 }
 
@@ -179,6 +182,7 @@ std::vector<value_t> BranchAndCut::solve() {
  * Falls diese Lösung besser als upperBound bzw.
  */
 void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
+	++handledNodes;
 	setupBounds(node.bounds);
 	solveLP(fractOpt);
 	/*

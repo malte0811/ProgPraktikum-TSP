@@ -23,7 +23,7 @@ public:
 	 * wird
 	 * recalc, falls Ungleichungen hinzugefügt wurden und die Lösung neu berechnet werden muss
 	 */
-	virtual CutStatus validate(LinearProgram& lp, const std::vector<double>& solution) = 0;
+	virtual CutStatus validate(LinearProgram& lp, const std::vector<double>& solution, CutStatus currentStatus) = 0;
 };
 
 

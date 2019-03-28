@@ -9,7 +9,7 @@ public:
 	PathCutGenerator(const lemon::SmartDigraph& graph, lemon::SmartDigraph::Node start, lemon::SmartDigraph::Node end)
 			: graph(graph), start(start), end(end) {}
 
-	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution) override {
+	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution, CutStatus currentStatus) override {
 		for (lemon::SmartDigraph::NodeIt it(graph); it!=lemon::INVALID; ++it) {
 			double sum = 0;
 			std::vector<int> edges;

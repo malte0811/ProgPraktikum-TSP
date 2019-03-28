@@ -10,7 +10,7 @@ class SubtourCutGen : public CutGenerator {
 public:
 	explicit SubtourCutGen(const TSPInstance& inst);
 
-	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution) override;
+	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution, CutStatus currentStatus) override;
 
 private:
 	void addConnectivityConstraints(LinearProgram& lp);

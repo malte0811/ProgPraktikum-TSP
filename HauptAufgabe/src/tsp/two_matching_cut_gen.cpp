@@ -1,6 +1,7 @@
 #include <two_matching_cut_gen.hpp>
 #include <lemon/unionfind.h>
 #include <union_find.hpp>
+#include <tsp_utils.hpp>
 
 TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst, bool contract)
 		: tsp(inst), enableContraction(contract), tolerance(1e-5) {}
@@ -17,51 +18,26 @@ TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst, bool contract)
  * 4. Die Blüten werden vor dem Hinzufügen der Constraints so verändert, dass F ein Matching ist. Der Algorithmus wird
  * im selben Paper wie oben ohne Beweis gegeben. TODO: Quelle mit Beweis finden oder selbst einen schreiben
  */
-CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& solution) {
+CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
+													CutStatus currentStatus) {
+	if (currentStatus==CutGenerator::maybe_recalc) return CutGenerator::valid;
 	Graph workGraph;
 	//Ordnet den Städten der TSP-Instanz einen Knoten im Arbeitsgraphen zu. Nur bis zum Aufruf von contractPaths gültig!
 	std::vector<Graph::Node> origToWork(static_cast<size_t>(tsp.getCityCount()));
 	//Ordnet den Knoten im Arbeitsgraphen die Städte in der TSP-Instanz zu. Auch nach dem Aufruf von contractPaths gültig
 	ContractionMap workToOrig(workGraph);
-	for (city_id i = 0; i<tsp.getCityCount(); ++i) {
-		Graph::Node newNode = workGraph.addNode();
-		origToWork[i] = newNode;
-		workToOrig[newNode] = {i};
-	}
 	//Ungerade Knoten, bzw. Knoten in T
 	Graph::NodeMap<bool> odd(workGraph);
 	//Ordnet den Kanten die zugehörigen Variablen zu
 	Graph::EdgeMap <variable_id> toVariable(workGraph);
 	//c wie in Satz 12.21
 	Graph::EdgeMap<double> c(workGraph);
+	Graph::NodeMap <city_id> workToOrigTemp(workGraph);
 	//Die Kanten mit Wert 1
-	std::vector<variable_id> oneEdges;
-	for (city_id lower = 0; lower<tsp.getCityCount()-1; ++lower) {
-		for (city_id higher = lower+1; higher<tsp.getCityCount(); ++higher) {
-			variable_id varId = tsp.getVariable(higher, lower);
-			/*
-			 * Kanten mit Wert 0 können nicht in F enthalten sein, da der Wert der Blüte dann schon mindestens 1 wäre
-			 * (und damit die Constraint nicht verletzt ist)
-			 */
-			if (tolerance.positive(solution[varId])) {
-				Graph::Node endU = origToWork[lower];
-				Graph::Node endV = origToWork[higher];
-				if (tolerance.less(solution[varId], 1)) {
-					//Kante hinzufügen
-					Graph::Edge eWork = workGraph.addEdge(endU, endV);
-					toVariable[eWork] = varId;
-					c[eWork] = solution[varId];
-				} else {
-					/*
-					 * Kanten im Schnitt mit Wert 1 müssen in F enthalten sein, sonst ist der Wert mindestens 1. Durch
-					 * das Hinzufügen bzw Entfernen der Enden aus T bleiben die möglichen Blüten gleich.
-					 */
-					odd[endU] = !odd[endU];
-					odd[endV] = !odd[endV];
-					oneEdges.push_back(varId);
-				}
-			}
-		}
+	std::vector<variable_id> oneEdges = tsp_util::createFractionalGraph(tsp, tolerance, solution, workGraph,
+																		workToOrigTemp, origToWork, toVariable, c, odd);
+	for (Graph::NodeIt it(workGraph); it!=lemon::INVALID; ++it) {
+		workToOrig[it] = {workToOrigTemp[it]};
 	}
 	if (enableContraction) {
 		contractPaths(workGraph, odd, c, workToOrig);

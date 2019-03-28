@@ -52,6 +52,8 @@ public:
 	public:
 		Constraint(const std::vector<int>& indices, const std::vector<double>& coeffs, CompType cmp, double rhs);
 
+		Constraint();
+
 		const std::vector<int>& getNonzeroes() const;
 
 		const std::vector<double>& getCoeffs() const;
@@ -64,6 +66,7 @@ public:
 
 		double evalLHS(const std::vector<double>& variables) const;
 
+		bool isValid() const;
 	private:
 		std::vector<int> indices;
 		std::vector<double> coeffs;
@@ -80,7 +83,6 @@ public:
 	void addVariables(const std::vector<double>& objCoeff, const std::vector<double>& lower,
 					  const std::vector<double>& upper);
 
-	//TODO Constraint-Objekte nutzen?
 	void addConstraint(const Constraint& constr);
 
 	void addConstraints(const std::vector<Constraint>& constrs);
