@@ -92,25 +92,28 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 					xElements.push_back(i);
 				}
 			}
-			if (sizeF>1) {
-				//2-Matching-Constraint
-				constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::less_eq,
-									 static_cast<size_t>(xElements.size()+sizeF/2));
-			} else {
-				//Subtour-Constraint
-				constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::less_eq,
-									 xElements.size()-1);
+			if (!indices.empty()) {
+				if (sizeF > 1) {
+					//2-Matching-Constraint
+					constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::less_eq,
+										 static_cast<size_t>(xElements.size() + sizeF / 2));
+				} else {
+					//Subtour-Constraint
+					constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::less_eq,
+										 xElements.size() - 1);
+				}
 			}
 		}
-		lp.addConstraints(constrs);
-		return CutGenerator::maybe_recalc;
-	} else {
-		//if (enableContraction) {
-		//	TwoMatchingCutGen tmp(tsp, false);
-		//	assert(tmp.validate(lp, solution)==CutGenerator::valid);
-		//}
-		return CutGenerator::valid;
+		if (!constrs.empty()) {
+			lp.addConstraints(constrs);
+			return CutGenerator::maybe_recalc;
+		}
 	}
+	//if (enableContraction) {
+	//	TwoMatchingCutGen tmp(tsp, false);
+	//	assert(tmp.validate(lp, solution)==CutGenerator::valid);
+	//}
+	return CutGenerator::valid;
 }
 
 /**

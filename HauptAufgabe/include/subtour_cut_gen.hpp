@@ -15,7 +15,7 @@ public:
 private:
 	void addConnectivityConstraints(LinearProgram& lp);
 
-	void addCutConstraint(LinearProgram& lp);
+	bool addCutConstraint(LinearProgram& lp);
 
 	//Die TSP-Instanz
 	const TSPInstance& tsp;

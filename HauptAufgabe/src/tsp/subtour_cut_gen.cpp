@@ -37,21 +37,21 @@ CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::ve
 		}
 	}
 	minCut.run();
-	double capacity = minCut.minCutValue();
-	if (capacity==0) {
+	double cutCapacity = minCut.minCutValue();
+	if (cutCapacity == 0) {
 		/*
 		 * Da es keine Kanten mit Kapazität 0 gibt, kann der Graph nicht zusammenhängend sein, es können also leicht
 		 * mehrere verletzte Constraints bestimmt werden.
 		 */
 		addConnectivityConstraints(lp);
 		return CutGenerator::recalc;
-	} else if (tolerance.less(capacity, 2)) {
+	} else if (tolerance.less(cutCapacity, 2)) {
 		//Positive Kapazität <2->Verletzte Subtour-Constraint
-		addCutConstraint(lp);
-		return CutGenerator::recalc;
-	} else {
-		return CutGenerator::valid;
+		if (addCutConstraint(lp)) {
+			return CutGenerator::recalc;
+		}
 	}
+	return CutGenerator::valid;
 }
 
 /**
@@ -72,7 +72,7 @@ void SubtourCutGen::addConnectivityConstraints(LinearProgram& lp) {
 			while (!open.empty()) {
 				Graph::Node current = open.top();
 				open.pop();
-				for (Graph::OutArcIt nextIt(workGraph, current); nextIt!=lemon::INVALID; ++nextIt) {
+				for (Graph::OutArcIt nextIt(workGraph, current); nextIt != lemon::INVALID; ++nextIt) {
 					Graph::Node neighbor = workGraph.target(nextIt);
 					if (!visited[neighbor]) {
 						visited[neighbor] = true;
@@ -82,7 +82,7 @@ void SubtourCutGen::addConnectivityConstraints(LinearProgram& lp) {
 				}
 			}
 			//Komponente mit den meisten Knoten speichern
-			if (currentComponent.size()>maxSize) {
+			if (currentComponent.size() > maxSize) {
 				maxSize = currentComponent.size();
 				maxIndex = components.size();
 			}
@@ -105,6 +105,7 @@ void SubtourCutGen::addConnectivityConstraints(LinearProgram& lp) {
 					indices.push_back(tsp.getVariable(currentComponent[aId], currentComponent[bId]));
 				}
 			}
+			assert(!indices.empty());
 			constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::less_eq,
 								 currentComponent.size()-1);
 		}
@@ -115,7 +116,7 @@ void SubtourCutGen::addConnectivityConstraints(LinearProgram& lp) {
 /**
  * Fügt die Constraint hinzu, die dem (bereits berechneten) Min-Cut entspricht
  */
-void SubtourCutGen::addCutConstraint(LinearProgram& lp) {
+bool SubtourCutGen::addCutConstraint(LinearProgram& lp) {
 	Graph::NodeMap<bool> inCut(workGraph);
 	minCut.minCutMap(inCut);
 	city_id cutSize = 0;
@@ -132,6 +133,10 @@ void SubtourCutGen::addCutConstraint(LinearProgram& lp) {
 	if (!cutVal) {
 		cutSize = tsp.getCityCount()-cutSize;
 	}
+	//Kann auftreten, wenn alle Constraints erfüllt sind, aber Kanten mit sehr kleinen positiven Werten existieren
+	if (cutSize <= 1) {
+		return false;
+	}
 	std::vector<int> induced;
 	for (city_id lowerEnd = 0; lowerEnd<tsp.getCityCount()-1; ++lowerEnd) {
 		for (city_id higherEnd = lowerEnd+1; higherEnd<tsp.getCityCount(); ++higherEnd) {
@@ -142,6 +147,8 @@ void SubtourCutGen::addCutConstraint(LinearProgram& lp) {
 			}
 		}
 	}
+	assert(!induced.empty());
 	lp.addConstraint(LinearProgram::Constraint(induced, std::vector<double>(induced.size(), 1), LinearProgram::less_eq,
 											   cutSize-1));
+	return true;
 }
