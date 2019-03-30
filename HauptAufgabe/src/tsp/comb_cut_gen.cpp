@@ -54,23 +54,22 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 																		toFractional, edgeToVar, c, odd);
 	BlockDecomposition blocks = generateBlocks(fractional);
 	std::vector<LinearProgram::Constraint> newConstraints;
-	for (Graph::NodeIt it(blocks.blockCutTree); it!=lemon::INVALID; ++it) {
-		const std::vector<Graph::Node>& mainBlock = blocks[it];
+	for (Graph::NodeIt mainBlockIt(blocks.blockCutTree); mainBlockIt != lemon::INVALID; ++mainBlockIt) {
+		const std::vector<Graph::Node>& mainBlock = blocks[mainBlockIt];
 		if (mainBlock.size()>=3) {
-			LinearProgram::Constraint constr = checkHandle({it}, fractional, blocks, lp, solution, oneEdges,
+			LinearProgram::Constraint constr = checkHandle({mainBlockIt}, fractional, blocks, lp, solution, oneEdges,
 														   toOrig, toFractional, odd);
 			if (constr.isValid()) {
 				newConstraints.push_back(constr);
 			}
-			for (Graph::OutArcIt arcIt1(blocks.blockCutTree, it); arcIt1!=lemon::INVALID; ++arcIt1) {
+			for (Graph::OutArcIt arcIt1(blocks.blockCutTree, mainBlockIt); arcIt1 != lemon::INVALID; ++arcIt1) {
 				Graph::Node commonNode = blocks.blockCutTree.target(arcIt1);
 				for (Graph::OutArcIt arcIt2(blocks.blockCutTree, commonNode); arcIt2!=lemon::INVALID; ++arcIt2) {
 					Graph::Node otherBlock = blocks.blockCutTree.target(arcIt2);
-					if (otherBlock!=it) {
+					if (Graph::id(otherBlock) > Graph::id(mainBlockIt)) {
 						const std::vector<Graph::Node>& additionalBlock = blocks[otherBlock];
-						//TODO Kante nur in einer Richtung bearbeiten?
 						if (additionalBlock.size()>=3) {
-							constr = checkHandle({it, otherBlock}, fractional, blocks, lp,
+							constr = checkHandle({mainBlockIt, otherBlock}, fractional, blocks, lp,
 												 solution, oneEdges, toOrig, toFractional, odd);
 							if (constr.isValid()) {
 								newConstraints.push_back(constr);
@@ -160,6 +159,19 @@ LinearProgram::Constraint CombCutGen::checkHandle
 		}
 	}
 	if (teeth.size()>=3) {
+		if (handleNodes.size() > tsp.getCityCount() / 2) {
+			std::vector<Graph::Node> newHandle;
+			newHandle.reserve(tsp.getCityCount() - handleNodes.size());
+			for (Graph::NodeIt it(mainGraph); it != lemon::INVALID; ++it) {
+				inHandle[it] = !inHandle[it];
+				if (inHandle[it]) {
+					newHandle.push_back(it);
+				}
+			}
+			rhs += newHandle.size();
+			rhs -= handleNodes.size();
+			handleNodes = newHandle;
+		}
 		std::vector<variable_id> indices;
 		inducedSum(handleNodes, toTSP, indices);
 		for (const VirtualEdge& e:teeth) {
@@ -309,7 +321,6 @@ void CombCutGen::inducedSum(const std::vector<Graph::Node>& inducing, const Grap
 		for (size_t i2 = 0; i2<i1; ++i2) {
 			city_id city2 = toCity[inducing[i2]];
 			variable_id var = tsp.getVariable(city1, city2);
-			assert(std::find(out.begin(), out.end(), var)==out.end());
 			out.push_back(var);
 		}
 	}
@@ -319,7 +330,6 @@ void CombCutGen::inducedSum(const std::vector<Graph::Node>& inducing, const Grap
 CombCutGen::BlockDecomposition::BlockDecomposition(const Graph& tree,
 												   const Graph::NodeMap <std::vector<Graph::Node>>& orig) :
 		originalNodes(blockCutTree) {
-	//TODO test
 	lemon::graphCopy(tree, blockCutTree).nodeMap(orig, originalNodes).run();
 }
 

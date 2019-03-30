@@ -15,6 +15,7 @@
 #include <two_matching_cut_gen.hpp>
 #include <branch_and_cut.hpp>
 #include <comb_cut_gen.hpp>
+#include <connectivity_cut_gen.hpp>
 
 namespace tspsolvers {
 
@@ -110,10 +111,11 @@ namespace tspsolvers {
 	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution* initial, CPXENVptr& lpEnv, size_t maxOpenSize) {
 		LinearProgram lp(lpEnv, inst.getName(), LinearProgram::minimize);
 		inst.setupBasicLP(lp);
+		ConnectivityCutGen connected(inst);
 		SubtourCutGen subtours(inst);
 		TwoMatchingCutGen matchings(inst, true);
 		CombCutGen combs(inst);
-		BranchAndCut bac(lp, {&subtours, &combs, &matchings}, maxOpenSize);
+		BranchAndCut bac(lp, {&connected, &subtours, &combs, &matchings}, maxOpenSize);
 		if (initial!=nullptr) {
 			std::vector<long> asVars(static_cast<size_t>(inst.getEdgeCount()));
 			for (variable_id i = 0; i<inst.getEdgeCount(); ++i) {

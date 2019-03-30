@@ -22,6 +22,7 @@ public:
 	 * notwendig ist, z.B. falls die Ungleichungen nur fraktionale Lösungen entfernen, aber nach ganzzahligen gesucht
 	 * wird
 	 * recalc, falls Ungleichungen hinzugefügt wurden und die Lösung neu berechnet werden muss
+	 * recalc_now, falls keine anderen Cut-Generatoren vor der nächsten Neuberechnung ausgeführt werden sollen
 	 */
 	virtual CutStatus validate(LinearProgram& lp, const std::vector<double>& solution, CutStatus currentStatus) = 0;
 };

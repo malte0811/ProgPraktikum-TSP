@@ -54,6 +54,7 @@ int main() {
 	if (status!=0) {
 		throw std::runtime_error("Failed to open CPLEX environment: "+std::to_string(status));
 	}
+	std::vector<double> times;
 	for (const auto& inst:instances) {
 		clock_t start = std::clock();
 		std::cout << "Solving instance " << inst.first << std::endl;
@@ -75,6 +76,12 @@ int main() {
 		} else {
 			std::cout << "Found correct solution for " << inst.first << " in " << elapsed_secs << " seconds"
 					  << std::endl;
+		}
+		times.push_back(elapsed_secs);
+	}
+	if (instances.size() == times.size()) {
+		for (size_t i = 0; i < instances.size(); ++i) {
+			std::cout << instances[i].first << ": " << times[i] << std::endl;
 		}
 	}
 	CPXcloseCPLEX(&env);

@@ -20,7 +20,9 @@ TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst, bool contract)
  */
 CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
 													CutStatus currentStatus) {
-	if (currentStatus==CutGenerator::maybe_recalc) return CutGenerator::valid;
+	if (currentStatus == CutGenerator::maybe_recalc) {
+		return CutGenerator::valid;
+	}
 	Graph workGraph;
 	//Ordnet den Städten der TSP-Instanz einen Knoten im Arbeitsgraphen zu. Nur bis zum Aufruf von contractPaths gültig!
 	std::vector<Graph::Node> origToWork(static_cast<size_t>(tsp.getCityCount()));
