@@ -31,16 +31,16 @@ public:
 	double getBound();
 
 private:
-	bool generate1Tree();
+	using Sequence = std::vector<std::pair<FullGraph::Edge, double>>;
 
-	void addVariable(LinearProgram& lp);
-
-	void addInitialTrees(LinearProgram& lp);
+	void generate1Tree();
 
 	const TSPInstance *inst;
 	cost_t costOriginal = 0;
 	double costPotential = 0;
 	double lowerBound;
+	Sequence sortedEdges;
+
 	//TODO da ist mehr drin als nur das Potential
 	std::vector<double> potential;
 	FullGraph g;
@@ -50,6 +50,8 @@ private:
 	std::pair<city_id, city_id> oneNeighbors;
 	Tree t;
 	RelativeTolerance tolerance;
+
+	bool updatePotential(double stepSize);
 };
 
 
