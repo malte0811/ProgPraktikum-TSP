@@ -26,7 +26,7 @@ public:
 
 	class Solution {
 	public:
-		explicit Solution(size_t varCount);
+		Solution(size_t varCount, size_t constraintCount);
 
 		double operator[](size_t index) const;
 
@@ -40,11 +40,14 @@ public:
 
 		const std::vector<double>& getReducedCosts() const;
 
+		const std::vector<double>& getShadowCosts() const;
+
 	private:
 		friend LinearProgram;
 		std::vector<double> vector;
 		std::vector<double> slack;
 		std::vector<double> reduced;
+		std::vector<double> shadowCosts;
 		double value;
 	};
 
@@ -74,7 +77,7 @@ public:
 		double rhs;
 	};
 
-	LinearProgram(CPXENVptr& env, std::string name, Goal opt);
+	LinearProgram(CPXENVptr& env, const std::string& name, Goal opt);
 
 	LinearProgram(const LinearProgram& other) = delete;
 
@@ -82,6 +85,9 @@ public:
 
 	void addVariables(const std::vector<double>& objCoeff, const std::vector<double>& lower,
 					  const std::vector<double>& upper);
+
+	void addVariable(double objCoeff, double lower, double upper, const std::vector<int>& indices,
+					 const std::vector<double>& constrCoeffs);
 
 	void addConstraint(const Constraint& constr);
 
@@ -91,7 +97,9 @@ public:
 
 	void removeSetConstraints(std::vector<int>& shouldDelete);
 
-	Solution solve();
+	Solution solveDual();
+
+	Solution solvePrimal();
 
 	void solve(Solution& out);
 
@@ -109,6 +117,8 @@ public:
 
 	static variable_id invalid_variable;
 private:
+	void writeSolution(Solution& sol);
+
 	CPXENVptr& env;
 	CPXLPptr problem;
 	std::vector<Constraint> constraints;

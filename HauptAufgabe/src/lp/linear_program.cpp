@@ -7,7 +7,7 @@
 
 variable_id LinearProgram::invalid_variable = -1;
 
-LinearProgram::LinearProgram(CPXENVptr& env, std::string name, Goal opt) : env(env) {
+LinearProgram::LinearProgram(CPXENVptr& env, const std::string& name, Goal opt) : env(env) {
 	int status;
 	problem = CPXcreateprob(env, &status, name.c_str());
 	if (status!=0) {
@@ -32,8 +32,20 @@ void LinearProgram::addVariables(const std::vector<double>& objCoeff, const std:
 	int result = CPXnewcols(env, problem, static_cast<int>(objCoeff.size()), objCoeff.data(), lower.data(),
 							upper.data(),
 							nullptr, nullptr);
-	if (result!=0) {
-		throw std::runtime_error("Could not add variable to LP, return value was "+std::to_string(result));
+	if (result != 0) {
+		throw std::runtime_error("Could not add variables to LP, return value was " + std::to_string(result));
+	}
+}
+
+//TODO typedef for constraint indices
+void LinearProgram::addVariable(double objCoeff, double lower, double upper, const std::vector<int>& indices,
+								const std::vector<double>& constrCoeffs) {
+	assert(constrCoeffs.size() == indices.size());
+	int zero = 0;
+	int result = CPXaddcols(env, problem, 1, constrCoeffs.size(), &objCoeff, &zero, indices.data(), constrCoeffs.data(),
+							&lower, &upper, nullptr);
+	if (result != 0) {
+		throw std::runtime_error("Could not add variable to LP, return value was " + std::to_string(result));
 	}
 }
 
@@ -58,7 +70,7 @@ void LinearProgram::addConstraints(const std::vector<Constraint>& constrs) {
 	sense.reserve(constrs.size());
 	rhs.reserve(constrs.size());
 	for (const Constraint& c:constrs) {
-		assert(c.isValid());
+		assert(c.isValid() || getVariableCount() == 0);
 		constrStarts.push_back(indices.size());
 		rhs.push_back(c.getRHS());
 		sense.push_back(c.getSense());
@@ -94,9 +106,19 @@ void LinearProgram::removeSetConstraints(std::vector<int>& shouldDelete) {
 /**
  * @return eine optimale Lösung des LP
  */
-LinearProgram::Solution LinearProgram::solve() {
-	Solution sol(static_cast<size_t>(getVariableCount()));
+LinearProgram::Solution LinearProgram::solveDual() {
+	Solution sol(static_cast<size_t>(getVariableCount()), static_cast<size_t>(getConstraintCount()));
 	solve(sol);
+	return sol;
+}
+
+LinearProgram::Solution LinearProgram::solvePrimal() {
+	Solution sol(static_cast<size_t>(getVariableCount()), static_cast<size_t>(getConstraintCount()));
+	int result = CPXprimopt(env, problem);
+	if (result != 0) {
+		throw std::runtime_error("Could not solve LP, return value was " + std::to_string(result));
+	}
+	writeSolution(sol);
 	return sol;
 }
 
@@ -111,16 +133,20 @@ void LinearProgram::solve(LinearProgram::Solution& out) {
 	if (result!=0) {
 		throw std::runtime_error("Could not solve LP, return value was "+std::to_string(result));
 	}
+	writeSolution(out);
+}
+
+void LinearProgram::writeSolution(Solution& out) {
 	int status = CPXgetstat(env, problem);
 	switch (status) {
-		case CPX_STAT_OPTIMAL:
+		case CPX_STAT_OPTIMAL: {
 			out.slack.resize(static_cast<size_t>(getConstraintCount()));
-			//TODO ist nullptr ok?
-			result = CPXsolution(env, problem, &status, &out.value, out.vector.data(), nullptr, out.slack.data(),
-								 out.reduced.data());
-			if (result!=0) {
-				throw std::runtime_error("Failed to copy LP solution: "+std::to_string(status));
+			int result = CPXsolution(env, problem, &status, &out.value, out.vector.data(), out.shadowCosts.data(),
+									 out.slack.data(), out.reduced.data());
+			if (result != 0) {
+				throw std::runtime_error("Failed to copy LP solution: " + std::to_string(status));
 			}
+		}
 			break;
 		case CPX_STAT_INFEASIBLE:
 		case CPX_STAT_INForUNBD:
@@ -132,7 +158,7 @@ void LinearProgram::solve(LinearProgram::Solution& out) {
 		default:
 			char errStr[510];
 			CPXgetstatstring(env, status, errStr);
-			throw std::runtime_error("LP solver gave error: "+std::string(errStr));
+			throw std::runtime_error("LP solver gave error: " + std::string(errStr));
 	}
 }
 
@@ -181,7 +207,8 @@ LinearProgram::Constraint LinearProgram::getConstraint(int index) const {
 	return constraints[index];
 }
 
-LinearProgram::Solution::Solution(size_t varCount) : vector(varCount), slack(0), reduced(varCount) {}
+LinearProgram::Solution::Solution(size_t varCount, size_t constraintCount)
+		: vector(varCount), slack(constraintCount), reduced(varCount), shadowCosts(constraintCount), value(0) {}
 
 double LinearProgram::Solution::operator[](size_t index) const {
 	return vector[index];
@@ -205,6 +232,10 @@ const std::vector<double>& LinearProgram::Solution::getReducedCosts() const {
 
 const std::vector<double>& LinearProgram::Solution::getSlack() const {
 	return slack;
+}
+
+const std::vector<double>& LinearProgram::Solution::getShadowCosts() const {
+	return shadowCosts;
 }
 
 LinearProgram::Constraint::Constraint(const std::vector<int>& indices, const std::vector<double>& coeffs,

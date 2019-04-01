@@ -6,7 +6,7 @@
 
 BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens, size_t maxOpenSize) :
 		problem(program), varCount(program.getVariableCount()), goal(program.getGoal()),
-		currBest(static_cast<size_t>(varCount)), fractOpt(static_cast<size_t>(varCount)),
+		currBest(static_cast<size_t>(varCount)), fractOpt(static_cast<size_t>(varCount), 0),
 		objCoefficients(static_cast<size_t>(varCount)), maxOpenSize(maxOpenSize), generators(gens),
 		constraintsAtStart(static_cast<size_t>(program.getConstraintCount())),
 		defaultBounds(static_cast<size_t>(varCount)), currentBounds(static_cast<size_t>(varCount)), intTolerance(0.01) {

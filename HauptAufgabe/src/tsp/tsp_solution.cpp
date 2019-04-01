@@ -1,5 +1,7 @@
 #include <tsp_solution.hpp>
 #include <tsp_instance.hpp>
+#include <lemon/full_graph.h>
+#include <lemon/opt2_tsp.h>
 
 /**
  * @param inst Die TSP-Instanz
@@ -27,6 +29,15 @@ TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& varia
 	} while (currentCity!=0);
 	if (indexInTour<order.size()) {
 		throw std::runtime_error("Invalid TSP solution, node 1 is in a short cycle");
+	}
+}
+
+TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<city_id>& order)
+		: inst(&inst), order(order), variables(static_cast<size_t>(inst.getEdgeCount()), false) {
+	for (city_id i = 0; i < inst.getCityCount(); ++i) {
+		variable_id var = inst.getVariable(order[i], order[(i + 1) % inst.getCityCount()]);
+		variables[var] = true;
+		cost += inst.getCost(var);
 	}
 }
 
@@ -67,4 +78,25 @@ void TSPSolution::write(std::ostream& out) const {
 		out << c+1 << "\n";
 	}
 	out << "-1\n";
+}
+
+TSPSolution TSPSolution::opt2() const {
+	using lemon::FullGraph;
+	FullGraph g(inst->getCityCount());
+	FullGraph::EdgeMap<cost_t> costs(g);
+	for (FullGraph::EdgeIt it(g); it != lemon::INVALID; ++it) {
+		costs[it] = inst->getDistance(g.id(g.u(it)), g.id(g.v(it)));
+	}
+	lemon::Opt2Tsp<FullGraph::EdgeMap<cost_t>> opt2(g, costs);
+	std::vector<FullGraph::Node> orderGraph(inst->getCityCount());
+	for (city_id i = 0; i < inst->getCityCount(); ++i) {
+		orderGraph[i] = g(order[i]);
+	}
+	opt2.run(orderGraph);
+	orderGraph = opt2.tourNodes();
+	std::vector<city_id> orderInt(inst->getCityCount());
+	for (city_id i = 0; i < inst->getCityCount(); ++i) {
+		orderInt[i] = g.id(orderGraph[i]);
+	}
+	return TSPSolution(*inst, orderInt);
 }

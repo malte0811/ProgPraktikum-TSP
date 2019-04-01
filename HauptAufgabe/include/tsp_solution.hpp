@@ -10,6 +10,8 @@ public:
 
 	TSPSolution(const TSPInstance& inst, const std::vector<bool>& variables);
 
+	TSPSolution(const TSPInstance& inst, const std::vector<city_id>& order);
+
 	void write(std::ostream& out) const;
 
 	cost_t getCost() const;
@@ -17,6 +19,8 @@ public:
 	bool getVariable(variable_id id) const;
 
 	const std::vector<city_id>& getOrder() const;
+
+	TSPSolution opt2() const;
 
 private:
 	const TSPInstance* inst = nullptr;

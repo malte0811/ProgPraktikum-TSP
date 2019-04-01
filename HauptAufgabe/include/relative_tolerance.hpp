@@ -3,12 +3,13 @@
 
 
 #include <cassert>
+#include <lemon/tolerance.h>
 
 class RelativeTolerance {
 public:
-	RelativeTolerance() = default;
+	RelativeTolerance();
 
-	static const double eps;
+	explicit RelativeTolerance(double eps);
 
 	bool less(double a, double b) const;
 
@@ -19,6 +20,9 @@ public:
 	bool negative(double a) const;
 
 	bool nonZero(double a) const;
+
+private:
+	double eps;
 };
 
 #endif
