@@ -4,10 +4,11 @@
 #include <cut_generator.hpp>
 #include <tsp_instance.hpp>
 #include <lemon/connectivity.h>
+#include "tsp_lp_data.hpp"
 
 class CombCutGen : public CutGenerator {
 public:
-	explicit CombCutGen(const TSPInstance& inst);
+	explicit CombCutGen(const TSPInstance& inst, const TspLpData& lpData);
 
 	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution, CutStatus currentStatus) override;
 
@@ -32,6 +33,10 @@ private:
 	//Knoten im fraktionalen Graphen
 	using VirtualEdge = std::vector<Graph::Node>;
 
+	const TSPInstance& tsp;
+	const TspLpData& lpData;
+	const lemon::Tolerance<double> tolerance;
+
 	BlockDecomposition generateBlocks(const Graph& g);
 
 	LinearProgram::Constraint checkHandle(const CombCutGen::Handle& h, const Graph& mainGraph,
@@ -40,9 +45,6 @@ private:
 										  const std::vector<variable_id>& oneEdges,
 										  const Graph::NodeMap <city_id>& toTSP,
 										  const std::vector<Graph::Node>& toGraph, const Graph::NodeMap<bool>& odd);
-
-	const TSPInstance& tsp;
-	const lemon::Tolerance<double> tolerance;
 
 	std::vector<CombCutGen::VirtualEdge> getTeethForHandle(const CombCutGen::Handle& handle,
 														   const std::vector<variable_id>& oneEdges,

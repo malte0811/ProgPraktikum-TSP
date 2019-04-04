@@ -2,10 +2,11 @@
 #include <lemon_fixes/nagamochi_ibaraki.h>
 #include <cmath>
 #include <stack>
+#include <tsp_lp_data.hpp>
 
-SubtourCutGen::SubtourCutGen(const TSPInstance& inst)
+SubtourCutGen::SubtourCutGen(const TSPInstance& inst, const TspLpData& lpData)
 		: tsp(inst), origToWork(static_cast<size_t>(tsp.getCityCount())), workToOrig(workGraph), capacity(workGraph),
-		  minCut(workGraph, capacity), tolerance(1e-5) {
+		  minCut(workGraph, capacity), tolerance(1e-5), lpData(lpData) {
 	/*
 	 * Grundzustand des Arbeitsgraphen abspeichern: So viele Knoten wie in der TSP-Instanz, aber keine Kanten.
 	 * Außerdem NodeMap's anlegen, um Knoten im TSP-Graphen in Knoten im Arbeitsgraphen umzuwandeln und umgekehrt
@@ -30,13 +31,11 @@ CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::ve
 	 * Alle Kanten einfügen, deren Variablen einen echt positiven Wert haben (Kanten mit Wert 0 ändern den minimalen
 	 * Schnitt nicht)
 	 */
-	for (city_id lowerEnd = 0; lowerEnd < tsp.getCityCount() - 1; ++lowerEnd) {
-		for (city_id higherEnd = lowerEnd + 1; higherEnd < tsp.getCityCount(); ++higherEnd) {
-			variable_id edgeVar = tsp.getVariable(higherEnd, lowerEnd);
-			if (tolerance.positive(solution[edgeVar])) {
-				Graph::Edge inWork = workGraph.addEdge(origToWork[lowerEnd], origToWork[higherEnd]);
-				capacity[inWork] = solution[edgeVar];
-			}
+	for (variable_id i = 0; i < solution.size(); ++i) {
+		if (tolerance.positive(solution[i])) {
+			TspLpData::Edge e = lpData.getEdge(i);
+			Graph::Edge inWork = workGraph.addEdge(origToWork[e.first], origToWork[e.second]);
+			capacity[inWork] = solution[i];
 		}
 	}
 	minCut.run();
@@ -65,13 +64,16 @@ CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::ve
 	if (cutSize <= 2) {
 		return valid;
 	}
-	std::vector<int> induced;
+	std::vector<variable_id> induced;
 	for (city_id lowerEnd = 0; lowerEnd < tsp.getCityCount() - 1; ++lowerEnd) {
 		for (city_id higherEnd = lowerEnd + 1; higherEnd < tsp.getCityCount(); ++higherEnd) {
 			bool vInCut = inCut[origToWork[lowerEnd]];
 			bool uInCut = inCut[origToWork[higherEnd]];
 			if (vInCut == cutVal && uInCut == cutVal) {
-				induced.push_back(tsp.getVariable(higherEnd, lowerEnd));
+				variable_id var = lpData.getVariable(higherEnd, lowerEnd);
+				if (var >= 0) {
+					induced.push_back(var);
+				}
 			}
 		}
 	}

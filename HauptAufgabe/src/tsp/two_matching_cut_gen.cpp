@@ -2,9 +2,10 @@
 #include <lemon/unionfind.h>
 #include <union_find.hpp>
 #include <tsp_utils.hpp>
+#include <tsp_lp_data.hpp>
 
-TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst, bool contract)
-		: tsp(inst), enableContraction(contract), tolerance(1e-5) {}
+TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst, const TspLpData& lpData, bool contract)
+		: tsp(inst), enableContraction(contract), tolerance(1e-5), lpData(lpData) {}
 
 /**
  * Findet verletzte 2-Matching-Constraints, falls es solche gibt. Der Algorithmus entspricht grob dem aus Satz 12.21 mit
@@ -36,7 +37,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 	Graph::EdgeMap<double> c(workGraph);
 	Graph::NodeMap <city_id> workToOrigTemp(workGraph);
 	//Die Kanten mit Wert 1
-	std::vector<variable_id> oneEdges = tsp_util::createFractionalGraph(tsp, tolerance, solution, workGraph,
+	std::vector<variable_id> oneEdges = tsp_util::createFractionalGraph(tsp, lpData, tolerance, solution, workGraph,
 																		workToOrigTemp, origToWork, toVariable, c, odd);
 	for (Graph::NodeIt it(workGraph); it!=lemon::INVALID; ++it) {
 		workToOrig[it] = {workToOrigTemp[it]};
@@ -76,7 +77,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 			if (sizeF>1) {
 				for (variable_id e:f) {
 					indices.push_back(e);
-					assert(isInX[tsp.getLowerEnd(e)]!=isInX[tsp.getHigherEnd(e)]);
+					assert(isInX[lpData.getEdge(e).first] != isInX[lpData.getEdge(e).second]);
 				}
 			}
 			std::vector<city_id> xElements;
@@ -89,7 +90,10 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 			for (city_id i = 0; i<tsp.getCityCount(); ++i) {
 				if (isInX[i]==valForX) {
 					for (city_id other:xElements) {
-						indices.push_back(tsp.getVariable(i, other));
+						variable_id var = lpData.getVariable(i, other);
+						if (var != LinearProgram::invalid_variable) {
+							indices.push_back(var);
+						}
 					}
 					xElements.push_back(i);
 				}
@@ -370,35 +374,36 @@ void TwoMatchingCutGen::finalizeBlossom(const std::vector<variable_id>& oneEdges
 	std::vector<bool> fTSP(static_cast<size_t>(tsp.getEdgeCount()));
 	//Die Menge F vor dem Umwandeln zu einem Matching
 	//Alle 1-Kanten im Schnitt von X sind in F
-	for (variable_id e:oneEdges) {
-		city_id endU = tsp.getLowerEnd(e);
-		city_id endV = tsp.getHigherEnd(e);
-		if (isInX[endU]!=isInX[endV]) {
-			fTSP[e] = true;
-			f.push_back(e);
+	for (variable_id eId:oneEdges) {
+		TspLpData::Edge e = lpData.getEdge(eId);
+		if (isInX[e.first] != isInX[e.second]) {
+			fTSP[eId] = true;
+			f.push_back(eId);
 		}
 	}
 	//Die Kanten im berechneten F zu F hinzufügen
 	for (variable_id e:f) {
 		fTSP[e] = true;
 	}
+	TspLpData::Edge invalidEdge = {TSPInstance::invalid_city, TSPInstance::invalid_city};
 	//Ordnet jedem Knoten die inzidente Kante in F zu
-	std::vector<variable_id> incidentF(tsp.getCityCount(), LinearProgram::invalid_variable);
-	for (variable_id e:f) {
-		city_id ends[2] = {tsp.getLowerEnd(e), tsp.getHigherEnd(e)};
+	std::vector<TspLpData::Edge> incidentF(tsp.getCityCount(), invalidEdge);
+	for (variable_id eId:f) {
+		TspLpData::Edge e = lpData.getEdge(eId);
+		city_id ends[2] = {e.first, e.second};
 		for (city_id end:ends) {
-			if (incidentF[end]==LinearProgram::invalid_variable) {
+			if (incidentF[end].first == TSPInstance::invalid_city) {
 				//Es ist noch keine Kante in F zu end inzident
 				incidentF[end] = e;
 			} else {
 				//Die Kanten entfernen, die ein gemeinsames Ende haben
-				variable_id oldEdge = incidentF[end];
-				incidentF[tsp.getLowerEnd(oldEdge)] = LinearProgram::invalid_variable;
-				incidentF[tsp.getHigherEnd(oldEdge)] = LinearProgram::invalid_variable;
-				incidentF[tsp.getLowerEnd(e)] = LinearProgram::invalid_variable;
-				incidentF[tsp.getHigherEnd(e)] = LinearProgram::invalid_variable;
-				fTSP[oldEdge] = false;
-				fTSP[e] = false;
+				TspLpData::Edge oldEdge = incidentF[end];
+				incidentF[oldEdge.first] = invalidEdge;
+				incidentF[oldEdge.second] = invalidEdge;
+				incidentF[e.first] = invalidEdge;
+				incidentF[e.second] = invalidEdge;
+				fTSP[lpData.getVariable(oldEdge.first, oldEdge.second)] = false;
+				fTSP[eId] = false;
 				//Das gemeinsame Ende aus X entfernen bzw zu X hinzufügen
 				isInX[end] = !isInX[end];
 				//Die Größen von X und F aktualisieren

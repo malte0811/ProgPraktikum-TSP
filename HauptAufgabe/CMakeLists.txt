@@ -13,7 +13,8 @@ set(COMMON_SOURCES src/lp/linear_program.cpp include/linear_program.hpp
         src/tsp/tsp_solution.cpp include/tsp_solution.hpp include/tsp_solvers.hpp
         src/tsp/tsp_solvers.cpp src/misc/relative_tolerance.cpp include/relative_tolerance.hpp
         src/tsp/comb_cut_gen.cpp include/comb_cut_gen.hpp src/misc/tsp_utils.cpp include/tsp_utils.hpp
-        src/tsp/connectivity_cut_gen.cpp include/connectivity_cut_gen.hpp src/tsp/one_tree.cpp include/one_tree.hpp)
+        src/tsp/connectivity_cut_gen.cpp include/connectivity_cut_gen.hpp src/tsp/one_tree.cpp include/one_tree.hpp
+        src/tsp/tsp_lp_data.cpp include/tsp_lp_data.hpp include/variable_remover.hpp)
 
 include_directories(include)
 link_directories(libs)

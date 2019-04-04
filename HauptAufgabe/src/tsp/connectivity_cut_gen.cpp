@@ -1,8 +1,9 @@
 #include <connectivity_cut_gen.hpp>
 #include <stack>
+#include <tsp_lp_data.hpp>
 
-ConnectivityCutGen::ConnectivityCutGen(const TSPInstance& inst) : tsp(inst), workToOrig(workGraph),
-																  origToWork(inst.getCityCount()) {
+ConnectivityCutGen::ConnectivityCutGen(const TSPInstance& inst, const TspLpData& lpData)
+		: tsp(inst), workToOrig(workGraph), lpData(lpData), origToWork(inst.getCityCount()) {
 	/*
 	 * Grundzustand des Arbeitsgraphen abspeichern: So viele Knoten wie in der TSP-Instanz, aber keine Kanten.
 	 * Außerdem NodeMap's anlegen, um Knoten im TSP-Graphen in Knoten im Arbeitsgraphen umzuwandeln und umgekehrt
@@ -12,24 +13,24 @@ ConnectivityCutGen::ConnectivityCutGen(const TSPInstance& inst) : tsp(inst), wor
 		origToWork[i] = newNode;
 		workToOrig[newNode] = i;
 	}
-	baseState.save(workGraph);
 }
 
 CutGenerator::CutStatus ConnectivityCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
 													 CutGenerator::CutStatus currentStatus) {
-	//Grundzustand wiederherstellen und speichern
-	baseState.restore();
-	baseState.save(workGraph);
+	//Grundzustand wiederherstellen
+	for (Graph::EdgeIt it(workGraph); it != lemon::INVALID;) {
+		Graph::Edge e = it;
+		++it;
+		workGraph.erase(e);
+	}
 	/*
 	 * Alle Kanten einfügen, deren Variablen einen echt positiven Wert haben (Kanten mit Wert 0 ändern den minimalen
 	 * Schnitt nicht)
 	 */
-	for (city_id lowerEnd = 0; lowerEnd < tsp.getCityCount() - 1; ++lowerEnd) {
-		for (city_id higherEnd = lowerEnd + 1; higherEnd < tsp.getCityCount(); ++higherEnd) {
-			variable_id edgeVar = tsp.getVariable(higherEnd, lowerEnd);
-			if (tolerance.positive(solution[edgeVar])) {
-				workGraph.addEdge(origToWork[lowerEnd], origToWork[higherEnd]);
-			}
+	for (variable_id i = 0; i < solution.size(); ++i) {
+		if (tolerance.positive(solution[i])) {
+			TspLpData::Edge e = lpData.getEdge(i);
+			workGraph.addEdge(origToWork[e.first], origToWork[e.second]);
 		}
 	}
 	Graph::NodeMap<bool> visited(workGraph);
@@ -77,7 +78,10 @@ CutGenerator::CutStatus ConnectivityCutGen::validate(LinearProgram& lp, const st
 				const std::vector<city_id>& currentComponent = components[i];
 				for (size_t aId = 1; aId < currentComponent.size(); ++aId) {
 					for (size_t bId = 0; bId < aId; ++bId) {
-						indices.push_back(tsp.getVariable(currentComponent[aId], currentComponent[bId]));
+						variable_id var = lpData.getVariable(currentComponent[aId], currentComponent[bId]);
+						if (var != LinearProgram::invalid_variable) {
+							indices.push_back(var);
+						}
 					}
 				}
 				assert(!indices.empty());

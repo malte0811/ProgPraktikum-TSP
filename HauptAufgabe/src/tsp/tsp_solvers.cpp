@@ -16,6 +16,7 @@
 #include <branch_and_cut.hpp>
 #include <comb_cut_gen.hpp>
 #include <connectivity_cut_gen.hpp>
+#include <tsp_lp_data.hpp>
 
 namespace tspsolvers {
 
@@ -24,14 +25,15 @@ namespace tspsolvers {
 	 * hinzugefügt wird.
 	 */
 	TSPSolution solveGreedy(const TSPInstance& inst) {
+		TspLpData data(inst);//TODO zu TSPInstance Methoden für IDs (für allg. Verwendung) hinzufügen
 		std::vector<variable_id> sortedEdges;
 		for (variable_id i = 0; i<inst.getEdgeCount(); ++i) {
 			sortedEdges.push_back(i);
 		}
 		//Sortieren nach Kosten der entsprechenden Kanten
 		std::sort(sortedEdges.begin(), sortedEdges.end(),
-				  [&inst](variable_id edgeA, variable_id edgeB) {
-					  return inst.getCost(edgeA)<inst.getCost(edgeB);
+				  [&data](variable_id edgeA, variable_id edgeB) {
+					  return data.getCost(edgeA) < data.getCost(edgeB);
 				  }
 		);
 		/*
@@ -46,15 +48,14 @@ namespace tspsolvers {
 		std::vector<bool> used(static_cast<size_t>(inst.getEdgeCount()));
 		std::vector<size_t> degree(inst.getCityCount());
 		unsigned addedEdges = 0;
-		for (variable_id e:sortedEdges) {
+		for (variable_id eId:sortedEdges) {
 			//Falls an einem der beiden Enden schon 2 Kanten anliegen, kann die Kante nicht hinzugefügt werden
-			city_id u = inst.getLowerEnd(e);
-			size_t& edgesAtU = degree[u];
+			TspLpData::Edge e = data.getEdge(eId);
+			size_t& edgesAtU = degree[e.first];
 			if (edgesAtU>=2) {
 				continue;
 			}
-			city_id v = inst.getHigherEnd(e);
-			size_t& edgesAtV = degree[v];
+			size_t& edgesAtV = degree[e.second];
 			if (edgesAtV>=2) {
 				continue;
 			}
@@ -62,36 +63,37 @@ namespace tspsolvers {
 			 * Wenn die Enden beide Grad <2 haben (also Enden von Toursegmenten sind), können sie genau dann verbunden
 			 * werden, wenn sie nicht zum selben Segment gehören.
 			 */
-			if (otherEnd[u]!=v) {
+			if (otherEnd[e.first] != e.second) {
 				++addedEdges;
 				++edgesAtU;
 				++edgesAtV;
-				used[e] = true;
+				used[eId] = true;
 				if (addedEdges==inst.getCityCount()-1) {
 					break;//Tour ist fast vollständig, die letzte Kante ist aber eindeutig bestimmt
 				}
 				//Enden des neuen Segments setzen
 				//newEndU/V zwischenspeichern, falls die Segmente aus einzelnen Knoten bestehen
-				city_id newEndU = otherEnd[u];
-				city_id newEndV = otherEnd[v];
+				city_id newEndU = otherEnd[e.first];
+				city_id newEndV = otherEnd[e.second];
 				otherEnd[newEndV] = newEndU;
 				otherEnd[newEndU] = newEndV;
 			}
 		}
-		closeHamiltonPath(inst, used, degree);
-		return TSPSolution(inst, used);
+		closeHamiltonPath(inst, used, degree, data);
+		return TSPSolution(inst, used, data);
 	}
 
 	/**
 	 * Fügt die fehlende Kante in einen Hamilton-Pfad in der TSP-Instanz inst ein
 	 */
-	void closeHamiltonPath(const TSPInstance& instance, std::vector<bool>& used,
-						   const std::vector<size_t>& degree) {
+	void closeHamiltonPath(const TSPInstance& instance, std::vector<bool>& used, const std::vector<size_t>& degree,
+			//TODO weg
+						   const TspLpData& data) {
 		city_id firstEnd = TSPInstance::invalid_city;
 		for (city_id currCity = 0; currCity<instance.getCityCount(); ++currCity) {
 			if (degree[currCity]==1) {
 				if (firstEnd!=TSPInstance::invalid_city) {
-					used[instance.getVariable(firstEnd, currCity)] = true;
+					used[data.getVariable(firstEnd, currCity)] = true;
 					break;
 				} else {
 					firstEnd = currCity;
@@ -109,13 +111,15 @@ namespace tspsolvers {
 	 * @return eine optimal Lösung der gegebenen TSP-Instanz
 	 */
 	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution* initial, CPXENVptr& lpEnv, size_t maxOpenSize) {
+		TspLpData data(inst);
+		data.setupLowerBounds();
+		ConnectivityCutGen connected(inst, data);
+		SubtourCutGen subtours(inst, data);
+		TwoMatchingCutGen matchings(inst, data, true);
+		CombCutGen combs(inst, data);
 		LinearProgram lp(lpEnv, inst.getName(), LinearProgram::minimize);
-		inst.setupBasicLP(lp);
-		ConnectivityCutGen connected(inst);
-		SubtourCutGen subtours(inst);
-		TwoMatchingCutGen matchings(inst, true);
-		CombCutGen combs(inst);
-		BranchAndCut bac(lp, {&connected, &subtours, &combs, &matchings}, maxOpenSize);
+		data.setupBasicLP(lp);
+		BranchAndCut bac(lp, {&connected, &subtours, &combs, &matchings}, &data, maxOpenSize);
 		if (initial!=nullptr) {
 			std::vector<long> asVars(static_cast<size_t>(inst.getEdgeCount()));
 			for (variable_id i = 0; i<inst.getEdgeCount(); ++i) {
@@ -123,11 +127,11 @@ namespace tspsolvers {
 			}
 			bac.setUpperBound(asVars, initial->getCost());
 		}
-		std::vector<long> tour = bac.solve();
-		std::vector<bool> asBools(tour.size());
-		for (size_t i = 0; i<tour.size(); ++i) {
-			asBools[i] = tour[i];
-		}
-		return TSPSolution(inst, asBools);
+		clock_t start = std::clock();
+		bac.solve();
+		clock_t end = std::clock();
+		double elapsed_secs = double(end - start) / CLOCKS_PER_SEC;
+		std::cout << "Branch and cut took " << elapsed_secs << " seconds" << std::endl;
+		return data.getUpperBound();
 	}
 }

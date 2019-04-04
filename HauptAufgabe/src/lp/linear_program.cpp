@@ -4,6 +4,8 @@
 #include <cut_generator.hpp>
 #include <cmath>
 #include <ilcplex/cplex.h>
+#include <iostream>
+#include <set>
 
 variable_id LinearProgram::invalid_variable = -1;
 
@@ -76,11 +78,17 @@ void LinearProgram::addConstraints(const std::vector<Constraint>& constrs) {
 		sense.push_back(c.getSense());
 		indices.insert(indices.end(), c.getNonzeroes().begin(), c.getNonzeroes().end());
 		coeffs.insert(coeffs.end(), c.getCoeffs().begin(), c.getCoeffs().end());
+		//std::set<variable_id> inds;
+		//for (variable_id i:c.indices) {
+		//	assert(i>=0 && i<getVariableCount());
+		//	assert(!inds.count(i));
+		//	inds.insert(i);
+		//}
 	}
 	int result = CPXaddrows(env, problem, 0, constrs.size(), indices.size(), rhs.data(),
 							sense.data(), constrStarts.data(), indices.data(), coeffs.data(), nullptr, nullptr);
-	if (result!=0) {
-		throw std::runtime_error("Could not add constraint to LP, return value was "+std::to_string(result));
+	if (result != 0) {
+		throw std::runtime_error("Could not add constraint to LP, return value was " + std::to_string(result));
 	}
 	constraints.insert(constraints.end(), constrs.begin(), constrs.end());
 }
@@ -101,6 +109,16 @@ void LinearProgram::removeSetConstraints(std::vector<int>& shouldDelete) {
 		}
 	}
 	constraints = std::move(newConstrs);
+}
+
+void LinearProgram::removeSetVariables(std::vector<int>& shouldDelete) {
+	int status = CPXdelsetcols(env, problem, shouldDelete.data());
+	for (Constraint& c:constraints) {
+		c.deleteVariables(shouldDelete);
+	}
+	if (status != 0) {
+		throw std::runtime_error("Error while deleting variables: " + std::to_string(status));
+	}
 }
 
 /**
@@ -141,6 +159,7 @@ void LinearProgram::writeSolution(Solution& out) {
 	switch (status) {
 		case CPX_STAT_OPTIMAL: {
 			out.slack.resize(static_cast<size_t>(getConstraintCount()));
+			out.shadowCosts.resize(static_cast<size_t>(getConstraintCount()));
 			int result = CPXsolution(env, problem, &status, &out.value, out.vector.data(), out.shadowCosts.data(),
 									 out.slack.data(), out.reduced.data());
 			if (result != 0) {
@@ -284,4 +303,21 @@ LinearProgram::Constraint::Constraint() : Constraint({}, {}, less_eq, -1) {}
 
 bool LinearProgram::Constraint::isValid() const {
 	return !indices.empty();
+}
+
+void LinearProgram::Constraint::deleteVariables(const std::vector<variable_id>& removalMap) {
+	auto indIt = indices.begin();
+	auto coeffIt = coeffs.begin();
+	while (indIt != indices.end()) {
+		if (removalMap[*indIt] < 0) {
+			indIt = indices.erase(indIt);
+			coeffIt = coeffs.erase(coeffIt);
+		} else {
+			*indIt = removalMap[*indIt];
+			++indIt;
+			++coeffIt;
+		}
+	}
+	assert(!indices.empty());
+	assert(indices.size() == coeffs.size());
 }

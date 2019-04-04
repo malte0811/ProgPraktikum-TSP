@@ -4,24 +4,24 @@
 
 OneTree::OneTree(const TSPInstance& inst) : inst(&inst), potential(inst.getCityCount()-1, 0),
 											g(inst.getCityCount() - 1), t(g, inTree), inTree(g, false), bestInTree(g),
-											costs(g), tolerance(1e-3), lowerBound(0) {
+											costs(g), tolerance(1e-3), lowerBound(0), lastV(inst.getCityCount() - 2) {
 	for (FullGraph::EdgeIt it(g); it != lemon::INVALID; ++it) {
 		sortedEdges.push_back(std::make_pair(it, costs[it]));
 	}
 }
 
-void OneTree::run(CPXENVptr env) {
+void OneTree::run() {
 	size_t iterations = 0;
 	size_t sinceLastUpdate = 0;
-	double currStepSize = 2;
-	size_t stepSizeChanges = 0;
+	double currStepSize = 1;
 	bool stop;
-	const size_t maxStepChanges = 5;
-	const size_t maxIterations = 5000;
-	const size_t maxNoUpdate = 10;
+	const size_t maxIterations = 1000;
+	const size_t maxNoUpdate = inst->getCityCount() / 10;
+	const double factor = 0.99;
 	do {
 		generate1Tree();
-		stop = updatePotential(currStepSize);
+		//Formel kommt von Martin Drees
+		stop = updatePotential(currStepSize * 0.2 * costPotential / (double) g.nodeNum());
 		++iterations;
 		++sinceLastUpdate;
 		if (lowerBound < costPotential) {
@@ -29,11 +29,7 @@ void OneTree::run(CPXENVptr env) {
 			lemon::mapCopy(g, inTree, bestInTree);
 			sinceLastUpdate = 0;
 		}
-		if (sinceLastUpdate>=maxNoUpdate && stepSizeChanges<maxStepChanges) {
-			currStepSize /= 2;
-			sinceLastUpdate = 0;
-			++stepSizeChanges;
-		}
+		currStepSize *= factor;
 	} while (!stop && sinceLastUpdate<maxNoUpdate && iterations < maxIterations);
 	std::cout << iterations << ", " << sinceLastUpdate << ", " << currStepSize << std::endl;
 	lemon::mapCopy(g, bestInTree, inTree);
@@ -129,8 +125,13 @@ bool OneTree::updatePotential(double stepSize) {
 	}
 	bool allZero = true;
 	for (size_t i = 0;i<v.size();++i) {
-		potential[i] += v[i]*stepSize;
+		potential[i] += (0.6 * v[i] + 0.4 * lastV[i]) * stepSize;
 		allZero &= v[i]==0;
+		lastV[i] = v[i];
 	}
 	return allZero;
+}
+
+std::pair<city_id, city_id> OneTree::getOneNeighbors() const {
+	return oneNeighbors;
 }

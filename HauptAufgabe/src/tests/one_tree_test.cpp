@@ -19,12 +19,13 @@ void eliminateEdges(const TSPInstance& inst, cost_t upper, CPXENVptr env) {
 	using lemon::FullGraph;
 	using Tree = lemon::FilterEdges<FullGraph>;
 	OneTree one(inst);
-	one.run(env);
+	one.run();
 	const Tree& tree = one.getTree();
 	const FullGraph& g = one.getGraph();
 	const FullGraph::EdgeMap<bool>& inTree = one.getInTree();
 	const FullGraph::EdgeMap<double>& redCosts = one.getReducedCosts();
 	std::cout << "Upper bound: " << upper << ", lower: " << one.getBound() << std::endl;
+
 	size_t removed = 0;
 	for (FullGraph::NodeIt it(g); it != lemon::INVALID; ++it) {
 		lemon::Bfs<Tree> bfs(tree);
@@ -123,7 +124,7 @@ int main() {
 		std::cout << "Opt cost would be " << inst.second << std::endl;
 		clock_t end = std::clock();
 		double elapsed_secs = double(end-start)/CLOCKS_PER_SEC;
-		std::cout << "Took " << elapsed_secs << "seconds" << std::endl;
+		std::cout << "Took " << elapsed_secs << " seconds" << std::endl;
 	}
 	CPXcloseCPLEX(&env);
 }

@@ -12,10 +12,12 @@
 #include <map>
 #include <set>
 #include <relative_tolerance.hpp>
+#include <variable_remover.hpp>
 
 using value_t = long;
 using coeff_t = long;
 
+class VariableRemover;
 /**
  * Bestimmt die optimale Lösung eines ganzzahligen linearen Programms, bei dem die Zielfunktion ganzzahlige
  * Koeffizienten hat
@@ -23,7 +25,8 @@ using coeff_t = long;
  */
 class BranchAndCut {
 public:
-	BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens, size_t maxOpenSize);
+	BranchAndCut(LinearProgram& program, const std::vector<CutGenerator *>& gens, VariableRemover *remover,
+				 size_t maxOpenSize);
 
 	void setUpperBound(const std::vector<value_t>& value, value_t cost);
 
@@ -50,6 +53,9 @@ private:
 	class SystemBounds {
 	public:
 		explicit SystemBounds(BranchAndCut* owner);
+
+		SystemBounds(const BranchAndCut::SystemBounds& old,
+					 const std::vector<variable_id>& idMap, variable_id newVarCount);
 
 		VariableBounds operator[](variable_id id) const;
 
@@ -91,7 +97,7 @@ private:
 	//Die aktuelle obere Schranke
 	double upperBound;
 	//Die Anzahl der Variablen im LP
-	const variable_id varCount;
+	variable_id varCount;
 	//Das Ziel des LP's
 	const LinearProgram::Goal goal;
 	//Die Variablenbelegung, mit der die obere Schranke erreicht wird
@@ -116,6 +122,7 @@ private:
 	const size_t maxOpenSize;
 	//Die Schnittebenen-Generatoren, die erfüllt sein müssen
 	const std::vector<CutGenerator*> generators;
+	VariableRemover *remover;
 	//Anzahl der Nebenbedingungen am Start der Berechnung
 	const size_t constraintsAtStart;
 	//Toleranz für allgemeine Verwendung

@@ -3,14 +3,16 @@
 
 #include <linear_program.hpp>
 #include <tsp_instance.hpp>
+#include "tsp_lp_data.hpp"
 
 namespace tsp_util {
-	std::vector<variable_id> createFractionalGraph(const TSPInstance& tsp, lemon::Tolerance<double> tolerance,
+	std::vector<variable_id> createFractionalGraph(const TSPInstance& tsp, const TspLpData& lpData,
+												   lemon::Tolerance<double> tolerance,
 												   const std::vector<double>& solution, Graph& workGraph,
 												   Graph::NodeMap <city_id>& workToOrig,
 												   std::vector<Graph::Node>& origToWork,
-												   Graph::EdgeMap <variable_id>& toVariable, Graph::EdgeMap<double>& c,
-												   Graph::NodeMap<bool>& odd);
+												   Graph::EdgeMap <variable_id>& toVariable,
+												   Graph::EdgeMap<double>& c, Graph::NodeMap<bool>& odd);
 }
 
 

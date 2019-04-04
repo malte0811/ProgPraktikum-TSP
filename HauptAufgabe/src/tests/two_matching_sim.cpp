@@ -24,7 +24,7 @@ int main() {
 	}
 	LinearProgram lp(env, "test", LinearProgram::minimize);
 	inst.setupBasicLP(lp);
-	TwoMatchingCutGen cg(inst, false);
+	TwoMatchingCutGen cg(inst, <#initializer#>, false);
 	std::cout << cg.validate(lp, sol, maybe_recalc) << std::endl;
 	CPXcloseCPLEX(&env);
 }

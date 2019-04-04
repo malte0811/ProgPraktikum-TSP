@@ -5,6 +5,8 @@
 #include <comb_cut_gen.hpp>
 #include <tsp_utils.hpp>
 
+CombCutGen::CombCutGen(const TSPInstance& inst, const TspLpData& lpData) : tsp(inst), tolerance(1e-5), lpData(lpData) {}
+
 CombCutGen::BlockDecomposition CombCutGen::generateBlocks(const Graph& g) {
 	Graph::EdgeMap<int> compMap(g);
 	const int compCount = lemon::biNodeConnectedComponents(g, compMap);
@@ -36,8 +38,6 @@ CombCutGen::BlockDecomposition CombCutGen::generateBlocks(const Graph& g) {
 	return BlockDecomposition(blockCutTree, origMap);
 }
 
-CombCutGen::CombCutGen(const TSPInstance& inst) : tsp(inst), tolerance(1e-5) {}
-
 CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
 											 CutStatus currentStatus) {
 	if (currentStatus!=CutGenerator::valid) {
@@ -50,7 +50,8 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 	Graph::EdgeMap <variable_id> edgeToVar(fractional);
 	Graph::EdgeMap<double> c(fractional);
 	Graph::NodeMap<bool> odd(fractional);
-	std::vector<variable_id> oneEdges = tsp_util::createFractionalGraph(tsp, tolerance, solution, fractional, toOrig,
+	std::vector<variable_id> oneEdges = tsp_util::createFractionalGraph(tsp, lpData, tolerance, solution,
+																		fractional, toOrig,
 																		toFractional, edgeToVar, c, odd);
 	BlockDecomposition blocks = generateBlocks(fractional);
 	std::vector<LinearProgram::Constraint> newConstraints;
@@ -201,11 +202,10 @@ std::vector<CombCutGen::VirtualEdge> CombCutGen::getTeethForHandle
 		 const std::vector<double>& solution) {
 	std::vector<VirtualEdge> ret;
 	//Alle 1-Kanten
-	for (variable_id e:oneEdges) {
-		city_id cityA = tsp.getLowerEnd(e);
-		city_id cityB = tsp.getHigherEnd(e);
-		Graph::Node nodeA = toGraph[cityA];
-		Graph::Node nodeB = toGraph[cityB];
+	for (variable_id eId:oneEdges) {
+		TspLpData::Edge e = lpData.getEdge(eId);
+		Graph::Node nodeA = toGraph[e.first];
+		Graph::Node nodeB = toGraph[e.second];
 		if (inHandle[nodeA]!=inHandle[nodeB]) {
 			ret.push_back({nodeA, nodeB});
 		}
@@ -229,7 +229,7 @@ std::vector<CombCutGen::VirtualEdge> CombCutGen::getTeethForHandle
 			for (Graph::OutArcIt it(g, u); it!=lemon::INVALID; ++it) {
 				city_id endCity = toCity[g.target(it)];
 				if (!inHandle[g.target(it)]) {
-					double cost = solution[tsp.getVariable(uCity, endCity)];
+					double cost = solution[lpData.getVariable(uCity, endCity)];
 					if (cost>maxWeight) {
 						maxWeight = cost;
 						maxWeightEdge = {u, g.target(it)};
@@ -300,6 +300,7 @@ void CombCutGen::addAndMinDiff(std::vector<CombCutGen::VirtualEdge>& out, const 
 }
 
 //TODO kann man das beides irgendwie in eine Methode packen?
+//TODO die Graphen sind nicht mehr vollstd, gibt es schönere/schnellere Ansätze?
 double CombCutGen::inducedSum(const std::vector<Graph::Node>& inducing, const Graph::NodeMap <city_id>& toCity,
 							  const std::vector<double>& solution) {
 	double ret = 0;
@@ -307,8 +308,10 @@ double CombCutGen::inducedSum(const std::vector<Graph::Node>& inducing, const Gr
 		city_id city1 = toCity[inducing[i1]];
 		for (size_t i2 = 0; i2<i1; ++i2) {
 			city_id city2 = toCity[inducing[i2]];
-			variable_id var = tsp.getVariable(city1, city2);
-			ret += solution[var];
+			variable_id var = lpData.getVariable(city1, city2);
+			if (var != LinearProgram::invalid_variable) {
+				ret += solution[var];
+			}
 		}
 	}
 	return ret;
@@ -320,8 +323,10 @@ void CombCutGen::inducedSum(const std::vector<Graph::Node>& inducing, const Grap
 		city_id city1 = toCity[inducing[i1]];
 		for (size_t i2 = 0; i2<i1; ++i2) {
 			city_id city2 = toCity[inducing[i2]];
-			variable_id var = tsp.getVariable(city1, city2);
-			out.push_back(var);
+			variable_id var = lpData.getVariable(city1, city2);
+			if (var != LinearProgram::invalid_variable) {
+				out.push_back(var);
+			}
 		}
 	}
 

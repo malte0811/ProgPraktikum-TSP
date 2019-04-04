@@ -4,10 +4,11 @@
 
 #include "cut_generator.hpp"
 #include "tsp_instance.hpp"
+#include "tsp_lp_data.hpp"
 
 class ConnectivityCutGen : public CutGenerator {
 public:
-	explicit ConnectivityCutGen(const TSPInstance& inst);
+	explicit ConnectivityCutGen(const TSPInstance& inst, const TspLpData& lpData);
 
 	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution, CutStatus currentStatus) override;
 
@@ -21,6 +22,7 @@ private:
 	//Die Umkehrabbildung zu origToWork
 	Graph::NodeMap <city_id> workToOrig;
 	const TSPInstance& tsp;
+	const TspLpData& lpData;
 	lemon::Tolerance<double> tolerance;
 };
 

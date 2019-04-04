@@ -4,12 +4,14 @@
 #include <limits>
 #include <ctime>
 
-BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerator*>& gens, size_t maxOpenSize) :
+BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerator *>& gens, VariableRemover *remover,
+						   size_t maxOpenSize) :
 		problem(program), varCount(program.getVariableCount()), goal(program.getGoal()),
 		currBest(static_cast<size_t>(varCount)), fractOpt(static_cast<size_t>(varCount), 0),
 		objCoefficients(static_cast<size_t>(varCount)), maxOpenSize(maxOpenSize), generators(gens),
 		constraintsAtStart(static_cast<size_t>(program.getConstraintCount())),
-		defaultBounds(static_cast<size_t>(varCount)), currentBounds(static_cast<size_t>(varCount)), intTolerance(0.01) {
+		defaultBounds(static_cast<size_t>(varCount)), currentBounds(static_cast<size_t>(varCount)), intTolerance(0.01),
+		remover(remover) {
 	//obere Schranke auf schlechtesten möglichen Wert setzen
 	if (goal==LinearProgram::minimize) {
 		upperBound = std::numeric_limits<double>::max();
@@ -264,6 +266,12 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 			value_t floor = ceil-1;
 			double fractVal = fractOpt.getValue();
 			/*
+			 * Später bearbeiten, es sei denn, die offene Menge ist klein und es gibt nur wenige nicht ganzzahlige
+			 * Variablen
+			 */
+			branch(varToBound, floor, LinearProgram::upper, node.bounds, fractVal,
+				   nonIntCount < 10 && openSize < maxOpenSize, dfs);
+			/*
 			 * Sofort bearbeiten, es sei denn, die offene Menge wird zu groß. So wird die offene Menge relativ klein
 			 * gehalten, es werden schneller obere Schranken gefunden und die LPs können schneller gelöst werden, da
 			 * das duale Simplexverfahren genutzt wird und das LP nach dem hinzufügen neuer Constraints schnell neu
@@ -272,12 +280,6 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 			 */
 			branch(varToBound, ceil, LinearProgram::lower, node.bounds, fractVal,
 				   openSize<maxOpenSize, dfs);
-			/*
-			 * Später bearbeiten, es sei denn, die offene Menge ist klein und es gibt nur wenige nicht ganzzahlige
-			 * Variablen
-			 */
-			branch(varToBound, floor, LinearProgram::upper, node.bounds, fractVal,
-				   nonIntCount<10 && openSize<maxOpenSize, dfs);
 		}
 	}
 }
@@ -358,6 +360,59 @@ void BranchAndCut::setUpperBound(const std::vector<value_t>& value, coeff_t cost
 			++removed;
 		}
 		std::cout << "Removed " << removed << " nodes from the open set" << std::endl;
+	}
+	if (remover != nullptr) {
+		std::vector<variable_id> toRemove = remover->removeVariables(cost, value);
+		if (!toRemove.empty()) {
+			std::vector<int> variableMap(varCount);
+			for (variable_id r:toRemove) {
+				variableMap[r] = 1;
+			}
+			problem.removeSetVariables(variableMap);
+			variable_id newVarCount = varCount - toRemove.size();
+			std::multiset<BranchNode> newOpen;
+			for (const BranchNode& old:open) {
+				SystemBounds newBounds(old.bounds, variableMap, newVarCount);
+				BranchNode newNode{newBounds, old.value, old.goal};
+				bool add = true;
+				for (const BranchNode& newEle:newOpen) {
+					if (newNode == newEle) {
+						add = false;
+						break;
+					}
+				}
+				if (add) {
+					newOpen.insert(newNode);
+				}
+			}
+			std::vector<VariableBounds> newDefaultBounds(newVarCount);
+			std::vector<VariableBounds> newCurrentBounds(newVarCount);
+			std::vector<coeff_t> newCoeffs(newVarCount);
+			for (size_t i = 0; i < defaultBounds.size(); ++i) {
+				if (variableMap[i] >= 0) {
+					newDefaultBounds[variableMap[i]] = defaultBounds[i];
+					newCurrentBounds[variableMap[i]] = currentBounds[i];
+					newCoeffs[variableMap[i]] = objCoefficients[i];
+				}
+			}
+			for (LinearProgram::Constraint& c:recentlyRemoved) {
+				c.deleteVariables(variableMap);
+			}
+			//for (variable_id i = 0; i<newVarCount; ++i) {
+			//	for (LinearProgram::BoundType type:{LinearProgram::lower, LinearProgram::upper}) {
+			//		assert(newCurrentBounds[i][type]==std::lround(problem.getBound(i, type)));
+			//	}
+			//}
+			varCount = newVarCount;
+			defaultBounds = newDefaultBounds;
+			currentBounds = newCurrentBounds;
+			open = newOpen;
+			objCoefficients = newCoeffs;
+			fractOpt = LinearProgram::Solution(varCount, problem.getConstraintCount());
+			assert(varCount == defaultBounds.size() && varCount == currentBounds.size() &&
+				   varCount == objCoefficients.size());
+			std::cout << "Removed " << toRemove.size() << " variables, " << varCount << " remaining" << std::endl;
+		}
 	}
 }
 
@@ -465,7 +520,25 @@ bool BranchAndCut::BranchNode::operator==(const BranchAndCut::BranchNode& other)
 BranchAndCut::SystemBounds::SystemBounds(BranchAndCut* owner)
 		: owner(owner),
 		  fixLower(static_cast<size_t>(owner->varCount), false),
-		  fixUpper(static_cast<size_t>(owner->varCount), false) {}
+		  fixUpper(static_cast<size_t>(owner->varCount), false),
+		  fixedCount(0) {}
+
+BranchAndCut::SystemBounds::SystemBounds(const BranchAndCut::SystemBounds& old, const std::vector<variable_id>& idMap,
+										 variable_id newVarCount) :
+		owner(old.owner), fixedCount(0) {
+	fixLower.resize(newVarCount);
+	fixUpper.resize(newVarCount);
+	for (size_t oldId = 0; oldId < old.fixLower.size(); ++oldId) {
+		variable_id newId = idMap[oldId];
+		if (newId >= 0) {
+			fixUpper[newId] = old.fixUpper[oldId];
+			fixLower[newId] = old.fixLower[oldId];
+			if (old.bounds.count(oldId) > 0) {
+				bounds[newId] = old.bounds.at(oldId);
+			}
+		}
+	}
+}
 
 BranchAndCut::VariableBounds BranchAndCut::SystemBounds::operator[](variable_id id) const {
 	VariableBounds basic{};

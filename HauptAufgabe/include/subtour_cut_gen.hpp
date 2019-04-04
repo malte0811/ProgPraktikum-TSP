@@ -5,16 +5,18 @@
 #include <lemon/smart_graph.h>
 #include <lemon_fixes/nagamochi_ibaraki.h>
 #include <tsp_instance.hpp>
+#include "tsp_lp_data.hpp"
 
 class SubtourCutGen : public CutGenerator {
 public:
-	explicit SubtourCutGen(const TSPInstance& inst);
+	explicit SubtourCutGen(const TSPInstance& inst, const TspLpData& lpData);
 
 	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution, CutStatus currentStatus) override;
 
 private:
 	//Die TSP-Instanz
 	const TSPInstance& tsp;
+	const TspLpData& lpData;
 	//Der Arbeitsgraph. Enthält alle Kanten, deren Wert in der LP-Lösung nicht 0 ist
 	Graph workGraph;
 	//Der Grundzustand des Arbeitsgraphen: Keine Kanten, nur die korrekte Anzahl an Knoten

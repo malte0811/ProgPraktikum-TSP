@@ -5,10 +5,11 @@
 #include <cut_generator.hpp>
 #include <lemon/gomory_hu.h>
 #include "union_find.hpp"
+#include "tsp_lp_data.hpp"
 
 class TwoMatchingCutGen : public CutGenerator {
 public:
-	explicit TwoMatchingCutGen(const TSPInstance& inst, bool contract);
+	explicit TwoMatchingCutGen(const TSPInstance& inst, const TspLpData& lpData, bool contract);
 
 	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution, CutStatus currentStatus) override;
 
@@ -44,6 +45,8 @@ private:
 	bool isValidInternalNode(const Graph& g, Graph::Node start, const Graph::EdgeMap<double>& c);
 
 	const TSPInstance& tsp;
+
+	const TspLpData& lpData;
 
 	const bool enableContraction;
 

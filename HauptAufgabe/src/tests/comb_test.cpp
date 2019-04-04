@@ -49,7 +49,7 @@ int main() {
 	CPXENVptr env = CPXopenCPLEX(&status);
 	LinearProgram lp(env, "temp", LinearProgram::minimize);
 	tsp.setupBasicLP(lp);
-	CombCutGen combGen(tsp);
+	CombCutGen combGen(tsp, <#initializer#>);
 	std::cout << combGen.validate(lp, sol, CutGenerator::valid) << std::endl;
 	CPXcloseCPLEX(&env);
 }

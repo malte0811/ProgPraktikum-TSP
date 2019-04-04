@@ -14,7 +14,7 @@ public:
 
 	explicit OneTree(const TSPInstance& inst);
 
-	void run(CPXENVptr env);
+	void run();
 
 	double getCleanCost() const;
 
@@ -30,6 +30,8 @@ public:
 
 	double getBound();
 
+	std::pair<city_id, city_id> getOneNeighbors() const;
+
 private:
 	using Sequence = std::vector<std::pair<FullGraph::Edge, double>>;
 
@@ -41,8 +43,8 @@ private:
 	double lowerBound;
 	Sequence sortedEdges;
 
-	//TODO da ist mehr drin als nur das Potential
 	std::vector<double> potential;
+	std::vector<int> lastV;
 	FullGraph g;
 	FullGraph::EdgeMap<double> costs;
 	FullGraph::EdgeMap<bool> inTree;

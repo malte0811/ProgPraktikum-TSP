@@ -61,7 +61,7 @@ int shortestPath(const std::string& name) {
 			lp.addConstraint(<#initializer#>);
 		}
 	}
-	BranchAndCut bb(lp, std::vector<CutGenerator*>(), 0);
+	BranchAndCut bb(lp, std::vector<CutGenerator *>(), nullptr, 0);
 	std::vector<long> sol = bb.solve();
 	int totalCost = 0;
 	for (int i = 0; i<sol.size(); ++i) {

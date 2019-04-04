@@ -225,33 +225,6 @@ void TSPInstance::setDistance(city_id a, city_id b, cost_t dist) {
 	}
 }
 
-/**
- * Fügt Variablen für alle Kanten und Gradbedingungen für alle Knoten zum LP hinzu
- * @param lp das zu initialisierende LP
- */
-void TSPInstance::setupBasicLP(LinearProgram& lp) const {
-	auto varCount = static_cast<size_t>(getEdgeCount());
-	std::vector<double> objCoeffs(varCount);
-	for (variable_id i = 0; i<getEdgeCount(); ++i) {
-		objCoeffs[i] = getCost(i);
-	}
-	std::vector<double> lower(varCount, 0);
-	std::vector<double> upper(varCount, 1);
-	lp.addVariables(objCoeffs, lower, upper);
-	std::vector<LinearProgram::Constraint> constrs;
-	constrs.reserve(getCityCount());
-	for (city_id i = 0; i<getCityCount(); ++i) {
-		std::vector<variable_id> indices;
-		for (city_id otherEnd = 0; otherEnd<getCityCount(); ++otherEnd) {
-			if (otherEnd!=i)
-				indices.push_back(getVariable(i, otherEnd));
-		}
-		constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::equal,
-							 2);
-	}
-	lp.addConstraints(constrs);
-}
-
 std::string TSPInstance::getName() const {
 	return name;
 }

@@ -1,14 +1,15 @@
 #ifndef TSP_SOLUTION_HPP
 #define TSP_SOLUTION_HPP
 
-
 #include <tsp_instance.hpp>
+
+class TspLpData;
 
 class TSPSolution {
 public:
 	TSPSolution() = default;
 
-	TSPSolution(const TSPInstance& inst, const std::vector<bool>& variables);
+	TSPSolution(const TSPInstance& inst, const std::vector<bool>& variables, const TspLpData& variableMap);
 
 	TSPSolution(const TSPInstance& inst, const std::vector<city_id>& order);
 

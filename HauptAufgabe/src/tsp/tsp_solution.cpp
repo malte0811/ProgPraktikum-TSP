@@ -2,12 +2,13 @@
 #include <tsp_instance.hpp>
 #include <lemon/full_graph.h>
 #include <lemon/opt2_tsp.h>
+#include <tsp_lp_data.hpp>
 
 /**
  * @param inst Die TSP-Instanz
  * @param variables Die Belegung der LP-Variablen
  */
-TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& variables)
+TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& variables, const TspLpData& variableMap)
 		: inst(&inst), order(static_cast<size_t>(inst.getCityCount())), variables(variables) {
 	city_id previous = 0;
 	city_id currentCity = 0;
@@ -18,14 +19,18 @@ TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& varia
 		}
 		order[indexInTour] = currentCity;
 		++indexInTour;
+		bool foundNext = false;
 		for (city_id next = 0; next<inst.getCityCount(); ++next) {
-			if (next!=previous && next!=currentCity && variables[inst.getVariable(currentCity, next)]) {
+			variable_id var = variableMap.getVariable(currentCity, next);
+			if (next != previous && next != currentCity && var >= 0 && variables[var]) {
 				cost += inst.getDistance(currentCity, next);
 				previous = currentCity;
 				currentCity = next;
+				foundNext = true;
 				break;
 			}
 		}
+		assert(foundNext);
 	} while (currentCity!=0);
 	if (indexInTour<order.size()) {
 		throw std::runtime_error("Invalid TSP solution, node 1 is in a short cycle");
@@ -34,10 +39,11 @@ TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& varia
 
 TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<city_id>& order)
 		: inst(&inst), order(order), variables(static_cast<size_t>(inst.getEdgeCount()), false) {
+	TspLpData lpData(inst);
 	for (city_id i = 0; i < inst.getCityCount(); ++i) {
-		variable_id var = inst.getVariable(order[i], order[(i + 1) % inst.getCityCount()]);
+		variable_id var = lpData.getVariable(order[i], order[(i + 1) % inst.getCityCount()]);
 		variables[var] = true;
-		cost += inst.getCost(var);
+		cost += lpData.getCost(var);
 	}
 }
 

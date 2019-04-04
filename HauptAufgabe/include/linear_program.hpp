@@ -70,11 +70,14 @@ public:
 		double evalLHS(const std::vector<double>& variables) const;
 
 		bool isValid() const;
+
+		void deleteVariables(const std::vector<variable_id>& removalMap);
 	private:
 		std::vector<int> indices;
 		std::vector<double> coeffs;
 		CompType comp;
 		double rhs;
+		friend LinearProgram;
 	};
 
 	LinearProgram(CPXENVptr& env, const std::string& name, Goal opt);
@@ -96,6 +99,8 @@ public:
 	Constraint getConstraint(int index) const;
 
 	void removeSetConstraints(std::vector<int>& shouldDelete);
+
+	void removeSetVariables(std::vector<int>& shouldDelete);
 
 	Solution solveDual();
 
