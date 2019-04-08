@@ -1,13 +1,10 @@
-//
-// Created by malte on 3/27/19.
-//
-
-#include <comb_cut_gen.hpp>
+#include <simple_comb_cut_gen.hpp>
 #include <tsp_utils.hpp>
 
-CombCutGen::CombCutGen(const TSPInstance& inst, const TspLpData& lpData) : tsp(inst), tolerance(1e-5), lpData(lpData) {}
+SimpleCombCutGen::SimpleCombCutGen(const TSPInstance& inst, const TspLpData& lpData) : tsp(inst), tolerance(1e-5),
+																					   lpData(lpData) {}
 
-CombCutGen::BlockDecomposition CombCutGen::generateBlocks(const Graph& g) {
+SimpleCombCutGen::BlockDecomposition SimpleCombCutGen::generateBlocks(const Graph& g) {
 	Graph::EdgeMap<int> compMap(g);
 	const int compCount = lemon::biNodeConnectedComponents(g, compMap);
 	//std::cout << compCount << std::endl;
@@ -38,8 +35,8 @@ CombCutGen::BlockDecomposition CombCutGen::generateBlocks(const Graph& g) {
 	return BlockDecomposition(blockCutTree, origMap);
 }
 
-CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
-											 CutStatus currentStatus) {
+CutGenerator::CutStatus SimpleCombCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
+												   CutStatus currentStatus) {
 	if (currentStatus!=CutGenerator::valid) {
 		return CutStatus::valid;
 	}
@@ -89,8 +86,8 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 	}
 }
 
-LinearProgram::Constraint CombCutGen::checkHandle
-		(const CombCutGen::Handle& h, const Graph& mainGraph, const CombCutGen::BlockDecomposition& blocks,
+LinearProgram::Constraint SimpleCombCutGen::checkHandle
+		(const SimpleCombCutGen::Handle& h, const Graph& mainGraph, const SimpleCombCutGen::BlockDecomposition& blocks,
 		 LinearProgram& lp, const std::vector<double>& solution, const std::vector<variable_id>& oneEdges,
 		 const Graph::NodeMap <city_id>& toTSP, const std::vector<Graph::Node>& toGraph,
 		 const Graph::NodeMap<bool>& odd) {
@@ -195,8 +192,9 @@ LinearProgram::Constraint CombCutGen::checkHandle
 	}
 }
 
-std::vector<CombCutGen::VirtualEdge> CombCutGen::getTeethForHandle
-		(const CombCutGen::Handle& handle, const std::vector<variable_id>& oneEdges, const BlockDecomposition& blocks,
+std::vector<SimpleCombCutGen::VirtualEdge> SimpleCombCutGen::getTeethForHandle
+		(const SimpleCombCutGen::Handle& handle, const std::vector<variable_id>& oneEdges,
+		 const BlockDecomposition& blocks,
 		 const std::vector<Graph::Node>& toGraph, const Graph::NodeMap <city_id>& toCity,
 		 const Graph::NodeMap<bool>& odd, const Graph::NodeMap<bool>& inHandle, const Graph& g,
 		 const std::vector<double>& solution) {
@@ -286,8 +284,8 @@ std::vector<CombCutGen::VirtualEdge> CombCutGen::getTeethForHandle
 	return ret;
 }
 
-void CombCutGen::addAndMinDiff(std::vector<CombCutGen::VirtualEdge>& out, const VirtualEdge& add,
-							   VirtualEdge& minDiffEdge, double& minDiffVal, size_t& minDiffIndex, double weight) {
+void SimpleCombCutGen::addAndMinDiff(std::vector<SimpleCombCutGen::VirtualEdge>& out, const VirtualEdge& add,
+									 VirtualEdge& minDiffEdge, double& minDiffVal, size_t& minDiffIndex, double weight) {
 	double diff = weight-.5;
 	if (std::abs(diff)<std::abs(minDiffVal)) {
 		minDiffVal = diff;
@@ -301,8 +299,8 @@ void CombCutGen::addAndMinDiff(std::vector<CombCutGen::VirtualEdge>& out, const 
 
 //TODO kann man das beides irgendwie in eine Methode packen?
 //TODO die Graphen sind nicht mehr vollstd, gibt es schönere/schnellere Ansätze?
-double CombCutGen::inducedSum(const std::vector<Graph::Node>& inducing, const Graph::NodeMap <city_id>& toCity,
-							  const std::vector<double>& solution) {
+double SimpleCombCutGen::inducedSum(const std::vector<Graph::Node>& inducing, const Graph::NodeMap <city_id>& toCity,
+									const std::vector<double>& solution) {
 	double ret = 0;
 	for (size_t i1 = 1; i1<inducing.size(); ++i1) {
 		city_id city1 = toCity[inducing[i1]];
@@ -317,8 +315,8 @@ double CombCutGen::inducedSum(const std::vector<Graph::Node>& inducing, const Gr
 	return ret;
 }
 
-void CombCutGen::inducedSum(const std::vector<Graph::Node>& inducing, const Graph::NodeMap <city_id>& toCity,
-							std::vector<variable_id>& out) {
+void SimpleCombCutGen::inducedSum(const std::vector<Graph::Node>& inducing, const Graph::NodeMap <city_id>& toCity,
+								  std::vector<variable_id>& out) {
 	for (size_t i1 = 1; i1<inducing.size(); ++i1) {
 		city_id city1 = toCity[inducing[i1]];
 		for (size_t i2 = 0; i2<i1; ++i2) {
@@ -332,12 +330,13 @@ void CombCutGen::inducedSum(const std::vector<Graph::Node>& inducing, const Grap
 
 }
 
-CombCutGen::BlockDecomposition::BlockDecomposition(const Graph& tree,
-												   const Graph::NodeMap <std::vector<Graph::Node>>& orig) :
+SimpleCombCutGen::BlockDecomposition::BlockDecomposition(const Graph& tree,
+														 const Graph::NodeMap <std::vector<Graph::Node>>& orig) :
 		originalNodes(blockCutTree) {
 	lemon::graphCopy(tree, blockCutTree).nodeMap(orig, originalNodes).run();
 }
 
-CombCutGen::BlockDecomposition::BlockDecomposition(const CombCutGen::BlockDecomposition& old) : BlockDecomposition(
+SimpleCombCutGen::BlockDecomposition::BlockDecomposition(const SimpleCombCutGen::BlockDecomposition& old)
+		: BlockDecomposition(
 		old.blockCutTree, old.originalNodes) {
 }

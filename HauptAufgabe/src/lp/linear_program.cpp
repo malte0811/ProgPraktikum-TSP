@@ -78,12 +78,12 @@ void LinearProgram::addConstraints(const std::vector<Constraint>& constrs) {
 		sense.push_back(c.getSense());
 		indices.insert(indices.end(), c.getNonzeroes().begin(), c.getNonzeroes().end());
 		coeffs.insert(coeffs.end(), c.getCoeffs().begin(), c.getCoeffs().end());
-		//std::set<variable_id> inds;
-		//for (variable_id i:c.indices) {
-		//	assert(i>=0 && i<getVariableCount());
-		//	assert(!inds.count(i));
-		//	inds.insert(i);
-		//}
+		std::set<variable_id> inds;
+		for (variable_id i:c.indices) {
+			assert(i >= 0 && i < getVariableCount());
+			assert(!inds.count(i));
+			inds.insert(i);
+		}
 	}
 	int result = CPXaddrows(env, problem, 0, constrs.size(), indices.size(), rhs.data(),
 							sense.data(), constrStarts.data(), indices.data(), coeffs.data(), nullptr, nullptr);

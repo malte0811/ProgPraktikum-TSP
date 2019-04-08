@@ -3,6 +3,7 @@
 #include <cmath>
 #include <stack>
 #include <tsp_lp_data.hpp>
+#include <tsp_utils.hpp>
 
 SubtourCutGen::SubtourCutGen(const TSPInstance& inst, const TspLpData& lpData)
 		: tsp(inst), origToWork(static_cast<size_t>(tsp.getCityCount())), workToOrig(workGraph), capacity(workGraph),
@@ -16,7 +17,6 @@ SubtourCutGen::SubtourCutGen(const TSPInstance& inst, const TspLpData& lpData)
 		origToWork[i] = newNode;
 		workToOrig[newNode] = i;
 	}
-	baseState.save(workGraph);
 }
 
 CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
@@ -24,20 +24,7 @@ CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::ve
 	if (currentStatus != valid) {
 		return valid;
 	}
-	//Grundzustand wiederherstellen und speichern
-	baseState.restore();
-	baseState.save(workGraph);
-	/*
-	 * Alle Kanten einfügen, deren Variablen einen echt positiven Wert haben (Kanten mit Wert 0 ändern den minimalen
-	 * Schnitt nicht)
-	 */
-	for (variable_id i = 0; i < solution.size(); ++i) {
-		if (tolerance.positive(solution[i])) {
-			TspLpData::Edge e = lpData.getEdge(i);
-			Graph::Edge inWork = workGraph.addEdge(origToWork[e.first], origToWork[e.second]);
-			capacity[inWork] = solution[i];
-		}
-	}
+	tsp_util::addSupportGraphEdges(tsp, lpData, tolerance, solution, workGraph, origToWork, workToOrig, capacity);
 	minCut.run();
 	double cutCapacity = minCut.minCutValue();
 	if (!tolerance.less(cutCapacity, 2)) {

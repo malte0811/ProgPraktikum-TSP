@@ -1,6 +1,6 @@
 
 #include <tsp_instance.hpp>
-#include <comb_cut_gen.hpp>
+#include <simple_comb_cut_gen.hpp>
 
 int main() {
 	std::stringstream in("NAME: Test\n"
@@ -49,7 +49,7 @@ int main() {
 	CPXENVptr env = CPXopenCPLEX(&status);
 	LinearProgram lp(env, "temp", LinearProgram::minimize);
 	tsp.setupBasicLP(lp);
-	CombCutGen combGen(tsp, <#initializer#>);
+	SimpleCombCutGen combGen(tsp, <#initializer#>);
 	std::cout << combGen.validate(lp, sol, CutGenerator::valid) << std::endl;
 	CPXcloseCPLEX(&env);
 }

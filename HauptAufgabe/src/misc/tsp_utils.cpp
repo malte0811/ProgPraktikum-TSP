@@ -43,3 +43,34 @@ std::vector<variable_id> tsp_util::createFractionalGraph(const TSPInstance& tsp,
 	}
 	return oneEdges;
 }
+
+void tsp_util::addSupportGraphEdges(const TSPInstance& tsp, const TspLpData& lpData, lemon::Tolerance<double> tolerance,
+									const std::vector<double>& solution, Graph& workGraph,
+									std::vector<Graph::Node>& origToWork,
+									Graph::NodeMap <city_id>& workToOrig, Graph::EdgeMap<double>& c) {
+	if (Graph::NodeIt(workGraph) == lemon::INVALID) {
+		origToWork.resize(tsp.getCityCount());
+		for (city_id i = 0; i < tsp.getCityCount(); ++i) {
+			Graph::Node newNode = workGraph.addNode();
+			workToOrig[newNode] = i;
+			origToWork[i] = newNode;
+		}
+	} else {
+		//Bereits existierende Kanten entfernen
+		for (Graph::EdgeIt it(workGraph); it != lemon::INVALID;) {
+			Graph::Edge e = it;
+			++it;
+			workGraph.erase(e);
+		}
+	}
+	/*
+	 * Alle Kanten einfügen, deren Variablen einen echt positiven Wert haben
+	 */
+	for (variable_id i = 0; i < solution.size(); ++i) {
+		if (tolerance.positive(solution[i])) {
+			TspLpData::Edge e = lpData.getEdge(i);
+			Graph::Edge inWork = workGraph.addEdge(origToWork[e.first], origToWork[e.second]);
+			c[inWork] = solution[i];
+		}
+	}
+}

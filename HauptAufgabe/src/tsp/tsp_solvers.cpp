@@ -14,7 +14,7 @@
 #include <subtour_cut_gen.hpp>
 #include <two_matching_cut_gen.hpp>
 #include <branch_and_cut.hpp>
-#include <comb_cut_gen.hpp>
+#include <simple_comb_cut_gen.hpp>
 #include <connectivity_cut_gen.hpp>
 #include <tsp_lp_data.hpp>
 
@@ -116,7 +116,7 @@ namespace tspsolvers {
 		ConnectivityCutGen connected(inst, data);
 		SubtourCutGen subtours(inst, data);
 		TwoMatchingCutGen matchings(inst, data, true);
-		CombCutGen combs(inst, data);
+		SimpleCombCutGen combs(inst, data);
 		LinearProgram lp(lpEnv, inst.getName(), LinearProgram::minimize);
 		data.setupBasicLP(lp);
 		BranchAndCut bac(lp, {&connected, &subtours, &combs, &matchings}, &data, maxOpenSize);

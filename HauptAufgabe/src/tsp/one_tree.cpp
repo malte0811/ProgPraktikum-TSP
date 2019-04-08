@@ -4,7 +4,7 @@
 
 OneTree::OneTree(const TSPInstance& inst) : inst(&inst), potential(inst.getCityCount()-1, 0),
 											g(inst.getCityCount() - 1), t(g, inTree), inTree(g, false), bestInTree(g),
-											costs(g), tolerance(1e-3), lowerBound(0), lastV(inst.getCityCount() - 2) {
+											costs(g), tolerance(1e-3), lowerBound(0), lastV(inst.getCityCount() - 1) {
 	for (FullGraph::EdgeIt it(g); it != lemon::INVALID; ++it) {
 		sortedEdges.push_back(std::make_pair(it, costs[it]));
 	}
@@ -108,8 +108,9 @@ double OneTree::getBound() {
 }
 
 bool OneTree::updatePotential(double stepSize) {
-	std::vector<int> v(inst->getCityCount()-2);
-	for (int i = 1; i < inst->getCityCount() - 1; ++i) {
+	//TODO potential sinnvoll verschieben
+	std::vector<int> v(inst->getCityCount() - 1);
+	for (int i = 1; i < inst->getCityCount(); ++i) {
 		FullGraph::Node curr = g(i - 1);
 		int incidentCount = 0;
 		for (Tree::IncEdgeIt it(t, curr); it != lemon::INVALID; ++it) {
@@ -117,12 +118,8 @@ bool OneTree::updatePotential(double stepSize) {
 		}
 		v[i-1] = incidentCount-2;
 	}
-	if (oneNeighbors.first < inst->getCityCount()-1) {
-		v[oneNeighbors.first-1] += 1;
-	}
-	if (oneNeighbors.second < inst->getCityCount()-1) {
-		v[oneNeighbors.second-1] += 1;
-	}
+	v[oneNeighbors.first - 1] += 1;
+	v[oneNeighbors.second - 1] += 1;
 	bool allZero = true;
 	for (size_t i = 0;i<v.size();++i) {
 		potential[i] += (0.6 * v[i] + 0.4 * lastV[i]) * stepSize;

@@ -1,68 +1,47 @@
 #ifndef COMB_CUT_GEN_HPP
 #define COMB_CUT_GEN_HPP
 
-#include <cut_generator.hpp>
-#include <tsp_instance.hpp>
-#include <lemon/connectivity.h>
-#include "tsp_lp_data.hpp"
+#include <contraction_rule.hpp>
 
-class CombCutGen : public CutGenerator {
+class CombCutGen {
 public:
-	explicit CombCutGen(const TSPInstance& inst, const TspLpData& lpData);
-
-	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution, CutStatus currentStatus) override;
+	CombCutGen() :
+			onePath(contractOnePath), triangle2(contractTriangle2), square3(contractSquare3),
+			oneSquare(contractOneSquare), triangleGE05(contractTriangleGE05) {}
 
 private:
-	struct BlockDecomposition {
-		using OriginalNodeMap = Graph::NodeMap<std::vector<Graph::Node>>;
+	ContractionRule onePath;
+	ContractionRule triangle2;
+	ContractionRule square3;
+	ContractionRule oneSquare;
+	ContractionRule triangleGE05;
 
-		BlockDecomposition(const BlockDecomposition& old);
+	static ContractionRule::Contraction contractOnePath(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
+														const std::vector<Graph::Edge>& possibleOneEdges,
+														const Graph::EdgeMap<double>& costs,
+														const Graph::NodeMap<bool>& used);
 
-		BlockDecomposition(const Graph& tree, const Graph::NodeMap <std::vector<Graph::Node>>& orig);
+	static ContractionRule::Contraction contractTriangle2(const Graph& g,
+														  const std::vector<Graph::Node>& possibleNodes,
+														  const std::vector<Graph::Edge>& possibleOneEdges,
+														  const Graph::EdgeMap<double>& costs,
+														  const Graph::NodeMap<bool>& used);
 
-		const std::vector<Graph::Node>& operator[](const Graph::Node& n) const {
-			return originalNodes[n];
-		}
+	static ContractionRule::Contraction contractSquare3(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
+														const std::vector<Graph::Edge>& possibleOneEdges,
+														const Graph::EdgeMap<double>& costs,
+														const Graph::NodeMap<bool>& used);
 
-		Graph blockCutTree;
-		//1 Element: Cutnode, >1 Element: Komponente
-		OriginalNodeMap originalNodes;
-	};
-	//Knoten im blockCutTree
-	using Handle = std::vector<Graph::Node>;
-	//Knoten im fraktionalen Graphen
-	using VirtualEdge = std::vector<Graph::Node>;
+	static ContractionRule::Contraction contractOneSquare(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
+														  const std::vector<Graph::Edge>& possibleOneEdges,
+														  const Graph::EdgeMap<double>& costs,
+														  const Graph::NodeMap<bool>& used);
 
-	const TSPInstance& tsp;
-	const TspLpData& lpData;
-	const lemon::Tolerance<double> tolerance;
-
-	BlockDecomposition generateBlocks(const Graph& g);
-
-	LinearProgram::Constraint checkHandle(const CombCutGen::Handle& h, const Graph& mainGraph,
-										  const CombCutGen::BlockDecomposition& blocks, LinearProgram& lp,
-										  const std::vector<double>& solution,
-										  const std::vector<variable_id>& oneEdges,
-										  const Graph::NodeMap <city_id>& toTSP,
-										  const std::vector<Graph::Node>& toGraph, const Graph::NodeMap<bool>& odd);
-
-	std::vector<CombCutGen::VirtualEdge> getTeethForHandle(const CombCutGen::Handle& handle,
-														   const std::vector<variable_id>& oneEdges,
-														   const BlockDecomposition& blocks,
-														   const std::vector<Graph::Node>& toGraph,
-														   const Graph::NodeMap <city_id>& toCity,
-														   const Graph::NodeMap<bool>& odd,
-														   const Graph::NodeMap<bool>& inHandle, const Graph& g,
-														   const std::vector<double>& solution);
-
-	double inducedSum(const std::vector<Graph::Node>& inducing, const Graph::NodeMap <city_id>& toCity,
-					  const std::vector<double>& solution);
-
-	void inducedSum(const std::vector<Graph::Node>& inducing, const Graph::NodeMap <city_id>& toCity,
-					std::vector<variable_id>& out);
-
-	void addAndMinDiff(std::vector<CombCutGen::VirtualEdge>& out, const VirtualEdge& add,
-					   VirtualEdge& minDiffEdge, double& minDiffVal, size_t& minDiffIndex, double weight);
+	static ContractionRule::Contraction contractTriangleGE05(const Graph& g,
+															 const std::vector<Graph::Node>& possibleNodes,
+															 const std::vector<Graph::Edge>& possibleOneEdges,
+															 const Graph::EdgeMap<double>& costs,
+															 const Graph::NodeMap<bool>& used);
 };
 
 
