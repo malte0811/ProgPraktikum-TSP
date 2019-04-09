@@ -1,4 +1,72 @@
-#include "comb_cut_gen.hpp"
+#include <comb_cut_gen.hpp>
+#include <comb_heuristic.hpp>
+
+CombCutGen::CombCutGen(const TSPInstance& tsp, const TspLpData& lpData) :
+		onePath(contractOnePath), triangle2(contractTriangle2), square3(contractSquare3),
+		oneSquare(contractOneSquare), triangleGE05(contractTriangleGE05),
+		heuristic1({&onePath, &triangle2, &square3}),
+		heuristic2({&onePath, &oneSquare, &triangle2}),
+		heuristic3({&onePath, &triangleGE05, &square3}),
+		heuristic4({&onePath, &oneSquare, &triangleGE05}),
+		tsp(tsp), lpData(lpData) {}
+
+CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
+											 CutStatus currentStatus) {
+	if (currentStatus == CutGenerator::recalc) {
+		return CutGenerator::valid;
+	}
+	std::vector<LinearProgram::Constraint> toAdd;
+	for (const CombHeuristic& ch:{heuristic1, heuristic2, heuristic3, heuristic4}) {
+		std::vector<CombHeuristic::Comb> combs = ch.findViolatedCombs(lpData, tsp, solution);
+		if (!combs.empty()) {
+			for (const CombHeuristic::Comb& c:combs) {
+				if (!c.isBlossom()) {
+					toAdd.push_back(getContraintFor(c));
+				}
+			}
+		}
+	}
+	if (!toAdd.empty()) {
+		std::cout << "Found " << toAdd.size() << " violated comb contraints!" << std::endl;
+		lp.addConstraints(toAdd);
+		return CutGenerator::maybe_recalc;
+	} else {
+		std::cout << "Found no violated comb constraints" << std::endl;
+		return CutGenerator::valid;
+	}
+}
+
+LinearProgram::Constraint CombCutGen::getContraintFor(const CombHeuristic::Comb& c) {
+	std::map<variable_id, double> constr;
+	inducedSum(c.handle, constr);
+	for (const std::vector<city_id>& tooth:c.teeth) {
+		inducedSum(tooth, constr);
+	}
+	std::vector<variable_id> indices;
+	std::vector<double> coeffs;
+	for (const auto& entry:constr) {
+		indices.push_back(entry.first);
+		coeffs.push_back(entry.second);
+	}
+	size_t rhs = c.handle.size();
+	for (const std::vector<city_id>& tooth:c.teeth) {
+		rhs += tooth.size() - 1;
+	}
+	rhs -= (c.teeth.size() + 1) / 2;
+	return LinearProgram::Constraint(indices, coeffs, LinearProgram::less_eq, rhs);
+}
+
+void CombCutGen::inducedSum(const std::vector<city_id>& set, std::map<variable_id, double>& out) {
+	for (size_t i = 1; i < set.size(); ++i) {
+		for (size_t j = 0; j < i; ++j) {
+			variable_id var = lpData.getVariable(set[i], set[j]);
+			if (var != LinearProgram::invalid_variable) {
+				out[var] += 1;
+			}
+		}
+	}
+}
+
 
 ContractionRule::Contraction CombCutGen::contractOnePath(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
 														 const std::vector<Graph::Edge>& possibleOneEdges,
@@ -22,6 +90,7 @@ ContractionRule::Contraction CombCutGen::contractOnePath(const Graph& g, const s
 			neighbors[adjEdges - 1] = target;
 		}
 		if (adjEdges == 2) {
+			assert(neighbors[0] != neighbors[1]);
 			return {{middle, neighbors[0]},
 					{neighbors[1]}};
 		}
@@ -41,7 +110,8 @@ ContractionRule::Contraction CombCutGen::contractTriangle2(const Graph& g,
 			adjCosts[g.target(it)] = costs[it];
 		}
 		for (Graph::OutArcIt it(g, g.v(oneEdge)); it != lemon::INVALID; ++it) {
-			if (!tolerance.different(adjCosts[g.target(it)] + costs[it], 1)) {
+			if (oneEdge != it && !tolerance.different(adjCosts[g.target(it)] + costs[it], 1)) {
+				assert(g.target(it) != g.v(oneEdge));
 				return {{g.u(oneEdge), g.v(oneEdge)},
 						{g.target(it)}};
 			}
@@ -103,12 +173,15 @@ ContractionRule::Contraction CombCutGen::contractOneSquare(const Graph& g,
 														   const std::vector<Graph::Edge>& possibleOneEdges,
 														   const Graph::EdgeMap<double>& costs,
 														   const Graph::NodeMap<bool>& used) {
+	if (possibleOneEdges.size() < 2) {
+		return {};
+	}
 	lemon::Tolerance<double> tolerance;
 	for (size_t i = 0; i < possibleOneEdges.size() - 1; ++i) {
 		Graph::Edge uw = possibleOneEdges[i];
 		Graph::Node u = g.u(uw);
 		Graph::Node w = g.v(uw);
-		for (size_t i2 = i + 1; i2 < possibleOneEdges.size() - 1; ++i2) {
+		for (size_t i2 = i + 1; i2 < possibleOneEdges.size(); ++i2) {
 			Graph::Edge vx = possibleOneEdges[i2];
 			Graph::Node v = g.u(vx);
 			Graph::Node x = g.v(vx);
@@ -143,7 +216,8 @@ ContractionRule::Contraction CombCutGen::contractTriangleGE05(const Graph& g,
 			adjCosts[g.target(it)] = costs[it];
 		}
 		for (Graph::OutArcIt it(g, g.v(oneEdge)); it != lemon::INVALID; ++it) {
-			if (!tolerance.less(adjCosts[g.target(it)] + costs[it], 0.5)) {
+			if (oneEdge != it && !tolerance.less(adjCosts[g.target(it)] + costs[it], 0.5)) {
+				assert(g.target(it) != g.v(oneEdge));
 				return {{g.u(oneEdge), g.v(oneEdge)},
 						{g.target(it)}};
 			}

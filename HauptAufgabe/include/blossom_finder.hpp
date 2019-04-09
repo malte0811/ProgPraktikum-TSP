@@ -14,6 +14,8 @@ public:
 		std::vector<Graph::Edge> teeth;
 
 		void replaceByMapped(const tsp_util::ContractionMapGraph& nodeMap, const Graph::EdgeMap <Graph::Edge>& edgeMap);
+
+		bool isProperBlossom() const;
 	};
 
 	BlossomFinder(const Graph& g, Graph::EdgeMap<double>& capacities, lemon::Tolerance<double> tolerance,

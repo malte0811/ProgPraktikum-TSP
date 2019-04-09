@@ -1,5 +1,5 @@
-#ifndef COMB_CUT_GEN_HPP
-#define COMB_CUT_GEN_HPP
+#ifndef SIMPLE_COMB_CUT_GEN_HPP
+#define SIMPLE_COMB_CUT_GEN_HPP
 
 #include <cut_generator.hpp>
 #include <tsp_instance.hpp>

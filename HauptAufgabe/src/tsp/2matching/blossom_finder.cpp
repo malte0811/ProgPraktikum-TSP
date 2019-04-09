@@ -37,10 +37,6 @@ std::vector<BlossomFinder::Blossom> BlossomFinder::findViolatedBlossoms() {
 	if (shouldContractPaths) {
 		contractPaths(odd, contraction);
 	}
-	bool all = false;
-	for (Graph::NodeIt it(fractionalGraph); it != lemon::INVALID; ++it) {
-		all ^= odd[it];
-	}
 	std::vector<Blossom> violated = lemma1220(odd);
 	for (Blossom& b:violated) {
 		b.replaceByMapped(contraction, fractToMainEdges);
@@ -447,4 +443,8 @@ void BlossomFinder::Blossom::replaceByMapped(const tsp_util::ContractionMapGraph
 	for (Graph::Edge& e:teeth) {
 		e = edgeMap[e];
 	}
+}
+
+bool BlossomFinder::Blossom::isProperBlossom() const {
+	return teeth.size() >= 3;
 }

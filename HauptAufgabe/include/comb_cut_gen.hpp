@@ -2,12 +2,13 @@
 #define COMB_CUT_GEN_HPP
 
 #include <contraction_rule.hpp>
+#include <comb_heuristic.hpp>
 
-class CombCutGen {
+class CombCutGen : public CutGenerator {
 public:
-	CombCutGen() :
-			onePath(contractOnePath), triangle2(contractTriangle2), square3(contractSquare3),
-			oneSquare(contractOneSquare), triangleGE05(contractTriangleGE05) {}
+	CombCutGen(const TSPInstance& tsp, const TspLpData& lpData);
+
+	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution, CutStatus currentStatus) override;
 
 private:
 	ContractionRule onePath;
@@ -15,6 +16,16 @@ private:
 	ContractionRule square3;
 	ContractionRule oneSquare;
 	ContractionRule triangleGE05;
+	CombHeuristic heuristic1;
+	CombHeuristic heuristic2;
+	CombHeuristic heuristic3;
+	CombHeuristic heuristic4;
+	const TSPInstance& tsp;
+	const TspLpData& lpData;
+
+	LinearProgram::Constraint getContraintFor(const CombHeuristic::Comb& c);
+
+	void inducedSum(const std::vector<city_id>& set, std::map<variable_id, double>& out);
 
 	static ContractionRule::Contraction contractOnePath(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
 														const std::vector<Graph::Edge>& possibleOneEdges,

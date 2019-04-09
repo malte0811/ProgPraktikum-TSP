@@ -41,7 +41,13 @@ bool ContractionRule::contractAll(Graph& g, lemon::GraphExtender<lemon::ListGrap
 
 void ContractionRule::contract(const Contraction& contr, Graph& g, Graph::EdgeMap<double>& costs,
 							   tsp_util::ContractionMapTSP& map) const {
+	Graph::NodeMap<bool> used(g, false);
 	for (std::vector<Graph::Node> toContract:contr) {
+		for (auto n:toContract) {
+			assert(!used[n]);
+			assert(g.valid(n));
+			used[n] = true;
+		}
 		if (toContract.size() < 2) {
 			continue;
 		}
@@ -64,7 +70,7 @@ void ContractionRule::contract(const Contraction& contr, Graph& g, Graph::EdgeMa
 			adjCosts[g.target(it)] = 0;
 		}
 		for (Graph::NodeIt it(g); it != lemon::INVALID; ++it) {
-			if (adjCosts[it] > 0) {
+			if (adjCosts[it] > 0 && it != remaining) {
 				Graph::Edge newE = g.addEdge(it, remaining);
 				costs[newE] = adjCosts[it];
 			}
