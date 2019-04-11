@@ -70,6 +70,7 @@ value_t getNextWorse(double in, LinearProgram::Goal g, lemon::Tolerance<double> 
 void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 	CutGenerator::CutStatus solutionStatus;
 	double oldVal = 0;
+	const size_t maxSlow = 6;
 	size_t slowIterations = 0;
 	unsigned iterations = 0;
 	do {
@@ -101,6 +102,10 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 		solutionStatus = readdRemovedConstraints(out);
 		if (solutionStatus==CutGenerator::valid) {
 			for (CutGenerator* gen:generators) {
+				//Kurz
+				if (slowIterations > maxSlow - 1 && solutionStatus == CutGenerator::maybe_recalc) {
+					solutionStatus = CutGenerator::valid;
+				}
 				CutGenerator::CutStatus genStatus = gen->validate(problem, out.getVector(), solutionStatus);
 				//a>b bedeutet, dass a eine Neuberechnung "dringender" macht als b
 				if (genStatus>solutionStatus) {
@@ -112,7 +117,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 		if (solutionStatus!=CutGenerator::valid) {
 			sinceSlack0.resize(problem.getConstraintCount()-constraintsAtStart, 0);
 		}
-		if (slowIterations>6 && solutionStatus==CutGenerator::maybe_recalc) {
+		if (slowIterations > maxSlow && solutionStatus == CutGenerator::maybe_recalc) {
 			solutionStatus = CutGenerator::valid;
 		}
 	} while (solutionStatus!=CutGenerator::valid);

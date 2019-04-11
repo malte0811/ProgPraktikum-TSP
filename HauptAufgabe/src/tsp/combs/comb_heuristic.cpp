@@ -33,7 +33,7 @@ std::vector<CombHeuristic::Comb> CombHeuristic::findViolatedCombs(const TspLpDat
 				}
 			}
 		}
-	} while (changed && ret.size() < 60);
+	} while (changed && ret.size() < 100);
 	return ret;
 }
 
@@ -56,4 +56,25 @@ bool CombHeuristic::Comb::isBlossom() const {
 		}
 	}
 	return true;
+}
+
+size_t CombHeuristic::Comb::estimateNonzeroCount() const {
+	size_t ret = (handle.size() * (handle.size() - 1)) / 2;
+	for (const std::vector<city_id>& tooth:teeth) {
+		ret += (tooth.size() * (tooth.size() - 1)) / 2;
+	}
+	return ret;
+}
+
+void CombHeuristic::Comb::invertHandle(city_id cityCount) {
+	std::vector<bool> inHandle(cityCount, false);
+	for (city_id i:handle) {
+		inHandle[i] = true;
+	}
+	handle.clear();
+	for (city_id i = 0; i < cityCount; ++i) {
+		if (!inHandle[i]) {
+			handle.push_back(i);
+		}
+	}
 }

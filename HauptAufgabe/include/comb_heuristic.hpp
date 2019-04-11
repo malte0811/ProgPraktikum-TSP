@@ -15,6 +15,10 @@ public:
 
 		bool isBlossom() const;
 
+		size_t estimateNonzeroCount() const;
+
+		void invertHandle(city_id cityCount);
+
 		std::vector<city_id> handle;
 		std::vector<std::vector<city_id>> teeth;
 	};

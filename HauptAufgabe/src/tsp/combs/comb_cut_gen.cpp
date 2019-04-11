@@ -10,19 +10,65 @@ CombCutGen::CombCutGen(const TSPInstance& tsp, const TspLpData& lpData) :
 		heuristic4({&onePath, &oneSquare, &triangleGE05}),
 		tsp(tsp), lpData(lpData) {}
 
+
+struct CompareOrderedConstraint {
+	bool operator()(const LinearProgram::Constraint& c1, const LinearProgram::Constraint& c2) {
+		if (c1.getRHS() != c2.getRHS()) {
+			return c1.getRHS() < c2.getRHS();
+		}
+		if (c1.getSense() != c2.getSense()) {
+			return c1.getSense() < c2.getSense();
+		}
+		if (c1.getNonzeroes().size() != c2.getNonzeroes().size()) {
+			return c1.getNonzeroes().size() < c2.getNonzeroes().size();
+		}
+		for (size_t i = 0; i < c1.getNonzeroes().size(); ++i) {
+			if (c1.getNonzeroes()[i] != c2.getNonzeroes()[i]) {
+				return c1.getNonzeroes()[i] < c2.getNonzeroes()[i];
+			}
+			if (c1.getCoeffs()[i] != c2.getCoeffs()[i]) {
+				return c1.getCoeffs()[i] < c2.getCoeffs()[i];
+			}
+		}
+		return false;
+	}
+};
+
+struct CompareCombSize {
+	bool operator()(const CombHeuristic::Comb& c1, const CombHeuristic::Comb& c2) {
+		return c1.estimateNonzeroCount() < c2.estimateNonzeroCount();
+	}
+};
+
 CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
 											 CutStatus currentStatus) {
-	if (currentStatus == CutGenerator::recalc) {
+	if (currentStatus != CutGenerator::valid) {
 		return CutGenerator::valid;
 	}
-	std::vector<LinearProgram::Constraint> toAdd;
+	std::vector<CombHeuristic::Comb> allCombs;
 	for (const CombHeuristic& ch:{heuristic1, heuristic2, heuristic3, heuristic4}) {
 		std::vector<CombHeuristic::Comb> combs = ch.findViolatedCombs(lpData, tsp, solution);
 		if (!combs.empty()) {
-			for (const CombHeuristic::Comb& c:combs) {
+			for (CombHeuristic::Comb& c:combs) {
 				if (!c.isBlossom()) {
-					toAdd.push_back(getContraintFor(c));
+					if (c.handle.size() > tsp.getCityCount() / 2) {
+						c.invertHandle(tsp.getCityCount());
+					}
 				}
+			}
+			allCombs.insert(allCombs.end(), combs.begin(), combs.end());
+		}
+	}
+	std::set<LinearProgram::Constraint, CompareOrderedConstraint> toAdd;
+	const size_t maxNonzero = ((tsp.getCityCount() - 1) * tsp.getCityCount()) / 10;
+	for (const CombHeuristic::Comb& c:allCombs) {
+		if (allCombs.size() < 10 || c.estimateNonzeroCount() < maxNonzero) {
+			LinearProgram::Constraint constr = getContraintFor(c);
+			if (!constr.isViolated(solution, lemon::Tolerance<double>(1e-5))) {
+				std::cerr << "Constraint is not violated: " << constr.evalLHS(solution) << " vs " << constr.getRHS()
+						  << std::endl;
+			} else {
+				toAdd.insert(constr);
 			}
 		}
 	}
@@ -37,16 +83,22 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 }
 
 LinearProgram::Constraint CombCutGen::getContraintFor(const CombHeuristic::Comb& c) {
-	std::map<variable_id, double> constr;
-	inducedSum(c.handle, constr);
+	std::vector<double> constr(lpData.getVariableCount(), 0);
+	std::vector<variable_id> allIndices;
+	inducedSum(c.handle, constr, allIndices);
 	for (const std::vector<city_id>& tooth:c.teeth) {
-		inducedSum(tooth, constr);
+		inducedSum(tooth, constr, allIndices);
 	}
 	std::vector<variable_id> indices;
 	std::vector<double> coeffs;
-	for (const auto& entry:constr) {
-		indices.push_back(entry.first);
-		coeffs.push_back(entry.second);
+	indices.reserve(allIndices.size());
+	coeffs.reserve(allIndices.size());
+	for (variable_id i:allIndices) {
+		if (constr[i] != 0) {
+			indices.push_back(i);
+			coeffs.push_back(constr[i]);
+			constr[i] = 0;
+		}
 	}
 	size_t rhs = c.handle.size();
 	for (const std::vector<city_id>& tooth:c.teeth) {
@@ -56,12 +108,14 @@ LinearProgram::Constraint CombCutGen::getContraintFor(const CombHeuristic::Comb&
 	return LinearProgram::Constraint(indices, coeffs, LinearProgram::less_eq, rhs);
 }
 
-void CombCutGen::inducedSum(const std::vector<city_id>& set, std::map<variable_id, double>& out) {
+void CombCutGen::inducedSum(const std::vector<city_id>& set, std::vector<double>& out,
+							std::vector<variable_id>& allVars) {
 	for (size_t i = 1; i < set.size(); ++i) {
 		for (size_t j = 0; j < i; ++j) {
 			variable_id var = lpData.getVariable(set[i], set[j]);
 			if (var != LinearProgram::invalid_variable) {
 				out[var] += 1;
+				allVars.push_back(var);
 			}
 		}
 	}

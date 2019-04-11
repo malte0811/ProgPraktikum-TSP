@@ -25,7 +25,7 @@ public:
 
 private:
 
-	void finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& oneEdges);
+	bool finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& oneEdges);
 
 	Blossom calculateAndAddBlossom(const Graph::NodeMap <size_t>& nodeToUF, UnionFind& components, size_t xIndex,
 								   double cutCost, const Graph::NodeMap<bool>& odd,

@@ -59,38 +59,7 @@ void LinearProgram::addVariable(double objCoeff, double lower, double upper, con
  * @param sense Um welche Art von (Un)Gleichung es sich handelt (kleiner gleich, größer gleich, gleich)
  */
 void LinearProgram::addConstraint(const Constraint& constr) {
-	addConstraints({constr});
-}
-
-void LinearProgram::addConstraints(const std::vector<Constraint>& constrs) {
-	std::vector<double> rhs;
-	std::vector<double> coeffs;
-	std::vector<int> indices;
-	std::vector<int> constrStarts;
-	std::vector<char> sense;
-	constrStarts.reserve(constrs.size());
-	sense.reserve(constrs.size());
-	rhs.reserve(constrs.size());
-	for (const Constraint& c:constrs) {
-		assert(c.isValid() || getVariableCount() == 0);
-		constrStarts.push_back(indices.size());
-		rhs.push_back(c.getRHS());
-		sense.push_back(c.getSense());
-		indices.insert(indices.end(), c.getNonzeroes().begin(), c.getNonzeroes().end());
-		coeffs.insert(coeffs.end(), c.getCoeffs().begin(), c.getCoeffs().end());
-		std::set<variable_id> inds;
-		for (variable_id i:c.indices) {
-			assert(i >= 0 && i < getVariableCount());
-			assert(!inds.count(i));
-			inds.insert(i);
-		}
-	}
-	int result = CPXaddrows(env, problem, 0, constrs.size(), indices.size(), rhs.data(),
-							sense.data(), constrStarts.data(), indices.data(), coeffs.data(), nullptr, nullptr);
-	if (result != 0) {
-		throw std::runtime_error("Could not add constraint to LP, return value was " + std::to_string(result));
-	}
-	constraints.insert(constraints.end(), constrs.begin(), constrs.end());
+	addConstraints(std::vector<Constraint>{constr});
 }
 
 /**
@@ -320,4 +289,8 @@ void LinearProgram::Constraint::deleteVariables(const std::vector<variable_id>& 
 	}
 	assert(!indices.empty());
 	assert(indices.size() == coeffs.size());
+}
+
+bool LinearProgram::Constraint::isViolated(const std::vector<double>& vars, lemon::Tolerance<double> tolerance) const {
+	return !isValidLHS(evalLHS(vars), tolerance);
 }

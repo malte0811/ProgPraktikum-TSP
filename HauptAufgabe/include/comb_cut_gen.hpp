@@ -25,7 +25,7 @@ private:
 
 	LinearProgram::Constraint getContraintFor(const CombHeuristic::Comb& c);
 
-	void inducedSum(const std::vector<city_id>& set, std::map<variable_id, double>& out);
+	void inducedSum(const std::vector<city_id>& set, std::vector<double>& out, std::vector<variable_id>& allVars);
 
 	static ContractionRule::Contraction contractOnePath(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
 														const std::vector<Graph::Edge>& possibleOneEdges,

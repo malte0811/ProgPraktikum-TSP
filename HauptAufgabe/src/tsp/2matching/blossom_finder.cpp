@@ -38,10 +38,16 @@ std::vector<BlossomFinder::Blossom> BlossomFinder::findViolatedBlossoms() {
 		contractPaths(odd, contraction);
 	}
 	std::vector<Blossom> violated = lemma1220(odd);
-	for (Blossom& b:violated) {
+	for (size_t i = 0; i < violated.size();) {
+		Blossom& b = violated[i];
 		b.replaceByMapped(contraction, fractToMainEdges);
-		finalizeBlossom(b, oneEdges);
-		assert(b.teeth.size() % 2 == 1);
+		if (finalizeBlossom(b, oneEdges)) {
+			++i;
+			assert(b.teeth.size() % 2 == 1);
+		} else {
+			std::swap(b, violated.back());
+			violated.pop_back();
+		}
 	}
 	return violated;
 }
@@ -285,13 +291,16 @@ std::vector<Graph::Node> BlossomFinder::discoverPath(Graph::Node start, lemon::L
 }
 
 //TODO better name?
-void BlossomFinder::finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& oneEdges) {
-	Graph::NodeMap<bool> inHandle(mainGraph, false);
-	for (Graph::Node n:b.handle) {
-		inHandle[n] = true;
-	}
+bool BlossomFinder::finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& oneEdges) {
 	std::vector<Graph::Edge>& teeth = b.teeth;
 	std::vector<Graph::Node>& handle = b.handle;
+	if (handle.size() < 2 || handle.size() > nodeCount - 2) {
+		return false;
+	}
+	Graph::NodeMap<bool> inHandle(mainGraph, false);
+	for (Graph::Node n:handle) {
+		inHandle[n] = true;
+	}
 	//Gibt an, ob eine Variable/Kante im TSP-Graphen in F ist
 	Graph::EdgeMap<bool> fTSP(mainGraph, false);
 	//Die Menge F vor dem Umwandeln zu einem Matching
@@ -303,8 +312,17 @@ void BlossomFinder::finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& 
 	}
 	assert(teeth.size() % 2 == 1);
 	//Die Kanten im berechneten F zu F hinzufügen
-	for (Graph::Edge e:teeth) {
-		fTSP[e] = true;
+	for (Graph::Edge tooth:teeth) {
+		fTSP[tooth] = true;
+	}
+	{
+		Graph::NodeMap <size_t> incident(mainGraph);
+		for (Graph::Edge tooth:teeth) {
+			++incident[mainGraph.u(tooth)];
+			assert(incident[mainGraph.u(tooth)] < 3);
+			++incident[mainGraph.v(tooth)];
+			assert(incident[mainGraph.v(tooth)] < 3);
+		}
 	}
 	size_t handleSize = b.handle.size();
 	//Ordnet jedem Knoten die inzidente Kante in F zu
@@ -337,11 +355,12 @@ void BlossomFinder::finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& 
 	}
 	size_t i = 0;
 	while (i < teeth.size()) {
-		Graph::Edge fElement = teeth[i];
-		if (!fTSP[fElement]) {
+		Graph::Edge tooth = teeth[i];
+		if (!fTSP[tooth]) {
 			std::swap(teeth[i], teeth.back());
 			teeth.pop_back();
 		} else {
+			assert(inHandle[mainGraph.u(tooth)] != inHandle[mainGraph.v(tooth)]);
 			++i;
 		}
 	}
@@ -356,6 +375,7 @@ void BlossomFinder::finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& 
 			handle.push_back(it);
 		}
 	}
+	return handle.size() >= 2 && handle.size() <= nodeCount - 2;
 }
 
 BlossomFinder::Blossom BlossomFinder::calculateAndAddBlossom(const Graph::NodeMap <size_t>& nodeToUF,

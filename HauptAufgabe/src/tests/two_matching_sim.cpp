@@ -3,7 +3,7 @@
 #include <two_matching_cut_gen.hpp>
 
 int main() {
-	std::ifstream in("../instances/gr431.tsp");
+	std::ifstream in("../instances/pcb442.tsp");
 	TSPInstance inst(in);
 	std::vector<double> sol(inst.getEdgeCount());
 	std::ifstream data("broken2matching.txt");
@@ -22,9 +22,10 @@ int main() {
 	if (status!=0) {
 		throw std::runtime_error("Failed to open CPLEX environment: "+std::to_string(status));
 	}
+	TspLpData lpData(inst);
 	LinearProgram lp(env, "test", LinearProgram::minimize);
-	inst.setupBasicLP(lp);
-	TwoMatchingCutGen cg(inst, <#initializer#>, false);
-	std::cout << cg.validate(lp, sol, maybe_recalc) << std::endl;
+	lpData.setupBasicLP(lp);
+	TwoMatchingCutGen cg(inst, lpData, false);
+	std::cout << cg.validate(lp, sol, CutGenerator::valid) << std::endl;
 	CPXcloseCPLEX(&env);
 }

@@ -27,6 +27,8 @@ public:
 	const TSPSolution& getUpperBound() const;
 
 	void setupLowerBounds();
+
+	inline variable_id getVariableCount() const;
 private:
 	const TSPInstance& inst;
 	std::vector<std::pair<city_id, city_id>> variableToEdge;
@@ -52,6 +54,10 @@ variable_id TspLpData::getVariable(city_id a, city_id b) const {
 		std::swap(a, b);
 	}
 	return edgeToVariable[a - 1][b];
+}
+
+variable_id TspLpData::getVariableCount() const {
+	return variableToEdge.size();
 }
 
 #endif
