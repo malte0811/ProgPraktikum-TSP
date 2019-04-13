@@ -3,20 +3,9 @@
 #include <cmath>
 #include <array>
 #include <cassert>
+#include <tsp_utils.hpp>
 
-/**
- * Liest einen Wert aus dem gegebenen istrean und wirft einen Fehler, falls dies nicht möglich ist
- * @tparam T Der Typ des zu lesenden Wertes
- */
-template<typename T>
-T readOrThrow(std::istream& input) {
-	T ret;
-	input >> ret;
-	if (!input) {
-		throw std::invalid_argument("Could not read input!");
-	}
-	return ret;
-}
+using tsp_util::readOrThrow;
 
 /**
  * Liest eine STSP im TSPLIB-Format ein
@@ -33,17 +22,7 @@ TSPInstance::TSPInstance(std::istream& input) {
 				std::cout << "Skipped empty line(s)" << std::endl;
 			}
 			std::stringstream ss(line);
-			std::string keyword;
-			/*
-			 * Doppelpunkt ignorieren. Der Doppelpunkt kann sowohl direkt hinter dem "Operator" als auch durch Whitespace
-			 * abgetrennt auftreten.
-			 */
-			ss >> keyword >> std::ws;
-			if (ss.peek()==':') {
-				ss.ignore();
-			} else if (keyword.back()==':') {
-				keyword = keyword.substr(0, keyword.size()-1);
-			}
+			std::string keyword = tsp_util::readKeyword(ss);
 			if (keyword=="NAME") {
 				ss >> name;
 			} else if (keyword=="COMMENT") {

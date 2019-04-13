@@ -114,6 +114,9 @@ namespace tspsolvers {
 	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution* initial, CPXENVptr& lpEnv, size_t maxOpenSize) {
 		TspLpData data(inst);
 		data.setupLowerBounds();
+		if (initial != nullptr) {
+			data.removeVariables(*initial);
+		}
 		ConnectivityCutGen connected(inst, data);
 		SubtourCutGen subtours(inst, data);
 		TwoMatchingCutGen matchings(inst, data, true);
@@ -123,11 +126,7 @@ namespace tspsolvers {
 		data.setupBasicLP(lp);
 		BranchAndCut bac(lp, {&connected, &subtours, &simpleCombs, &matchings, &generalCombs}, &data, maxOpenSize);
 		if (initial!=nullptr) {
-			std::vector<long> asVars(static_cast<size_t>(inst.getEdgeCount()));
-			for (variable_id i = 0; i<inst.getEdgeCount(); ++i) {
-				asVars[i] = initial->getVariable(i);
-			}
-			bac.setUpperBound(asVars, initial->getCost());
+			bac.setUpperBound({}, initial->getCost());
 		}
 		clock_t start = std::clock();
 		bac.solve();

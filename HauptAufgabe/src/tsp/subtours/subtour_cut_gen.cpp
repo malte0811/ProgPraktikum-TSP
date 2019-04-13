@@ -27,7 +27,8 @@ CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::ve
 	tsp_util::addSupportGraphEdges(tsp, lpData, tolerance, solution, workGraph, origToWork, workToOrig, capacity);
 	minCut.run();
 	double cutCapacity = minCut.minCutValue();
-	if (!tolerance.less(cutCapacity, 2)) {
+	const double cutScale = 100;
+	if (!tolerance.less(cutScale * cutCapacity, cutScale * 2)) {
 		return valid;
 	}
 	//Positive Kapazität <2->Verletzte Subtour-Constraint
@@ -65,8 +66,13 @@ CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::ve
 		}
 	}
 	assert(!induced.empty());
-	lp.addConstraint(
-			LinearProgram::Constraint(induced, std::vector<double>(induced.size(), 1), LinearProgram::less_eq,
-									  cutSize - 1));
-	return recalc;
+	LinearProgram::Constraint constr(induced, std::vector<double>(induced.size(), 1), LinearProgram::less_eq,
+									 cutSize - 1);
+	//Möglich, da Kanten mit kleinen positiven Werte nicht zum Graphen hinzugefügt werden
+	if (constr.isViolated(solution, tolerance)) {
+		lp.addConstraint(constr);
+		return recalc;
+	} else {
+		return valid;
+	}
 }

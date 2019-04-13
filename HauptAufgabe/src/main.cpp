@@ -65,7 +65,8 @@ int main(int argc, char** argv) {
 			std::cerr << "Arguments: [options] <input file name> [<output file name>]" << std::endl;
 			return 1;
 		}
-		bool useGreedy = getOption(options, "useGreedy", true);
+		const std::string noBound = "<none>";
+		std::string startingBound = getOption<std::string>(options, "startingBound", "<greedy>");
 		auto maxOpenSize = getOption<size_t>(options, "maxOpenSize", 1536*1024*1024);
 		cost_t expectedValue = getOption(options, "expectedResult", 0U);
 		if (!options.empty()) {
@@ -88,10 +89,13 @@ int main(int argc, char** argv) {
 		TSPInstance inst(in);
 		in.close();
 		TSPSolution initial;
-		if (useGreedy) {
+		if (startingBound == "<greedy>") {
 			initial = tspsolvers::solveGreedy(inst);
+		} else if (startingBound != noBound) {
+			std::ifstream boundIn(startingBound);
+			initial = TSPSolution(inst, boundIn);
 		}
-		TSPSolution optimal = tspsolvers::solveLP(inst, useGreedy ? &initial : nullptr, env, maxOpenSize);
+		TSPSolution optimal = tspsolvers::solveLP(inst, initial.isValid() ? &initial : nullptr, env, maxOpenSize);
 		if (args.size()==1) {
 			optimal.write(std::cout);
 		} else {

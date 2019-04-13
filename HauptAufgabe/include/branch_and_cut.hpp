@@ -12,7 +12,6 @@
 #include <map>
 #include <set>
 #include <relative_tolerance.hpp>
-#include <variable_remover.hpp>
 
 using value_t = long;
 using coeff_t = long;

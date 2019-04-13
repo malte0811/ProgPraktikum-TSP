@@ -3,13 +3,15 @@
 #include <lemon/full_graph.h>
 #include <lemon/opt2_tsp.h>
 #include <tsp_lp_data.hpp>
+#include <tsp_utils.hpp>
+#include <iostream>
 
 /**
  * @param inst Die TSP-Instanz
  * @param variables Die Belegung der LP-Variablen
  */
 TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& variables, const TspLpData& variableMap)
-		: inst(&inst), order(static_cast<size_t>(inst.getCityCount())), variables(variables) {
+		: inst(&inst), order(static_cast<size_t>(inst.getCityCount())) {
 	city_id previous = 0;
 	city_id currentCity = 0;
 	size_t indexInTour = 0;
@@ -38,13 +40,60 @@ TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& varia
 }
 
 TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<city_id>& order)
-		: inst(&inst), order(order), variables(static_cast<size_t>(inst.getEdgeCount()), false) {
-	TspLpData lpData(inst);
-	for (city_id i = 0; i < inst.getCityCount(); ++i) {
-		variable_id var = lpData.getVariable(order[i], order[(i + 1) % inst.getCityCount()]);
-		variables[var] = true;
-		cost += lpData.getCost(var);
+		: inst(&inst), order(order) {
+	initTourCost();
+}
+
+TSPSolution::TSPSolution(const TSPInstance& instance, std::istream& input) : inst(&instance) {
+	std::string line;
+	bool emptyLines = false;
+	while (std::getline(input, line)) {
+		if (!line.empty()) {
+			if (emptyLines) {
+				std::cout << "Skipped empty line(s)" << std::endl;
+			}
+			std::stringstream ss(line);
+			std::string keyword = tsp_util::readKeyword(ss);
+			if (keyword == "NAME" || keyword == "COMMENT") {
+				//NOP
+			} else if (keyword == "TYPE") {
+				std::string type;
+				ss >> type;
+				if (type != "TOUR") {
+					throw std::runtime_error("Tried to read tour from non-tour file");
+				}
+			} else if (keyword == "DIMENSION") {
+				city_id dim;
+				ss >> dim;
+				if (dim != inst->getCityCount()) {
+					throw std::runtime_error("Tour and instance have different dimension");
+				}
+			} else if (keyword == "TOUR_SECTION") {
+				order.resize(inst->getCityCount());
+				for (int& i : order) {
+					i = tsp_util::readOrThrow<city_id>(input) - 1;
+					if (i < 0) {
+						throw std::runtime_error("Invalid city in tour: "
+												 + std::to_string(i));
+					}
+				}
+				auto end = tsp_util::readOrThrow<city_id>(input);
+				if (end != -1) {
+					throw std::runtime_error("Tour wasn't followed by -1!");
+				}
+			} else if (keyword == "EOF") {
+				break;
+			} else {
+				throw std::runtime_error("Unknown keyword in tour file: " + keyword);
+			}
+		} else {
+			emptyLines = true;
+		}
 	}
+	if (order.empty()) {
+		throw std::runtime_error("Tour file did not contain tour data!");
+	}
+	initTourCost();
 }
 
 /**
@@ -52,14 +101,6 @@ TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<city_id>& or
  */
 cost_t TSPSolution::getCost() const {
 	return cost;
-}
-
-/**
- * @param id Die ID einer Variablen des LP's
- * @return true, falls die Variable den Wert 1 hat
- */
-bool TSPSolution::getVariable(int id) const {
-	return variables[id];
 }
 
 /**
@@ -105,4 +146,17 @@ TSPSolution TSPSolution::opt2() const {
 		orderInt[i] = g.id(orderGraph[i]);
 	}
 	return TSPSolution(*inst, orderInt);
+}
+
+bool TSPSolution::isValid() const {
+	return inst != nullptr;
+}
+
+void TSPSolution::initTourCost() {
+	cost = 0;
+	for (city_id i = 0; i < inst->getCityCount(); ++i) {
+		city_id cityA = order[i];
+		city_id cityB = order[(i + 1) % inst->getCityCount()];
+		cost += inst->getDistance(cityA, cityB);
+	}
 }

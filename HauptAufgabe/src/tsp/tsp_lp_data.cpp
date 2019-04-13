@@ -1,5 +1,6 @@
 #include <tsp_lp_data.hpp>
 #include <lemon/connectivity.h>
+#include <tsp_utils.hpp>
 
 TspLpData::TspLpData(const TSPInstance& inst) : inst(inst), variableToEdge(inst.getEdgeCount()),
 												edgeToVariable(inst.getCityCount() - 1),
@@ -60,12 +61,21 @@ void TspLpData::setupLowerBounds() {
 	}
 }
 
-std::vector<variable_id> TspLpData::removeVariables(coeff_t bound, const std::vector<value_t>& variables) {
+std::vector<variable_id> TspLpData::removeVariables(const std::vector<value_t>& variables) {
 	std::vector<bool> asBools(variables.size());
 	for (size_t i = 0; i < asBools.size(); ++i) {
 		asBools[i] = variables[i] != 0;
 	}
-	upperBound = TSPSolution(inst, asBools, *this);
+	return removeVariables(TSPSolution(inst, asBools, *this));
+
+}
+
+std::vector<variable_id> TspLpData::removeVariables(const TSPSolution& solution) {
+	const cost_t bound = solution.getCost();
+	if (upperBound.isValid() && bound >= upperBound.getCost()) {
+		return {};
+	}
+	upperBound = solution;
 	std::vector<variable_id> toRemove;
 	variable_id newId = 0;
 	for (variable_id oldId = 0; oldId < variableToEdge.size(); ++oldId) {
@@ -78,19 +88,13 @@ std::vector<variable_id> TspLpData::removeVariables(coeff_t bound, const std::ve
 			++newId;
 		}
 	}
-	for (auto it = toRemove.rbegin(); it != toRemove.rend(); ++it) {
-		variable_id rem = *it;
-		assert(removalBound[rem] > bound);
-		removalBound.erase(removalBound.begin() + rem);
+
+	for (variable_id rem:toRemove) {
 		Edge e = variableToEdge[rem];
-		variableToEdge.erase(variableToEdge.begin() + rem);
-		assert(edgeToVariable[e.second - 1][e.first] == rem);
 		edgeToVariable[e.second - 1][e.first] = LinearProgram::invalid_variable;
 	}
-	for (variable_id i = 0; i < variableToEdge.size(); ++i) {
-		Edge e = getEdge(i);
-		assert(getVariable(e.first, e.second) == i);
-	}
+	tsp_util::eraseEntries(removalBound, toRemove);
+	tsp_util::eraseEntries(variableToEdge, toRemove);
 	return toRemove;
 }
 
@@ -113,8 +117,9 @@ void TspLpData::setupBasicLP(LinearProgram& lp) const {
 	for (city_id i = 0; i < inst.getCityCount(); ++i) {
 		std::vector<variable_id> indices;
 		for (city_id otherEnd = 0; otherEnd < inst.getCityCount(); ++otherEnd) {
-			if (otherEnd != i)
+			if (otherEnd != i && getVariable(i, otherEnd) != LinearProgram::invalid_variable) {
 				indices.push_back(getVariable(i, otherEnd));
+			}
 		}
 		constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::equal,
 							 2);

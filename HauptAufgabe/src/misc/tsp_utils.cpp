@@ -21,7 +21,7 @@ std::vector<variable_id> tsp_util::createFractionalGraph(const TSPInstance& tsp,
 			 * Kanten mit Wert 0 können nicht in F enthalten sein, da der Wert der Blüte dann schon mindestens 1 wäre
 			 * (und damit die Constraint nicht verletzt ist)
 			 */
-			if (tolerance.positive(solution[varId])) {
+			if (solution[varId] > 0) {
 				Graph::Node endU = origToWork[lower];
 				Graph::Node endV = origToWork[higher];
 				if (tolerance.less(solution[varId], 1)) {
@@ -73,4 +73,19 @@ void tsp_util::addSupportGraphEdges(const TSPInstance& tsp, const TspLpData& lpD
 			c[inWork] = solution[i];
 		}
 	}
+}
+
+std::string tsp_util::readKeyword(std::istream& in) {
+	std::string keyword;
+	in >> keyword >> std::ws;
+	/*
+	 * Doppelpunkt ignorieren. Der Doppelpunkt kann sowohl direkt hinter dem "Operator" als auch durch Whitespace
+	 * abgetrennt auftreten.
+	 */
+	if (in.peek() == ':') {
+		in.ignore();
+	} else if (keyword.back() == ':') {
+		keyword = keyword.substr(0, keyword.size() - 1);
+	}
+	return keyword;
 }

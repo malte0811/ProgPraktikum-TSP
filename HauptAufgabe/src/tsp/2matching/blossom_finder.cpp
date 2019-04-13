@@ -319,9 +319,13 @@ bool BlossomFinder::finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& 
 		Graph::NodeMap <size_t> incident(mainGraph);
 		for (Graph::Edge tooth:teeth) {
 			++incident[mainGraph.u(tooth)];
-			assert(incident[mainGraph.u(tooth)] < 3);
+			if (incident[mainGraph.u(tooth)] >= 3) {
+				return false;
+			}
 			++incident[mainGraph.v(tooth)];
-			assert(incident[mainGraph.v(tooth)] < 3);
+			if (incident[mainGraph.v(tooth)] >= 3) {
+				return false;
+			}
 		}
 	}
 	size_t handleSize = b.handle.size();

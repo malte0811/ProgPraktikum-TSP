@@ -60,24 +60,20 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 		}
 	}
 	std::set<LinearProgram::Constraint, CompareOrderedConstraint> toAdd;
-	const size_t maxNonzero = ((tsp.getCityCount() - 1) * tsp.getCityCount()) / 10;
+	const city_id maxNonzero = ((tsp.getCityCount() - 1) * tsp.getCityCount()) / 10;
 	for (const CombHeuristic::Comb& c:allCombs) {
 		if (allCombs.size() < 10 || c.estimateNonzeroCount() < maxNonzero) {
 			LinearProgram::Constraint constr = getContraintFor(c);
-			if (!constr.isViolated(solution, lemon::Tolerance<double>(1e-5))) {
-				std::cerr << "Constraint is not violated: " << constr.evalLHS(solution) << " vs " << constr.getRHS()
-						  << std::endl;
-			} else {
+			//Kann wegen Rundung auftreten
+			if (constr.isViolated(solution, lemon::Tolerance<double>(1e-5))) {
 				toAdd.insert(constr);
 			}
 		}
 	}
 	if (!toAdd.empty()) {
-		std::cout << "Found " << toAdd.size() << " violated comb contraints!" << std::endl;
 		lp.addConstraints(toAdd);
 		return CutGenerator::maybe_recalc;
 	} else {
-		std::cout << "Found no violated comb constraints" << std::endl;
 		return CutGenerator::valid;
 	}
 }

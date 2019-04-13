@@ -16,6 +16,7 @@ void OneTree::run() {
 	double currStepSize = 1;
 	bool stop;
 	const size_t maxIterations = 1000;
+	const size_t minIterations = 100;
 	const size_t maxNoUpdate = inst->getCityCount() / 10;
 	const double factor = 0.99;
 	do {
@@ -25,12 +26,14 @@ void OneTree::run() {
 		++iterations;
 		++sinceLastUpdate;
 		if (lowerBound < costPotential) {
+			if (tolerance.less(lowerBound, costPotential)) {
+				sinceLastUpdate = 0;
+			}
 			lowerBound = costPotential;
 			lemon::mapCopy(g, inTree, bestInTree);
-			sinceLastUpdate = 0;
 		}
 		currStepSize *= factor;
-	} while (!stop && sinceLastUpdate<maxNoUpdate && iterations < maxIterations);
+	} while (!stop && (sinceLastUpdate < maxNoUpdate || iterations < minIterations) && iterations < maxIterations);
 	std::cout << iterations << ", " << sinceLastUpdate << ", " << currStepSize << std::endl;
 	lemon::mapCopy(g, bestInTree, inTree);
 }

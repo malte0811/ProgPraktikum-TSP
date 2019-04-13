@@ -14,7 +14,9 @@ public:
 
 	explicit TspLpData(const TSPInstance& inst);
 
-	std::vector<variable_id> removeVariables(coeff_t bound, const std::vector<value_t>& variables) override;
+	std::vector<variable_id> removeVariables(const std::vector<value_t>& variables) override;
+
+	std::vector<variable_id> removeVariables(const TSPSolution& solution);
 
 	inline cost_t getCost(variable_id var) const;
 

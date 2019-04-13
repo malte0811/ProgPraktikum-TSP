@@ -7,7 +7,7 @@
 
 class VariableRemover {
 public:
-	virtual std::vector<variable_id> removeVariables(long newBound, const std::vector<long>& variables) = 0;
+	virtual std::vector<variable_id> removeVariables(const std::vector<value_t>& variables) = 0;
 };
 
 #endif

@@ -13,22 +13,24 @@ public:
 
 	TSPSolution(const TSPInstance& inst, const std::vector<city_id>& order);
 
+	TSPSolution(const TSPInstance& instance, std::istream& input);
+
 	void write(std::ostream& out) const;
 
 	cost_t getCost() const;
-
-	bool getVariable(variable_id id) const;
 
 	const std::vector<city_id>& getOrder() const;
 
 	TSPSolution opt2() const;
 
+	bool isValid() const;
+
 private:
+	void initTourCost();
+
 	const TSPInstance* inst = nullptr;
 	//Die Reihenfolge der Städte auf der gespeicherten Tour
 	std::vector<city_id> order;
-	//Die Belegung der LP-Variablen
-	std::vector<bool> variables;
 	//Die Kosten der Tour
 	cost_t cost = 0;
 };

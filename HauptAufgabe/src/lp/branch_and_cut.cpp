@@ -3,6 +3,7 @@
 #include <cmath>
 #include <limits>
 #include <ctime>
+#include <tsp_utils.hpp>
 
 BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerator *>& gens, VariableRemover *remover,
 						   size_t maxOpenSize) :
@@ -349,8 +350,12 @@ bool BranchAndCut::isBetter(double a, double b, LinearProgram::Goal goal) {
  */
 void BranchAndCut::setUpperBound(const std::vector<value_t>& value, coeff_t cost) {
 	upperBound = cost;
-	currBest = value;
-	std::cout << "Setting upper bound as " << cost << std::endl;
+	if (value.size() != varCount) {
+		std::cout << "Setting upper bound as " << upperBound << " without an example vector!" << std::endl;
+	} else {
+		currBest = value;
+		std::cout << "Setting upper bound as " << cost << std::endl;
+	}
 	if (!open.empty()) {
 		//TODO geht das schöner?
 		auto it = open.end();
@@ -366,8 +371,8 @@ void BranchAndCut::setUpperBound(const std::vector<value_t>& value, coeff_t cost
 		}
 		std::cout << "Removed " << removed << " nodes from the open set" << std::endl;
 	}
-	if (remover != nullptr) {
-		std::vector<variable_id> toRemove = remover->removeVariables(cost, value);
+	if (value.size() == varCount && remover != nullptr) {
+		std::vector<variable_id> toRemove = remover->removeVariables(currBest);
 		if (!toRemove.empty()) {
 			std::vector<int> variableMap(varCount);
 			for (variable_id r:toRemove) {
@@ -390,16 +395,9 @@ void BranchAndCut::setUpperBound(const std::vector<value_t>& value, coeff_t cost
 					newOpen.insert(newNode);
 				}
 			}
-			std::vector<VariableBounds> newDefaultBounds(newVarCount);
-			std::vector<VariableBounds> newCurrentBounds(newVarCount);
-			std::vector<coeff_t> newCoeffs(newVarCount);
-			for (size_t i = 0; i < defaultBounds.size(); ++i) {
-				if (variableMap[i] >= 0) {
-					newDefaultBounds[variableMap[i]] = defaultBounds[i];
-					newCurrentBounds[variableMap[i]] = currentBounds[i];
-					newCoeffs[variableMap[i]] = objCoefficients[i];
-				}
-			}
+			tsp_util::eraseEntries(defaultBounds, toRemove);
+			tsp_util::eraseEntries(currentBounds, toRemove);
+			tsp_util::eraseEntries(objCoefficients, toRemove);
 			for (LinearProgram::Constraint& c:recentlyRemoved) {
 				c.deleteVariables(variableMap);
 			}
@@ -409,10 +407,7 @@ void BranchAndCut::setUpperBound(const std::vector<value_t>& value, coeff_t cost
 			//	}
 			//}
 			varCount = newVarCount;
-			defaultBounds = newDefaultBounds;
-			currentBounds = newCurrentBounds;
 			open = newOpen;
-			objCoefficients = newCoeffs;
 			fractOpt = LinearProgram::Solution(varCount, problem.getConstraintCount());
 			assert(varCount == defaultBounds.size() && varCount == currentBounds.size() &&
 				   varCount == objCoefficients.size());
