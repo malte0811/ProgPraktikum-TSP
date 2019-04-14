@@ -2,6 +2,7 @@
 #define TSP_SOLUTION_HPP
 
 #include <tsp_instance.hpp>
+#include <lemon/full_graph.h>
 
 class TspLpData;
 
@@ -10,6 +11,8 @@ public:
 	TSPSolution() = default;
 
 	TSPSolution(const TSPInstance& inst, const std::vector<bool>& variables, const TspLpData& variableMap);
+
+	TSPSolution(const TSPInstance& inst, const lemon::FullGraph& g, const lemon::FullGraph::EdgeMap<bool>& used);
 
 	TSPSolution(const TSPInstance& inst, const std::vector<city_id>& order);
 
@@ -27,6 +30,8 @@ public:
 
 private:
 	void initTourCost();
+
+	void initFromGraph(const lemon::FullGraph& g, const lemon::FullGraph::EdgeMap<bool>& used);
 
 	const TSPInstance* inst = nullptr;
 	//Die Reihenfolge der Städte auf der gespeicherten Tour

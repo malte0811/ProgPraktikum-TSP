@@ -78,14 +78,20 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 				}
 			}
 			if (!indices.empty()) {
+				LinearProgram::Constraint constr;
 				if (sizeF > 1) {
 					//2-Matching-Constraint
-					constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::less_eq,
-										 static_cast<size_t>(min.handle.size() + sizeF / 2));
+					constr = LinearProgram::Constraint(indices, std::vector<double>(indices.size(), 1),
+													   LinearProgram::less_eq,
+													   static_cast<size_t>(min.handle.size() + sizeF / 2));
 				} else {
 					//Subtour-Constraint
-					constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::less_eq,
+					constr = LinearProgram::Constraint(indices, std::vector<double>(indices.size(), 1),
+													   LinearProgram::less_eq,
 										 min.handle.size() - 1);
+				}
+				if (constr.isViolated(solution, tolerance)) {
+					constrs.push_back(constr);
 				}
 			}
 		}
@@ -94,9 +100,5 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 			return CutGenerator::maybe_recalc;
 		}
 	}
-	//if (enableContraction) {
-	//	TwoMatchingCutGen tmp(tsp, false);
-	//	assert(tmp.validate(lp, solution)==CutGenerator::valid);
-	//}
 	return CutGenerator::valid;
 }

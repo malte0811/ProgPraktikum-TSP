@@ -12,31 +12,54 @@
  */
 TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& variables, const TspLpData& variableMap)
 		: inst(&inst), order(static_cast<size_t>(inst.getCityCount())) {
-	city_id previous = 0;
-	city_id currentCity = 0;
+	lemon::FullGraph g(inst.getCityCount());
+	lemon::FullGraph::EdgeMap<bool> used(g);
+	for (variable_id i = 0; i < variables.size(); ++i) {
+		if (variables[i]) {
+			TspLpData::Edge e = variableMap.getEdge(i);
+			lemon::FullGraph::Node endA = g(e.first);
+			lemon::FullGraph::Node endB = g(e.second);
+			used[g.edge(endA, endB)] = true;
+		}
+	}
+	initFromGraph(g, used);
+}
+
+void TSPSolution::initFromGraph(const lemon::FullGraph& g, const lemon::FullGraph::EdgeMap<bool>& used) {
+	using lemon::FullGraph;
+	FullGraph::Node previous = lemon::INVALID;
+	FullGraph::Node currentCity = g(0);
 	size_t indexInTour = 0;
 	do {
 		if (indexInTour>=order.size()) {
 			throw std::runtime_error("Invalid TSP solution, includes a cycle not containing node 1");
 		}
-		order[indexInTour] = currentCity;
+		order[indexInTour] = FullGraph::id(currentCity);
 		++indexInTour;
 		bool foundNext = false;
-		for (city_id next = 0; next<inst.getCityCount(); ++next) {
-			variable_id var = variableMap.getVariable(currentCity, next);
-			if (next != previous && next != currentCity && var >= 0 && variables[var]) {
-				cost += inst.getDistance(currentCity, next);
+		for (FullGraph::OutArcIt it(g, currentCity); it != lemon::INVALID; ++it) {
+			FullGraph::Node next = g.target(it);
+			if (next != previous && next != currentCity && used[it]) {
+				cost += inst->getDistance(FullGraph::id(currentCity), FullGraph::id(next));
 				previous = currentCity;
 				currentCity = next;
 				foundNext = true;
 				break;
 			}
 		}
-		assert(foundNext);
-	} while (currentCity!=0);
+		if (!foundNext) {
+			throw std::runtime_error("Invalid TSP solution, includes node with degree 1");
+		}
+	} while (currentCity != g(0));
 	if (indexInTour<order.size()) {
 		throw std::runtime_error("Invalid TSP solution, node 1 is in a short cycle");
 	}
+}
+
+TSPSolution::TSPSolution(const TSPInstance& inst, const lemon::FullGraph& g,
+						 const lemon::FullGraph::EdgeMap<bool>& used)
+		: inst(&inst), order(static_cast<size_t>(inst.getCityCount())) {
+	initFromGraph(g, used);
 }
 
 TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<city_id>& order)

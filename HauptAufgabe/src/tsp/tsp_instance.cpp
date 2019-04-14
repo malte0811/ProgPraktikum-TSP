@@ -12,6 +12,7 @@ using tsp_util::readOrThrow;
  * @param input Die Quelle der Eingabe
  */
 TSPInstance::TSPInstance(std::istream& input) {
+	const std::set<std::string> unsupportedKeys = {"FIXED_EDGES_SECTION"};
 	std::string line;
 	EdgeWeightType edgeType = euc_2d;
 	EdgeFormat edgeFormat = full_matrix;
@@ -75,6 +76,8 @@ TSPInstance::TSPInstance(std::istream& input) {
 				}
 			} else if (keyword=="EOF") {
 				break;
+			} else if (unsupportedKeys.count(keyword)) {
+				throw std::runtime_error("Found unsupported keyword: " + keyword);
 			} else {
 				std::cout << "Unknown keyword found, ignoring: " << keyword << std::endl;
 			}

@@ -4,6 +4,16 @@
 #include <map>
 #include <string>
 
+std::vector<std::string> splitOnChar(const std::string& string, char delim) {
+	std::vector<std::string> ret;
+	std::stringstream in(string);
+	std::string segment;
+	while (std::getline(in, segment, delim)) {
+		ret.push_back(segment);
+	}
+	return ret;
+}
+
 /**
  * Entfernt die Optionen (Parameter der Form --foo=bar) aus dem Vector der Argumente und gibt die Optionen als std::map
  * zurück
@@ -67,6 +77,8 @@ int main(int argc, char** argv) {
 		}
 		const std::string noBound = "<none>";
 		std::string startingBound = getOption<std::string>(options, "startingBound", "<greedy>");
+		std::string generatorString = getOption<std::string>(options, "cutGens", tspsolvers::cutgens::defaultGens);
+		std::vector<std::string> generators = splitOnChar(generatorString, ';');
 		auto maxOpenSize = getOption<size_t>(options, "maxOpenSize", 1536*1024*1024);
 		cost_t expectedValue = getOption(options, "expectedResult", 0U);
 		if (!options.empty()) {
@@ -89,13 +101,17 @@ int main(int argc, char** argv) {
 		TSPInstance inst(in);
 		in.close();
 		TSPSolution initial;
-		if (startingBound == "<greedy>") {
+		if (startingBound == "<greedy>" || startingBound == "<greedy2opt>") {
 			initial = tspsolvers::solveGreedy(inst);
+			if (startingBound == "<greedy2opt>") {
+				initial = initial.opt2();
+			}
 		} else if (startingBound != noBound) {
 			std::ifstream boundIn(startingBound);
 			initial = TSPSolution(inst, boundIn);
 		}
-		TSPSolution optimal = tspsolvers::solveLP(inst, initial.isValid() ? &initial : nullptr, env, maxOpenSize);
+		TSPSolution optimal = tspsolvers::solveLP(inst, initial.isValid() ? &initial : nullptr, env, maxOpenSize,
+												  generators);
 		if (args.size()==1) {
 			optimal.write(std::cout);
 		} else {

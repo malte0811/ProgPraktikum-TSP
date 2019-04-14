@@ -69,7 +69,7 @@ CutGenerator::CutStatus SimpleCombCutGen::validate(LinearProgram& lp, const std:
 						if (additionalBlock.size()>=3) {
 							constr = checkHandle({mainBlockIt, otherBlock}, fractional, blocks, lp,
 												 solution, oneEdges, toOrig, toFractional, odd);
-							if (constr.isValid()) {
+							if (constr.isValid() && constr.isViolated(solution, tolerance)) {
 								newConstraints.push_back(constr);
 							}
 						}
@@ -175,17 +175,6 @@ LinearProgram::Constraint SimpleCombCutGen::checkHandle
 		for (const VirtualEdge& e:teeth) {
 			inducedSum(e, toTSP, indices);
 		}
-		//std::cout << "Adding comb constraint: " << std::endl << "Handle: ";
-		//for (Graph::Node n:handleNodes) {
-		//	std::cout << Graph::id(n) << ", ";
-		//}
-		//std::cout << std::endl << "Teeth:" << std::endl;
-		//for (const VirtualEdge& e:teeth) {
-		//	for (Graph::Node n:e) {
-		//		std::cout << Graph::id(n) << ", ";
-		//	}
-		//	std::cout << std::endl;
-		//}
 		return LinearProgram::Constraint(indices, std::vector<double>(indices.size(), 1), LinearProgram::less_eq, rhs);
 	} else {
 		return LinearProgram::Constraint();

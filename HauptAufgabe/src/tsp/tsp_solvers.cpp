@@ -21,20 +21,34 @@
 
 namespace tspsolvers {
 
+	namespace cutgens {
+		extern const char *const connected = "connected";
+		extern const char *const subtour = "subtour";
+		extern const char *const simpleCombs = "simpleCombs";
+		extern const char *const twoMatching = "2matching";
+		extern const char *const generalCombs = "combs";
+		extern const char *const defaultGens = "connected;subtour;simpleCombs;2matching;combs";
+	}
+
 	/**
 	 * Berechnet eine "relative kurze" Tour in der gegebenen TSP-Instanz, indem immer die kürzeste mögliche Kante
 	 * hinzugefügt wird.
 	 */
 	TSPSolution solveGreedy(const TSPInstance& inst) {
-		TspLpData data(inst);//TODO zu TSPInstance Methoden für IDs (für allg. Verwendung) hinzufügen
-		std::vector<variable_id> sortedEdges;
-		for (variable_id i = 0; i<inst.getEdgeCount(); ++i) {
-			sortedEdges.push_back(i);
+		using lemon::FullGraph;
+		FullGraph g(inst.getCityCount());
+		std::vector<FullGraph::Edge> sortedEdges;
+		for (FullGraph::EdgeIt it(g); it != lemon::INVALID; ++it) {
+			sortedEdges.push_back(it);
 		}
 		//Sortieren nach Kosten der entsprechenden Kanten
 		std::sort(sortedEdges.begin(), sortedEdges.end(),
-				  [&data](variable_id edgeA, variable_id edgeB) {
-					  return data.getCost(edgeA) < data.getCost(edgeB);
+				  [&inst, &g](FullGraph::Edge e1, FullGraph::Edge e2) {
+					  city_id endA1 = FullGraph::id(g.u(e1));
+					  city_id endA2 = FullGraph::id(g.u(e2));
+					  city_id endB1 = FullGraph::id(g.v(e1));
+					  city_id endB2 = FullGraph::id(g.v(e2));
+					  return inst.getDistance(endA1, endB1) < inst.getDistance(endA2, endB2);
 				  }
 		);
 		/*
@@ -42,21 +56,20 @@ namespace tspsolvers {
 		 * Zusammenhangskomponente wie i an, der auch Grad <2 hat (Falls i Grad 0 hat, ist dies i selbst), d.h. das
 		 * andere Ende des Toursegments. Falls an i 2 Kanten anliegen, ist der Wert beliebig.
 		 */
-		std::vector<city_id> otherEnd(inst.getCityCount());
-		for (city_id i = 0; i<inst.getCityCount(); ++i) {
-			otherEnd[i] = i;
+		FullGraph::NodeMap<FullGraph::Node> otherEnd(g);
+		for (FullGraph::NodeIt it(g); it != lemon::INVALID; ++it) {
+			otherEnd[it] = it;
 		}
-		std::vector<bool> used(static_cast<size_t>(inst.getEdgeCount()));
-		std::vector<size_t> degree(inst.getCityCount());
+		FullGraph::EdgeMap<bool> used(g);
+		FullGraph::NodeMap<size_t> degree(g);
 		unsigned addedEdges = 0;
-		for (variable_id eId:sortedEdges) {
+		for (FullGraph::Edge e:sortedEdges) {
 			//Falls an einem der beiden Enden schon 2 Kanten anliegen, kann die Kante nicht hinzugefügt werden
-			TspLpData::Edge e = data.getEdge(eId);
-			size_t& edgesAtU = degree[e.first];
+			size_t& edgesAtU = degree[g.u(e)];
 			if (edgesAtU>=2) {
 				continue;
 			}
-			size_t& edgesAtV = degree[e.second];
+			size_t& edgesAtV = degree[g.v(e)];
 			if (edgesAtV>=2) {
 				continue;
 			}
@@ -64,40 +77,40 @@ namespace tspsolvers {
 			 * Wenn die Enden beide Grad <2 haben (also Enden von Toursegmenten sind), können sie genau dann verbunden
 			 * werden, wenn sie nicht zum selben Segment gehören.
 			 */
-			if (otherEnd[e.first] != e.second) {
+			if (otherEnd[g.u(e)] != g.v(e)) {
 				++addedEdges;
 				++edgesAtU;
 				++edgesAtV;
-				used[eId] = true;
+				used[e] = true;
 				if (addedEdges==inst.getCityCount()-1) {
 					break;//Tour ist fast vollständig, die letzte Kante ist aber eindeutig bestimmt
 				}
 				//Enden des neuen Segments setzen
 				//newEndU/V zwischenspeichern, falls die Segmente aus einzelnen Knoten bestehen
-				city_id newEndU = otherEnd[e.first];
-				city_id newEndV = otherEnd[e.second];
+				FullGraph::Node newEndU = otherEnd[g.u(e)];
+				FullGraph::Node newEndV = otherEnd[g.v(e)];
 				otherEnd[newEndV] = newEndU;
 				otherEnd[newEndU] = newEndV;
 			}
 		}
-		closeHamiltonPath(inst, used, degree, data);
-		return TSPSolution(inst, used, data);
+		closeHamiltonPath(g, used, degree);
+		return TSPSolution(inst, g, used);
 	}
 
 	/**
 	 * Fügt die fehlende Kante in einen Hamilton-Pfad in der TSP-Instanz inst ein
 	 */
-	void closeHamiltonPath(const TSPInstance& instance, std::vector<bool>& used, const std::vector<size_t>& degree,
-			//TODO weg
-						   const TspLpData& data) {
-		city_id firstEnd = TSPInstance::invalid_city;
-		for (city_id currCity = 0; currCity<instance.getCityCount(); ++currCity) {
-			if (degree[currCity]==1) {
-				if (firstEnd!=TSPInstance::invalid_city) {
-					used[data.getVariable(firstEnd, currCity)] = true;
+	void closeHamiltonPath(const lemon::FullGraph& g, lemon::FullGraph::EdgeMap<bool>& used,
+						   const lemon::FullGraph::NodeMap<size_t>& degree) {
+		using lemon::FullGraph;
+		FullGraph::Node firstEnd = lemon::INVALID;
+		for (FullGraph::NodeIt it(g); it != lemon::INVALID; ++it) {
+			if (degree[it] == 1) {
+				if (firstEnd != lemon::INVALID) {
+					used[g.edge(firstEnd, it)] = true;
 					break;
 				} else {
-					firstEnd = currCity;
+					firstEnd = it;
 				}
 			}
 		}
@@ -111,12 +124,14 @@ namespace tspsolvers {
 	 * @param maxOpenSize Die maximale Größe der offenen Menge in Bytes. Auf 0 setzen, um DFS zu verwenden
 	 * @return eine optimal Lösung der gegebenen TSP-Instanz
 	 */
-	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution* initial, CPXENVptr& lpEnv, size_t maxOpenSize) {
+	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution *initial, CPXENVptr& lpEnv, size_t maxOpenSize,
+						const std::vector<std::string>& cutGenerators) {
 		TspLpData data(inst);
 		data.setupLowerBounds();
 		if (initial != nullptr) {
 			data.removeVariables(*initial);
 		}
+		std::cout << "Starting at variable count " << data.getVariableCount() << std::endl;
 		ConnectivityCutGen connected(inst, data);
 		SubtourCutGen subtours(inst, data);
 		TwoMatchingCutGen matchings(inst, data, true);
@@ -124,7 +139,24 @@ namespace tspsolvers {
 		CombCutGen generalCombs(inst, data);
 		LinearProgram lp(lpEnv, inst.getName(), LinearProgram::minimize);
 		data.setupBasicLP(lp);
-		BranchAndCut bac(lp, {&connected, &subtours, &simpleCombs, &matchings, &generalCombs}, &data, maxOpenSize);
+		std::vector<CutGenerator *> gens;
+		gens.reserve(cutGenerators.size());
+		for (const std::string& genName:cutGenerators) {
+			if (tspsolvers::cutgens::connected == genName) {
+				gens.push_back(&connected);
+			} else if (tspsolvers::cutgens::subtour == genName) {
+				gens.push_back(&subtours);
+			} else if (tspsolvers::cutgens::simpleCombs == genName) {
+				gens.push_back(&simpleCombs);
+			} else if (tspsolvers::cutgens::twoMatching == genName) {
+				gens.push_back(&matchings);
+			} else if (tspsolvers::cutgens::generalCombs == genName) {
+				gens.push_back(&generalCombs);
+			} else {
+				throw std::runtime_error("Unknown cut generator: " + genName);
+			}
+		}
+		BranchAndCut bac(lp, gens, &data, maxOpenSize);
 		if (initial!=nullptr) {
 			bac.setUpperBound({}, initial->getCost());
 		}

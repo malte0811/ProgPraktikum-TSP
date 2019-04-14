@@ -104,9 +104,9 @@ std::vector<variable_id> TspLpData::removeVariables(const TSPSolution& solution)
  * @param lp das zu initialisierende LP
  */
 void TspLpData::setupBasicLP(LinearProgram& lp) const {
-	auto varCount = static_cast<size_t>(inst.getEdgeCount());
+	auto varCount = static_cast<size_t>(getVariableCount());
 	std::vector<double> objCoeffs(varCount);
-	for (variable_id i = 0; i < inst.getEdgeCount(); ++i) {
+	for (variable_id i = 0; i < varCount; ++i) {
 		objCoeffs[i] = getCost(i);
 	}
 	std::vector<double> lower(varCount, 0);
