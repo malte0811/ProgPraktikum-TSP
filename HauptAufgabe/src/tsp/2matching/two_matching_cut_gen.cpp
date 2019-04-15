@@ -38,6 +38,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 	if (!allMin.empty()) {
 		std::vector<LinearProgram::Constraint> constrs;
 		constrs.reserve(allMin.size());
+		size_t maxNonzero = 0, sumNZ = 0;
 		for (BlossomFinder::Blossom& min:allMin) {
 			std::vector<bool> inHandle(tsp.getCityCount());
 			for (Graph::Node n:min.handle) {
@@ -91,11 +92,16 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 										 min.handle.size() - 1);
 				}
 				if (constr.isViolated(solution, tolerance)) {
+					sumNZ += constr.getNonzeroes().size();
+					if (constr.getNonzeroes().size() > maxNonzero) {
+						maxNonzero = constr.getNonzeroes().size();
+					}
 					constrs.push_back(constr);
 				}
 			}
 		}
 		if (!constrs.empty()) {
+			std::cout << "2Matching: Max nonzero: " << maxNonzero << ", sum: " << sumNZ << std::endl;
 			lp.addConstraints(constrs);
 			return CutGenerator::maybe_recalc;
 		}

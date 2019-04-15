@@ -66,15 +66,117 @@ size_t CombHeuristic::Comb::estimateNonzeroCount() const {
 	return ret;
 }
 
-void CombHeuristic::Comb::invertHandle(city_id cityCount) {
-	std::vector<bool> inHandle(cityCount, false);
+void CombHeuristic::Comb::simplify(const TspLpData& lpData, const std::vector<double>& solution) {
+	const city_id invalid_city = TSPInstance::invalid_city;
+	const city_id cityCount = lpData.getTSP().getCityCount();
+	std::vector<bool> isHandle(cityCount);
 	for (city_id i:handle) {
-		inHandle[i] = true;
+		isHandle[i] = true;
 	}
-	handle.clear();
-	for (city_id i = 0; i < cityCount; ++i) {
-		if (!inHandle[i]) {
-			handle.push_back(i);
+	std::vector<bool> isPureHandle = isHandle;
+	for (const auto& tooth:teeth) {
+		for (city_id i:tooth) {
+			isPureHandle[i] = false;
 		}
+	}
+	lemon::Tolerance<double> tolerance;
+	std::vector<std::pair<city_id, city_id>> neighbors(cityCount, {invalid_city, invalid_city});
+	for (city_id i:handle) {
+		if (!isPureHandle[i]) {
+			continue;
+		}
+		std::vector<city_id> oneNeighbors;
+		for (city_id neighbor = 0; neighbor < cityCount; ++neighbor) {
+			if (!isPureHandle[neighbor]) {
+				continue;
+			}
+			variable_id var = lpData.getVariable(i, neighbor);
+			if (var != LinearProgram::invalid_variable) {
+				double val = solution[var];
+				if (!tolerance.different(1, val)) {
+					//TODO bruache ich pure oder reicht handle?
+					oneNeighbors.push_back(neighbor);
+				}
+			}
+		}
+		if (oneNeighbors.size() == 2) {
+			neighbors[i] = {oneNeighbors[0], oneNeighbors[1]};
+			//std::cout << "Found inner node " << i << " with neighbors " << oneNeighbors[0] << "," << oneNeighbors[1] << std::endl;
+		} else if (oneNeighbors.size() == 1) {
+			neighbors[i] = {oneNeighbors[0], invalid_city};
+			//std::cout << "Found end node " << i << " with neighbor " << oneNeighbors[0] << std::endl;
+		}
+	}
+	//std::cout << "Done" << std::endl;
+	for (city_id i:handle) {
+		std::pair<city_id, city_id> neighborsI = neighbors[i];
+		if (neighborsI.first != invalid_city && neighborsI.second == invalid_city) {
+			if (neighbors[neighborsI.first].second == invalid_city) {
+				continue;
+			}
+			city_id last = i;
+			city_id current = neighborsI.first;
+			while (current != invalid_city) {
+				if (last != i) {
+					isHandle[last] = false;
+				}
+				city_id next;
+				std::pair<city_id, city_id> neighborsCurr = neighbors[current];
+				if (neighborsCurr.first != last) {
+					next = neighborsCurr.first;
+				} else {
+					next = neighborsCurr.second;
+				}
+				last = current;
+				current = next;
+				assert(current != i);
+			}
+			city_id iOther = neighborsI.first;
+			city_id lastOther = neighbors[last].first;
+			assert(last != i);
+			if (iOther == lastOther) {
+				isHandle[iOther] = true;
+			} else {
+				assert(isHandle[i]);
+				assert(isHandle[last]);
+				assert(!isHandle[iOther]);
+				assert(!isHandle[lastOther]);
+				teeth.push_back({i, iOther});
+				teeth.push_back({last, lastOther});
+				neighbors[i] = neighbors[last] = {invalid_city, invalid_city};
+			}
+		}
+	}
+	for (size_t i = 0; i < handle.size();) {
+		if (isHandle[handle[i]]) {
+			++i;
+		} else {
+			handle[i] = handle.back();
+			handle.pop_back();
+		}
+	}
+	validate(cityCount);
+}
+
+void CombHeuristic::Comb::validate(city_id cityCount) const {
+	std::vector<bool> isHandle(cityCount);
+	for (city_id i:handle) {
+		isHandle[i] = true;
+	}
+	std::vector<bool> inComb(cityCount);
+	for (const auto& tooth:teeth) {
+		bool foundHandle = false;
+		bool foundNonHandle = false;
+		for (city_id i:tooth) {
+			assert(!inComb[i]);
+			if (isHandle[i]) {
+				foundHandle = true;
+			} else {
+				foundNonHandle = true;
+			}
+			inComb[i] = false;
+		}
+		assert(foundHandle);
+		assert(foundNonHandle);
 	}
 }

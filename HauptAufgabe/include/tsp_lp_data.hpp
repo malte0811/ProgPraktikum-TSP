@@ -31,6 +31,14 @@ public:
 	void setupLowerBounds();
 
 	inline variable_id getVariableCount() const;
+
+	inline const TSPInstance& getTSP() const;
+
+	city_id inducedSum(const std::vector<city_id>& set, std::vector<double>& values,
+					   std::vector<variable_id>& usedVars) const;
+
+	city_id sparserInducedSum(const std::vector<city_id>& set, std::vector<double>& values,
+							  std::vector<variable_id>& usedVars) const;
 private:
 	const TSPInstance& inst;
 	std::vector<std::pair<city_id, city_id>> variableToEdge;
@@ -60,6 +68,10 @@ variable_id TspLpData::getVariable(city_id a, city_id b) const {
 
 variable_id TspLpData::getVariableCount() const {
 	return variableToEdge.size();
+}
+
+const TSPInstance& TspLpData::getTSP() const {
+	return inst;
 }
 
 #endif

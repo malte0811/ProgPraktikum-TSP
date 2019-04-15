@@ -17,7 +17,9 @@ public:
 
 		size_t estimateNonzeroCount() const;
 
-		void invertHandle(city_id cityCount);
+		void simplify(const TspLpData& lpData, const std::vector<double>& solution);
+
+		void validate(city_id cityCount) const;
 
 		std::vector<city_id> handle;
 		std::vector<std::vector<city_id>> teeth;

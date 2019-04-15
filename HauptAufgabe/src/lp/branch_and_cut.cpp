@@ -74,6 +74,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 	const size_t maxSlow = 6;
 	size_t slowIterations = 0;
 	unsigned iterations = 0;
+	double lastCleanup = 0;
 	do {
 		++iterations;
 		if (iterations%64==0) {
@@ -121,8 +122,11 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 		if (slowIterations > maxSlow && solutionStatus == CutGenerator::maybe_recalc) {
 			solutionStatus = CutGenerator::valid;
 		}
+		if (iterations == 1 || isBetter(lastCleanup, fractOpt.getValue(), goal)) {
+			cleanupOldConstraints();
+			lastCleanup = fractOpt.getValue();
+		}
 	} while (solutionStatus!=CutGenerator::valid);
-	cleanupOldConstraints();
 }
 
 size_t handledNodes = 0;
@@ -475,7 +479,7 @@ void BranchAndCut::cleanupOldConstraints() {
 			sinceSlack0.resize(sinceSlack0.size()-removeCount);
 			std::fill(sinceSlack0.begin(), sinceSlack0.end(), 0);
 			problem.removeSetConstraints(toRemove);
-			//TODO maybe keep some of the old ones?
+			std::cout << "Removed " << removeCount << " old constraints" << std::endl;
 			recentlyRemoved = removed;
 		}
 	}

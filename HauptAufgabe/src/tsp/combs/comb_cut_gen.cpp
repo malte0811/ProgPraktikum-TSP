@@ -10,9 +10,14 @@ CombCutGen::CombCutGen(const TSPInstance& tsp, const TspLpData& lpData) :
 		heuristic4({&onePath, &oneSquare, &triangleGE05}),
 		tsp(tsp), lpData(lpData) {}
 
-
 struct CompareOrderedConstraint {
-	bool operator()(const LinearProgram::Constraint& c1, const LinearProgram::Constraint& c2) {
+	bool operator()(const std::pair<LinearProgram::Constraint, double>& p1,
+					const std::pair<LinearProgram::Constraint, double>& p2) {
+		if (p1.second != p2.second) {
+			return p1.second < p2.second;
+		}
+		const LinearProgram::Constraint& c1 = p1.first;
+		const LinearProgram::Constraint& c2 = p2.first;
 		if (c1.getRHS() != c2.getRHS()) {
 			return c1.getRHS() < c2.getRHS();
 		}
@@ -34,12 +39,6 @@ struct CompareOrderedConstraint {
 	}
 };
 
-struct CompareCombSize {
-	bool operator()(const CombHeuristic::Comb& c1, const CombHeuristic::Comb& c2) {
-		return c1.estimateNonzeroCount() < c2.estimateNonzeroCount();
-	}
-};
-
 CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
 											 CutStatus currentStatus) {
 	if (currentStatus != CutGenerator::valid) {
@@ -48,29 +47,31 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 	std::vector<CombHeuristic::Comb> allCombs;
 	for (const CombHeuristic& ch:{heuristic1, heuristic2, heuristic3, heuristic4}) {
 		std::vector<CombHeuristic::Comb> combs = ch.findViolatedCombs(lpData, tsp, solution);
-		if (!combs.empty()) {
-			for (CombHeuristic::Comb& c:combs) {
-				if (!c.isBlossom()) {
-					if (c.handle.size() > tsp.getCityCount() / 2) {
-						c.invertHandle(tsp.getCityCount());
-					}
-				}
-			}
-			allCombs.insert(allCombs.end(), combs.begin(), combs.end());
+		for (CombHeuristic::Comb& c:combs) {
+			c.simplify(lpData, solution);
 		}
+		allCombs.insert(allCombs.end(), combs.begin(), combs.end());
 	}
-	std::set<LinearProgram::Constraint, CompareOrderedConstraint> toAdd;
-	const city_id maxNonzero = ((tsp.getCityCount() - 1) * tsp.getCityCount()) / 10;
+	std::set<std::pair<LinearProgram::Constraint, double>, CompareOrderedConstraint> allConstrs;
 	for (const CombHeuristic::Comb& c:allCombs) {
-		if (allCombs.size() < 10 || c.estimateNonzeroCount() < maxNonzero) {
-			LinearProgram::Constraint constr = getContraintFor(c);
-			//Kann wegen Rundung auftreten
-			if (constr.isViolated(solution, lemon::Tolerance<double>(1e-5))) {
-				toAdd.insert(constr);
+		LinearProgram::Constraint constr = getContraintFor(c);
+		//Kann wegen Rundung auftreten
+		//1e-5: 79.85, 1e-2: 125.094
+		if (constr.isViolated(solution, lemon::Tolerance<double>(1e-2))) {
+			allConstrs.insert({constr, constr.getRHS() - constr.evalLHS(solution)});
+		}// else std::cout << constr.evalLHS(solution) << " vs " << constr.getRHS() << std::endl;
+	}
+	if (!allConstrs.empty()) {
+		std::vector<LinearProgram::Constraint> toAdd;
+		size_t sumNZ = 0;
+		for (const auto& pair:allConstrs) {
+			sumNZ += pair.first.getNonzeroes().size();
+			toAdd.push_back(pair.first);
+			if (sumNZ > tsp.getCityCount() * tsp.getCityCount()) {
+				break;
 			}
 		}
-	}
-	if (!toAdd.empty()) {
+		std::cout << "Adding comb constraints with a total of " << sumNZ << " nonzeroes" << std::endl;
 		lp.addConstraints(toAdd);
 		return CutGenerator::maybe_recalc;
 	} else {
@@ -81,9 +82,9 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 LinearProgram::Constraint CombCutGen::getContraintFor(const CombHeuristic::Comb& c) {
 	std::vector<double> constr(lpData.getVariableCount(), 0);
 	std::vector<variable_id> allIndices;
-	inducedSum(c.handle, constr, allIndices);
+	size_t rhs = lpData.sparserInducedSum(c.handle, constr, allIndices) + 1;
 	for (const std::vector<city_id>& tooth:c.teeth) {
-		inducedSum(tooth, constr, allIndices);
+		rhs += lpData.sparserInducedSum(tooth, constr, allIndices);
 	}
 	std::vector<variable_id> indices;
 	std::vector<double> coeffs;
@@ -96,27 +97,9 @@ LinearProgram::Constraint CombCutGen::getContraintFor(const CombHeuristic::Comb&
 			constr[i] = 0;
 		}
 	}
-	size_t rhs = c.handle.size();
-	for (const std::vector<city_id>& tooth:c.teeth) {
-		rhs += tooth.size() - 1;
-	}
 	rhs -= (c.teeth.size() + 1) / 2;
 	return LinearProgram::Constraint(indices, coeffs, LinearProgram::less_eq, rhs);
 }
-
-void CombCutGen::inducedSum(const std::vector<city_id>& set, std::vector<double>& out,
-							std::vector<variable_id>& allVars) {
-	for (size_t i = 1; i < set.size(); ++i) {
-		for (size_t j = 0; j < i; ++j) {
-			variable_id var = lpData.getVariable(set[i], set[j]);
-			if (var != LinearProgram::invalid_variable) {
-				out[var] += 1;
-				allVars.push_back(var);
-			}
-		}
-	}
-}
-
 
 ContractionRule::Contraction CombCutGen::contractOnePath(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
 														 const std::vector<Graph::Edge>& possibleOneEdges,

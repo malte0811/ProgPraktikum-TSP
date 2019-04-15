@@ -130,3 +130,39 @@ void TspLpData::setupBasicLP(LinearProgram& lp) const {
 const TSPSolution& TspLpData::getUpperBound() const {
 	return upperBound;
 }
+
+city_id TspLpData::inducedSum(const std::vector<city_id>& set, std::vector<double>& values,
+							  std::vector<variable_id>& usedVars) const {
+	for (size_t i = 1; i < set.size(); ++i) {
+		for (size_t j = 0; j < i; ++j) {
+			variable_id var = getVariable(set[i], set[j]);
+			if (var != LinearProgram::invalid_variable) {
+				if (values[var] == 0) {
+					usedVars.push_back(var);
+				}
+				values[var] += 1;
+			}
+		}
+	}
+	return set.size() - 1;
+}
+
+city_id TspLpData::sparserInducedSum(const std::vector<city_id>& set, std::vector<double>& values,
+									 std::vector<variable_id>& usedVars) const {
+	if (set.size() <= inst.getCityCount() / 2) {
+		return inducedSum(set, values, usedVars);
+	} else {
+		std::vector<bool> inSet(inst.getCityCount());
+		for (city_id c:set) {
+			inSet[c] = true;
+		}
+		std::vector<city_id> complement;
+		complement.reserve(inst.getCityCount() - set.size());
+		for (city_id i = 0; i < inst.getCityCount(); ++i) {
+			if (!inSet[i]) {
+				complement.push_back(i);
+			}
+		}
+		return inducedSum(complement, values, usedVars);
+	}
+}
