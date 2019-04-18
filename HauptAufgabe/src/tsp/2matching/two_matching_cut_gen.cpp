@@ -36,9 +36,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 	BlossomFinder finder(workGraph, c, tolerance, enableContraction);
 	std::vector<BlossomFinder::Blossom> allMin = finder.findViolatedBlossoms();
 	if (!allMin.empty()) {
-		std::vector<LinearProgram::Constraint> constrs;
-		constrs.reserve(allMin.size());
-		size_t maxNonzero = 0, sumNZ = 0;
+		std::set<tsp_util::ConstraintWithSlack, tsp_util::CompareOrderedConstraint> allConstrs;
 		for (BlossomFinder::Blossom& min:allMin) {
 			std::vector<bool> inHandle(tsp.getCityCount());
 			for (Graph::Node n:min.handle) {
@@ -58,6 +56,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 			assert(sizeF%2==1);
 			//Die Indizes der Variablen in den hinzugefügten Constraints
 			std::vector<variable_id> indices;
+			std::vector<double> coeffs(lpData.getVariableCount());
 			if (sizeF>1) {
 				for (Graph::Edge e:min.teeth) {
 					Graph::Node u = workGraph.u(e);
@@ -66,43 +65,51 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 					TspLpData::Edge e1 = lpData.getEdge(var);
 					assert(inHandle[e1.first] != inHandle[e1.second]);
 					indices.push_back(var);
+					coeffs[var] += 1;
 				}
 			}
-			for (size_t i = 1; i < min.handle.size(); ++i) {
-				for (size_t j = 0; j < i; ++j) {
-					Graph::Node u = min.handle[i];
-					Graph::Node v = min.handle[j];
-					variable_id var = lpData.getVariable(workToOrig[u], workToOrig[v]);
-					if (var != LinearProgram::invalid_variable) {
-						indices.push_back(var);
-					}
-				}
+			std::vector<city_id> handleTSP;
+			handleTSP.reserve(min.handle.size());
+			for (Graph::Node n:min.handle) {
+				handleTSP.push_back(workToOrig[n]);
 			}
+			lpData.sparserInducedSum(handleTSP, coeffs, indices);
 			if (!indices.empty()) {
 				LinearProgram::Constraint constr;
+				std::sort(indices.begin(), indices.end());
 				if (sizeF > 1) {
 					//2-Matching-Constraint
-					constr = LinearProgram::Constraint(indices, std::vector<double>(indices.size(), 1),
+					constr = LinearProgram::Constraint::fromDense(indices, coeffs,
 													   LinearProgram::less_eq,
 													   static_cast<size_t>(min.handle.size() + sizeF / 2));
 				} else {
 					//Subtour-Constraint
-					constr = LinearProgram::Constraint(indices, std::vector<double>(indices.size(), 1),
+					constr = LinearProgram::Constraint::fromDense(indices, coeffs,
 													   LinearProgram::less_eq,
 										 min.handle.size() - 1);
 				}
-				if (constr.isViolated(solution, tolerance)) {
-					sumNZ += constr.getNonzeroes().size();
-					if (constr.getNonzeroes().size() > maxNonzero) {
-						maxNonzero = constr.getNonzeroes().size();
-					}
-					constrs.push_back(constr);
+				double lhs = constr.evalLHS(solution);
+				if (tolerance.less(constr.getRHS(), lhs)) {
+					allConstrs.insert({constr, constr.getRHS()-lhs});
 				}
 			}
 		}
-		if (!constrs.empty()) {
+		if (!allConstrs.empty()) {
+			size_t maxNonzero = 0, sumNZ = 0;
+			std::vector<LinearProgram::Constraint> toAdd;
+			for (const tsp_util::ConstraintWithSlack& cws:allConstrs) {
+				toAdd.push_back(cws.constraint);
+				const size_t nz = cws.constraint.getNonzeroes().size();
+				sumNZ += nz;
+				if (nz>maxNonzero) {
+					maxNonzero = nz;
+				}
+				if (sumNZ>(tsp.getCityCount()*tsp.getCityCount())) {
+					break;
+				}
+			}
 			std::cout << "2Matching: Max nonzero: " << maxNonzero << ", sum: " << sumNZ << std::endl;
-			lp.addConstraints(constrs);
+			lp.addConstraints(toAdd);
 			return CutGenerator::maybe_recalc;
 		}
 	}

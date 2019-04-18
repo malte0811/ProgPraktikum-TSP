@@ -24,6 +24,7 @@ private:
 		rank_t rank;
 	};
 	std::vector<entry> entries;
+	size_t numSets;
 };
 
 #endif

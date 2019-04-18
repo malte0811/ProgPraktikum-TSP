@@ -45,6 +45,8 @@ public:
 
 		const std::vector<double>& getShadowCosts() const;
 
+		void removeVariables(const std::vector<variable_id>& toRemove);
+
 	private:
 		friend LinearProgram;
 		std::vector<double> vector;
@@ -77,6 +79,10 @@ public:
 		bool isViolated(const std::vector<double>& vars, lemon::Tolerance<double> tolerance) const;
 
 		void deleteVariables(const std::vector<variable_id>& removalMap);
+
+		static Constraint fromDense(const std::vector<variable_id>& usedVars, const std::vector<double>& coeffs, CompType sense,
+									double rhs);
+
 	private:
 		std::vector<int> indices;
 		std::vector<double> coeffs;

@@ -5,7 +5,7 @@
 Union-Find-Struktur auf der Menge 0,...,size-1.
 Entspricht praktisch direkt den Algorithmen aus der Vorlesung
 */
-UnionFind::UnionFind(size_t size) : entries(size) {
+UnionFind::UnionFind(size_t size) : entries(size), numSets(size) {
 	for (size_t i = 0; i<size; ++i) {
 		entry& e = entries[i];
 		e.rank = 0;
@@ -14,6 +14,9 @@ UnionFind::UnionFind(size_t size) : entries(size) {
 }
 
 size_t UnionFind::find(size_t start) {
+	if (numSets<=1) {
+		return 0;
+	}
 	entry& currEntry = entries[start];
 	if (currEntry.parent==start) {
 		return start;
@@ -38,6 +41,7 @@ size_t UnionFind::mergeRoots(size_t rootA, size_t rootB) {
 	if (rootA==rootB) {
 		return rootA;
 	}
+	--numSets;
 	entry& entryA = entries[rootA];
 	entry& entryB = entries[rootB];
 	if (entryA.rank>entryB.rank) {

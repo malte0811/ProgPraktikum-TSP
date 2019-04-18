@@ -5,7 +5,6 @@
 #include <lemon/bfs.h>
 #include <variable_remover.hpp>
 #include <tsp_instance.hpp>
-#include <one_tree.hpp>
 #include "tsp_solution.hpp"
 
 class TspLpData : public VariableRemover {
@@ -14,7 +13,9 @@ public:
 
 	explicit TspLpData(const TSPInstance& inst);
 
-	std::vector<variable_id> removeVariables(const std::vector<value_t>& variables) override;
+	std::vector<variable_id> removeOnUpperBound(const std::vector<value_t>& variables) override;
+
+	std::vector<variable_id> removeOnRootSolution(const LinearProgram::Solution& rootSol) override;
 
 	std::vector<variable_id> removeVariables(const TSPSolution& solution);
 
@@ -27,8 +28,6 @@ public:
 	inline variable_id getVariable(city_id a, city_id b) const;
 
 	const TSPSolution& getUpperBound() const;
-
-	void setupLowerBounds();
 
 	inline variable_id getVariableCount() const;
 

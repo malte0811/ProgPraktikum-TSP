@@ -89,3 +89,29 @@ std::string tsp_util::readKeyword(std::istream& in) {
 	}
 	return keyword;
 }
+
+bool tsp_util::CompareOrderedConstraint::operator()(const ConstraintWithSlack & p1, const ConstraintWithSlack & p2) {
+	if (p1.slack != p2.slack) {
+		return p1.slack < p2.slack;
+	}
+	const LinearProgram::Constraint& c1 = p1.constraint;
+	const LinearProgram::Constraint& c2 = p2.constraint;
+	if (c1.getNonzeroes().size() != c2.getNonzeroes().size()) {
+		return c1.getNonzeroes().size() < c2.getNonzeroes().size();
+	}
+	if (c1.getRHS() != c2.getRHS()) {
+		return c1.getRHS() < c2.getRHS();
+	}
+	if (c1.getSense() != c2.getSense()) {
+		return c1.getSense() < c2.getSense();
+	}
+	for (size_t i = 0; i < c1.getNonzeroes().size(); ++i) {
+		if (c1.getNonzeroes()[i] != c2.getNonzeroes()[i]) {
+			return c1.getNonzeroes()[i] < c2.getNonzeroes()[i];
+		}
+		if (c1.getCoeffs()[i] != c2.getCoeffs()[i]) {
+			return c1.getCoeffs()[i] < c2.getCoeffs()[i];
+		}
+	}
+	return false;
+}

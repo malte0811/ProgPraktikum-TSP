@@ -24,7 +24,7 @@ class VariableRemover;
  */
 class BranchAndCut {
 public:
-	BranchAndCut(LinearProgram& program, const std::vector<CutGenerator *>& gens, VariableRemover *remover,
+	BranchAndCut(LinearProgram& program, std::vector<CutGenerator *>  gens, VariableRemover *remover,
 				 size_t maxOpenSize);
 
 	void setUpperBound(const std::vector<value_t>& value, value_t cost);
@@ -108,6 +108,7 @@ private:
 	//Die Koeffizienten der Zielfunktion
 	std::vector<coeff_t> objCoefficients;
 	//Die Menge der offenen Knoten, sortiert nach dem Wert der Zielfunktion
+	//TODO für max. muss anders sortiert werden. Will ich max überhaupt zulassen?
 	std::multiset<BranchNode> open;
 	//Die Variablenschranken im ursprünglichen LP
 	std::vector<VariableBounds> defaultBounds;
@@ -128,15 +129,18 @@ private:
 	const RelativeTolerance generalTolerance;
 	//Toleranz, nach der entschieden wird, ob ein Wert ganzzahlig ist
 	const lemon::Tolerance<double> intTolerance;
+	//Anzahl der bereits behandelten Knoten im "Suchbaum"
+	size_t handledNodes = 0;
+	BranchNode* currentNode = nullptr;
 
-	static bool isBetter(double a, double b, LinearProgram::Goal goal);
+	bool isBetter(double a, double b);
 
-	void branchAndBound(BranchNode& node, bool dfs);
+	void branchAndBound(BranchNode& node, bool dfs, bool isRoot);
 
 	void branch(variable_id variable, value_t val, LinearProgram::BoundType bound,
 				const SystemBounds& parent, double objValue, bool immediate, bool dfs);
 
-	void solveLP(LinearProgram::Solution& out);
+	void solveLP(LinearProgram::Solution& out, bool isRoot);
 
 	void countSolutionSlack(const LinearProgram::Solution& sol);
 
@@ -144,7 +148,9 @@ private:
 
 	CutGenerator::CutStatus readdRemovedConstraints(const LinearProgram::Solution& sol);
 
-	void cleanupOldConstraints();
+	bool cleanupOldConstraints();
+
+	void removeVariables(const std::vector<variable_id>& toRemove);
 };
 
 

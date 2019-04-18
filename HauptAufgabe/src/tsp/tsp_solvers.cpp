@@ -127,7 +127,6 @@ namespace tspsolvers {
 	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution *initial, CPXENVptr& lpEnv, size_t maxOpenSize,
 						const std::vector<std::string>& cutGenerators) {
 		TspLpData data(inst);
-		data.setupLowerBounds();
 		if (initial != nullptr) {
 			data.removeVariables(*initial);
 		}

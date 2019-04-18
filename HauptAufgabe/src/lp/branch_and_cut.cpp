@@ -1,15 +1,17 @@
 #include <utility>
+
+#include <utility>
 #include <branch_and_cut.hpp>
 #include <cmath>
 #include <limits>
 #include <ctime>
 #include <tsp_utils.hpp>
 
-BranchAndCut::BranchAndCut(LinearProgram& program, const std::vector<CutGenerator *>& gens, VariableRemover *remover,
+BranchAndCut::BranchAndCut(LinearProgram& program, std::vector<CutGenerator *>  gens, VariableRemover *remover,
 						   size_t maxOpenSize) :
 		problem(program), varCount(program.getVariableCount()), goal(program.getGoal()),
 		currBest(static_cast<size_t>(varCount)), fractOpt(static_cast<size_t>(varCount), 0),
-		objCoefficients(static_cast<size_t>(varCount)), maxOpenSize(maxOpenSize), generators(gens),
+		objCoefficients(static_cast<size_t>(varCount)), maxOpenSize(maxOpenSize), generators(std::move(gens)),
 		constraintsAtStart(static_cast<size_t>(program.getConstraintCount())),
 		defaultBounds(static_cast<size_t>(varCount)), currentBounds(static_cast<size_t>(varCount)), intTolerance(0.01),
 		remover(remover) {
@@ -68,7 +70,7 @@ value_t getNextWorse(double in, LinearProgram::Goal g, lemon::Tolerance<double> 
  * Am Ende werden Constraints entfernt, die seit mindestens 10 Iterationen nicht mehr mit Gleichheit erfüllt waren.
  * @param out Ein Solution-Objekt der korrekten Größe. Dient als Ausgabe.
  */
-void BranchAndCut::solveLP(LinearProgram::Solution& out) {
+void BranchAndCut::solveLP(LinearProgram::Solution& out, bool isRoot) {
 	CutGenerator::CutStatus solutionStatus;
 	double oldVal = 0;
 	const size_t maxSlow = 6;
@@ -87,7 +89,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 		 * Abbrechen, falls das LP unzulässig ist oder die optimale fraktionale Lösung nicht mehr besser als die beste
 		 * bekannte ganzzahlige ist
 		 */
-		if (!out.isValid() || !isBetter(getNextWorse(out.getValue(), goal, intTolerance), upperBound, goal)) {
+		if (!out.isValid() || !isBetter(getNextWorse(out.getValue(), goal, intTolerance), upperBound)) {
 			break;
 		}
 		/*
@@ -122,14 +124,25 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out) {
 		if (slowIterations > maxSlow && solutionStatus == CutGenerator::maybe_recalc) {
 			solutionStatus = CutGenerator::valid;
 		}
-		if (iterations == 1 || isBetter(lastCleanup, fractOpt.getValue(), goal)) {
-			cleanupOldConstraints();
-			lastCleanup = fractOpt.getValue();
+		if (iterations == 1) {
+			lastCleanup = out.getValue();
+		}
+		if (iterations==1 || (iterations%8==0 && isBetter(lastCleanup, out.getValue()))) {
+			/*
+			 * Entfernen "alter" Constraints maximal alle 8 Iterationen und nur, wenn der Wert der aktuellen Lösung
+			 * "schlechter" (also eine bessere untere Schranke) als beim letzten erfolgreichen Entfernen ist
+			 */
+			if (cleanupOldConstraints()) {
+				lastCleanup = out.getValue();
+			}
+			if (remover!=nullptr && isRoot) {
+				std::vector<variable_id> toRemove = remover->removeOnRootSolution(out);
+				removeVariables(toRemove);
+			}
 		}
 	} while (solutionStatus!=CutGenerator::valid);
 }
 
-size_t handledNodes = 0;
 /**
  * @return eine optimale ganzzahlige Lösung des LP, die von alle Cut-Generatoren akzeptiert wird.
  */
@@ -140,6 +153,7 @@ std::vector<value_t> BranchAndCut::solve() {
 	open.insert(initNode);
 	openSize += initNode.estimateSize();
 	size_t iterations = 0;
+	bool isRoot = true;
 	while (!open.empty()) {
 		//besten offenen Knoten behandeln
 		auto it = open.begin();
@@ -147,7 +161,8 @@ std::vector<value_t> BranchAndCut::solve() {
 		open.erase(it);
 		openSize -= next.estimateSize();
 		//maxOpenSize==0->Es dürfen keine offenen Knoten gespeichert werden->DFS nutzen
-		branchAndBound(next, maxOpenSize==0);
+		branchAndBound(next, maxOpenSize == 0, isRoot);
+		isRoot = false;
 		++iterations;
 		if (iterations%16==0) {
 			std::cout << "At iteration " << iterations << ", cost is " << next.value << std::endl;
@@ -180,7 +195,7 @@ std::vector<value_t> BranchAndCut::solve() {
 				std::cout << "Removing node of size " << next.estimateSize() << std::endl;
 				openSize -= next.estimateSize();
 				open.erase(maxIt);
-				branchAndBound(next, true);
+				branchAndBound(next, true, false);
 				std::cout << "Removed node, now at open size " << openSize << std::endl;
 			}
 		}
@@ -193,17 +208,19 @@ std::vector<value_t> BranchAndCut::solve() {
  * Findet die beste ganzzahlige Lösung des LP's (mit Cut-Generatoren) unter den aktuellen Grenzen für die Variablen.
  * Falls diese Lösung besser als upperBound bzw.
  */
-void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
+void BranchAndCut::branchAndBound(BranchNode& node, bool dfs, bool isRoot) {
+	BranchNode* prevNode = currentNode;
+	currentNode = &node;
 	++handledNodes;
 	setupBounds(node.bounds);
-	solveLP(fractOpt);
+	solveLP(fractOpt, isRoot);
 	/*
 	 * Ein Branch wird nur dann weiterentwickelt, wenn das LP lösbar ist und die Lösung besser ist als die obere Schranke.
 	 * Da sowohl die Variablen als auch die Koeffizienten der Zielfunktion ganzzahlig sind, ist auch der Wert der
 	 * Zielfunktion im Endergebnis ganzzahlig; sie hat also mindestens den Wert
 	 * getNextWorse(fractOpt.getValue(), goal, intTolerance)
 	 */
-	if (fractOpt.isValid() && isBetter(getNextWorse(fractOpt.getValue(), goal, intTolerance), upperBound, goal)) {
+	if (fractOpt.isValid() && isBetter(getNextWorse(fractOpt.getValue(), goal, intTolerance), upperBound)) {
 		variable_id varToBound = -1;
 		double optDist = 1;
 		coeff_t varWeight = 0;
@@ -280,7 +297,7 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 			 * Variablen
 			 */
 			branch(varToBound, floor, LinearProgram::upper, node.bounds, fractVal,
-				   nonIntCount < 10 && openSize < maxOpenSize, dfs);
+				   nonIntCount < 10 && openSize < maxOpenSize && !isRoot, dfs);
 			/*
 			 * Sofort bearbeiten, es sei denn, die offene Menge wird zu groß. So wird die offene Menge relativ klein
 			 * gehalten, es werden schneller obere Schranken gefunden und die LPs können schneller gelöst werden, da
@@ -289,9 +306,10 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs) {
 			 * TODO warum wird das beim vertauschen von lower und upper deutlich langsamer?
 			 */
 			branch(varToBound, ceil, LinearProgram::lower, node.bounds, fractVal,
-				   openSize<maxOpenSize, dfs);
+				   openSize<maxOpenSize && !isRoot, dfs);
 		}
 	}
+	currentNode = prevNode;
 }
 
 /**
@@ -311,7 +329,7 @@ void BranchAndCut::branch(variable_id variable, value_t val, LinearProgram::Boun
 	BranchNode node{parent, objValue, goal};
 	node.bounds.setBound(variable, bound, val);
 	if (immediate || dfs) {
-		branchAndBound(node, dfs);
+		branchAndBound(node, dfs, false);
 	} else {
 		open.insert(node);
 		openSize += node.estimateSize();
@@ -338,12 +356,11 @@ void BranchAndCut::countSolutionSlack(const LinearProgram::Solution& sol) {
  * @param b ein Wert der Zielfunktion
  * @return true, falls a ein streng besserer Wert der Zielfunktion als b ist
  */
-bool BranchAndCut::isBetter(double a, double b, LinearProgram::Goal goal) {
-	lemon::Tolerance<double> tolerance;
+bool BranchAndCut::isBetter(double a, double b) {
 	if (goal==LinearProgram::maximize) {
-		return tolerance.less(b, a);
+		return generalTolerance.less(b, a);
 	} else {
-		return tolerance.less(a, b);
+		return generalTolerance.less(a, b);
 	}
 }
 
@@ -355,68 +372,30 @@ bool BranchAndCut::isBetter(double a, double b, LinearProgram::Goal goal) {
 void BranchAndCut::setUpperBound(const std::vector<value_t>& value, coeff_t cost) {
 	upperBound = cost;
 	if (value.size() != varCount) {
-		std::cout << "Setting upper bound as " << upperBound << " without an example vector!" << std::endl;
+		std::cout << "Setting upper bound as " << upperBound << " without an example vector" << std::endl;
 	} else {
 		currBest = value;
-		std::cout << "Setting upper bound as " << cost << std::endl;
+		std::cout << "Setting upper bound as " << upperBound << std::endl;
 	}
 	if (!open.empty()) {
-		//TODO geht das schöner?
-		auto it = open.end();
-		--it;
-		size_t removed = 0;
-		while (!open.empty() && !isBetter(getNextWorse(it->value, goal, intTolerance), cost, goal)) {
-			openSize -= it->estimateSize();
-			it = open.erase(it);
-			if (!open.empty()) {
-				--it;
-			}
+		size_t removed = 1;
+		auto firstRemove = open.end();
+		--firstRemove;
+		while (firstRemove!=open.begin() && !isBetter(getNextWorse(firstRemove->value, goal, intTolerance), cost)) {
+			openSize -= firstRemove->estimateSize();
+			--firstRemove;
 			++removed;
 		}
+		if (isBetter(getNextWorse(firstRemove->value, goal, intTolerance), cost)) {
+			++firstRemove;
+			--removed;
+		}
+		open.erase(firstRemove, open.end());
 		std::cout << "Removed " << removed << " nodes from the open set" << std::endl;
 	}
 	if (value.size() == varCount && remover != nullptr) {
-		std::vector<variable_id> toRemove = remover->removeVariables(currBest);
-		if (!toRemove.empty()) {
-			std::vector<int> variableMap(varCount);
-			for (variable_id r:toRemove) {
-				variableMap[r] = 1;
-			}
-			problem.removeSetVariables(variableMap);
-			variable_id newVarCount = varCount - toRemove.size();
-			std::multiset<BranchNode> newOpen;
-			for (const BranchNode& old:open) {
-				SystemBounds newBounds(old.bounds, variableMap, newVarCount);
-				BranchNode newNode{newBounds, old.value, old.goal};
-				bool add = true;
-				for (const BranchNode& newEle:newOpen) {
-					if (newNode == newEle) {
-						add = false;
-						break;
-					}
-				}
-				if (add) {
-					newOpen.insert(newNode);
-				}
-			}
-			tsp_util::eraseEntries(defaultBounds, toRemove);
-			tsp_util::eraseEntries(currentBounds, toRemove);
-			tsp_util::eraseEntries(objCoefficients, toRemove);
-			for (LinearProgram::Constraint& c:recentlyRemoved) {
-				c.deleteVariables(variableMap);
-			}
-			//for (variable_id i = 0; i<newVarCount; ++i) {
-			//	for (LinearProgram::BoundType type:{LinearProgram::lower, LinearProgram::upper}) {
-			//		assert(newCurrentBounds[i][type]==std::lround(problem.getBound(i, type)));
-			//	}
-			//}
-			varCount = newVarCount;
-			open = newOpen;
-			fractOpt = LinearProgram::Solution(varCount, problem.getConstraintCount());
-			assert(varCount == defaultBounds.size() && varCount == currentBounds.size() &&
-				   varCount == objCoefficients.size());
-			std::cout << "Removed " << toRemove.size() << " variables, " << varCount << " remaining" << std::endl;
-		}
+		std::vector<variable_id> toRemove = remover->removeOnUpperBound(currBest);
+		removeVariables(toRemove);
 	}
 }
 
@@ -460,28 +439,75 @@ CutGenerator::CutStatus BranchAndCut::readdRemovedConstraints(const LinearProgra
 	return ret;
 }
 
-void BranchAndCut::cleanupOldConstraints() {
-	const double maxRatio = 3;
-	if (problem.getConstraintCount()>constraintsAtStart*maxRatio) {
+bool BranchAndCut::cleanupOldConstraints() {
+	const double maxRatio = 2;
+	const size_t minNonEqual = 10;
+	const size_t minRemove = constraintsAtStart / 10;
+	if (problem.getConstraintCount() > constraintsAtStart * maxRatio) {
 		std::vector<int> toRemove(problem.getConstraintCount(), 0);
 		size_t removeCount = 0;
 		std::vector<LinearProgram::Constraint> removed;
 		//Alle constraints, die seit 10 oder mehr Iterationen nicht mit Gleichheit erfüllt waren, werden entfernt
-		for (size_t i = 0; i<sinceSlack0.size(); ++i) {
-			if (sinceSlack0[i]>10) {
-				size_t indexInLP = i+constraintsAtStart;
+		for (size_t i = 0; i < sinceSlack0.size(); ++i) {
+			if (sinceSlack0[i] > minNonEqual) {
+				size_t indexInLP = i + constraintsAtStart;
 				toRemove[indexInLP] = 1;
 				++removeCount;
 				removed.push_back(problem.getConstraint(static_cast<int>(indexInLP)));
 			}
 		}
-		if (removeCount>0) {
-			sinceSlack0.resize(sinceSlack0.size()-removeCount);
+		if (removeCount > minRemove) {
+			sinceSlack0.resize(sinceSlack0.size() - removeCount);
 			std::fill(sinceSlack0.begin(), sinceSlack0.end(), 0);
 			problem.removeSetConstraints(toRemove);
 			std::cout << "Removed " << removeCount << " old constraints" << std::endl;
 			recentlyRemoved = removed;
+			return true;
 		}
+	}
+	return false;
+
+}
+
+void BranchAndCut::removeVariables(const std::vector<variable_id>& toRemove) {
+	if (!toRemove.empty()) {
+		std::vector<int> variableMap(varCount);
+		for (variable_id r:toRemove) {
+			variableMap[r] = 1;
+		}
+		problem.removeSetVariables(variableMap);
+		variable_id newVarCount = varCount - toRemove.size();
+		std::multiset<BranchNode> newOpen;
+		for (const BranchNode& old:open) {
+			SystemBounds newBounds(old.bounds, variableMap, newVarCount);
+			BranchNode newNode{newBounds, old.value, old.goal};
+			bool add = true;
+			for (const BranchNode& newEle:newOpen) {
+				if (newNode == newEle) {
+					add = false;
+					break;
+				}
+			}
+			if (add) {
+				newOpen.insert(newNode);
+			}
+		}
+		if (currentNode!=nullptr) {
+			SystemBounds newBounds(currentNode->bounds, variableMap, newVarCount);
+			*currentNode = {newBounds, currentNode->value, currentNode->goal};
+		}
+		tsp_util::eraseEntries(defaultBounds, toRemove);
+		tsp_util::eraseEntries(currentBounds, toRemove);
+		tsp_util::eraseEntries(objCoefficients, toRemove);
+		for (LinearProgram::Constraint& c:recentlyRemoved) {
+			c.deleteVariables(variableMap);
+		}
+		varCount = newVarCount;
+		open = newOpen;
+		fractOpt.removeVariables(toRemove);
+		assert(varCount == defaultBounds.size() && varCount == currentBounds.size() &&
+			   varCount == objCoefficients.size());
+		std::cout << "Removed " << toRemove.size() << " variables, " << varCount << " remaining" << std::endl;
 	}
 }
 

@@ -10,35 +10,6 @@ CombCutGen::CombCutGen(const TSPInstance& tsp, const TspLpData& lpData) :
 		heuristic4({&onePath, &oneSquare, &triangleGE05}),
 		tsp(tsp), lpData(lpData) {}
 
-struct CompareOrderedConstraint {
-	bool operator()(const std::pair<LinearProgram::Constraint, double>& p1,
-					const std::pair<LinearProgram::Constraint, double>& p2) {
-		if (p1.second != p2.second) {
-			return p1.second < p2.second;
-		}
-		const LinearProgram::Constraint& c1 = p1.first;
-		const LinearProgram::Constraint& c2 = p2.first;
-		if (c1.getRHS() != c2.getRHS()) {
-			return c1.getRHS() < c2.getRHS();
-		}
-		if (c1.getSense() != c2.getSense()) {
-			return c1.getSense() < c2.getSense();
-		}
-		if (c1.getNonzeroes().size() != c2.getNonzeroes().size()) {
-			return c1.getNonzeroes().size() < c2.getNonzeroes().size();
-		}
-		for (size_t i = 0; i < c1.getNonzeroes().size(); ++i) {
-			if (c1.getNonzeroes()[i] != c2.getNonzeroes()[i]) {
-				return c1.getNonzeroes()[i] < c2.getNonzeroes()[i];
-			}
-			if (c1.getCoeffs()[i] != c2.getCoeffs()[i]) {
-				return c1.getCoeffs()[i] < c2.getCoeffs()[i];
-			}
-		}
-		return false;
-	}
-};
-
 CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
 											 CutStatus currentStatus) {
 	if (currentStatus != CutGenerator::valid) {
@@ -52,21 +23,20 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 		}
 		allCombs.insert(allCombs.end(), combs.begin(), combs.end());
 	}
-	std::set<std::pair<LinearProgram::Constraint, double>, CompareOrderedConstraint> allConstrs;
+	std::set<tsp_util::ConstraintWithSlack, tsp_util::CompareOrderedConstraint> allConstrs;
 	for (const CombHeuristic::Comb& c:allCombs) {
 		LinearProgram::Constraint constr = getContraintFor(c);
 		//Kann wegen Rundung auftreten
-		//1e-5: 79.85, 1e-2: 125.094
-		if (constr.isViolated(solution, lemon::Tolerance<double>(1e-2))) {
+		if (constr.isViolated(solution, lemon::Tolerance<double>(1e-4))) {
 			allConstrs.insert({constr, constr.getRHS() - constr.evalLHS(solution)});
-		}// else std::cout << constr.evalLHS(solution) << " vs " << constr.getRHS() << std::endl;
+		}
 	}
 	if (!allConstrs.empty()) {
 		std::vector<LinearProgram::Constraint> toAdd;
 		size_t sumNZ = 0;
-		for (const auto& pair:allConstrs) {
-			sumNZ += pair.first.getNonzeroes().size();
-			toAdd.push_back(pair.first);
+		for (const tsp_util::ConstraintWithSlack& pair:allConstrs) {
+			sumNZ += pair.constraint.getNonzeroes().size();
+			toAdd.push_back(pair.constraint);
 			if (sumNZ > tsp.getCityCount() * tsp.getCityCount()) {
 				break;
 			}
@@ -80,25 +50,14 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 }
 
 LinearProgram::Constraint CombCutGen::getContraintFor(const CombHeuristic::Comb& c) {
-	std::vector<double> constr(lpData.getVariableCount(), 0);
-	std::vector<variable_id> allIndices;
-	size_t rhs = lpData.sparserInducedSum(c.handle, constr, allIndices) + 1;
-	for (const std::vector<city_id>& tooth:c.teeth) {
-		rhs += lpData.sparserInducedSum(tooth, constr, allIndices);
-	}
+	std::vector<double> coeffs(lpData.getVariableCount(), 0);
 	std::vector<variable_id> indices;
-	std::vector<double> coeffs;
-	indices.reserve(allIndices.size());
-	coeffs.reserve(allIndices.size());
-	for (variable_id i:allIndices) {
-		if (constr[i] != 0) {
-			indices.push_back(i);
-			coeffs.push_back(constr[i]);
-			constr[i] = 0;
-		}
+	size_t rhs = lpData.sparserInducedSum(c.handle, coeffs, indices) + 1;
+	for (const std::vector<city_id>& tooth:c.teeth) {
+		rhs += lpData.sparserInducedSum(tooth, coeffs, indices);
 	}
 	rhs -= (c.teeth.size() + 1) / 2;
-	return LinearProgram::Constraint(indices, coeffs, LinearProgram::less_eq, rhs);
+	return LinearProgram::Constraint::fromDense(indices, coeffs, LinearProgram::less_eq, rhs);
 }
 
 ContractionRule::Contraction CombCutGen::contractOnePath(const Graph& g, const std::vector<Graph::Node>& possibleNodes,

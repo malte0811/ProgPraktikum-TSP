@@ -1,3 +1,5 @@
+#include <utility>
+
 #include <tsp_solution.hpp>
 #include <tsp_instance.hpp>
 #include <lemon/full_graph.h>
@@ -62,8 +64,8 @@ TSPSolution::TSPSolution(const TSPInstance& inst, const lemon::FullGraph& g,
 	initFromGraph(g, used);
 }
 
-TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<city_id>& order)
-		: inst(&inst), order(order) {
+TSPSolution::TSPSolution(const TSPInstance& inst, std::vector<city_id>  order)
+		: inst(&inst), order(std::move(order)) {
 	initTourCost();
 }
 

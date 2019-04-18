@@ -6,6 +6,7 @@
 #include <ilcplex/cplex.h>
 #include <iostream>
 #include <set>
+#include <tsp_utils.hpp>
 
 variable_id LinearProgram::invalid_variable = -1;
 
@@ -226,6 +227,11 @@ const std::vector<double>& LinearProgram::Solution::getShadowCosts() const {
 	return shadowCosts;
 }
 
+void LinearProgram::Solution::removeVariables(const std::vector<variable_id>& toRemove) {
+	tsp_util::eraseEntries(vector, toRemove);
+	tsp_util::eraseEntries(reduced, toRemove);
+}
+
 LinearProgram::Constraint::Constraint(const std::vector<int>& indices, const std::vector<double>& coeffs,
 									  LinearProgram::CompType cmp, double rhs) :
 		indices(indices), coeffs(coeffs), comp(cmp), rhs(rhs) {
@@ -275,22 +281,31 @@ bool LinearProgram::Constraint::isValid() const {
 }
 
 void LinearProgram::Constraint::deleteVariables(const std::vector<variable_id>& removalMap) {
-	auto indIt = indices.begin();
-	auto coeffIt = coeffs.begin();
-	while (indIt != indices.end()) {
-		if (removalMap[*indIt] < 0) {
-			indIt = indices.erase(indIt);
-			coeffIt = coeffs.erase(coeffIt);
-		} else {
-			*indIt = removalMap[*indIt];
-			++indIt;
-			++coeffIt;
+	std::vector<variable_id> newNZ;
+	std::vector<double> newCoeffs;
+	for (size_t i = 0;i<coeffs.size();++i) {
+		if (removalMap[indices[i]]>=0) {
+			newNZ.push_back(removalMap[indices[i]]);
+			newCoeffs.push_back(coeffs[i]);
 		}
 	}
+	coeffs = newCoeffs;
+	indices = newNZ;
 	assert(!indices.empty());
 	assert(indices.size() == coeffs.size());
 }
 
 bool LinearProgram::Constraint::isViolated(const std::vector<double>& vars, lemon::Tolerance<double> tolerance) const {
 	return !isValidLHS(evalLHS(vars), tolerance);
+}
+
+LinearProgram::Constraint LinearProgram::Constraint::fromDense(const std::vector<variable_id>& usedVars,
+															   const std::vector<double>& coeffs,
+															   LinearProgram::CompType sense, double rhs) {
+	std::vector<double> usedCoeffs;
+	usedCoeffs.reserve(usedVars.size());
+	for (variable_id var:usedVars) {
+		usedCoeffs.push_back(coeffs[var]);
+	}
+	return Constraint(usedVars, usedCoeffs, sense, rhs);
 }

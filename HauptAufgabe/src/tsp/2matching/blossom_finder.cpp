@@ -372,13 +372,14 @@ bool BlossomFinder::finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& 
 	 * Wahr, falls das berechnete X verwendet werden soll; falsch, falls das Komplement verwendet werden soll,
 	 * um eine dünner besetzte Constraint zu erhalten.
 	 */
-	const bool handleVal = handleSize < nodeCount / 2;
-	handle.clear();
-	for (Graph::NodeIt it(mainGraph); it != lemon::INVALID; ++it) {
-		if (inHandle[it] == handleVal) {
-			handle.push_back(it);
-		}
-	}
+	//TODO
+	//const bool handleVal = handleSize < nodeCount / 2;
+	//handle.clear();
+	//for (Graph::NodeIt it(mainGraph); it != lemon::INVALID; ++it) {
+	//	if (inHandle[it] == handleVal) {
+	//		handle.push_back(it);
+	//	}
+	//}
 	return handle.size() >= 2 && handle.size() <= nodeCount - 2;
 }
 

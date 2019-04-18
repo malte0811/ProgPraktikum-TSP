@@ -14,7 +14,7 @@ public:
 
 	TSPSolution(const TSPInstance& inst, const lemon::FullGraph& g, const lemon::FullGraph::EdgeMap<bool>& used);
 
-	TSPSolution(const TSPInstance& inst, const std::vector<city_id>& order);
+	TSPSolution(const TSPInstance& inst, std::vector<city_id>  order);
 
 	TSPSolution(const TSPInstance& instance, std::istream& input);
 

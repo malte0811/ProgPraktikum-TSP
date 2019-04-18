@@ -17,64 +17,39 @@ TspLpData::TspLpData(const TSPInstance& inst) : inst(inst), variableToEdge(inst.
 	}
 }
 
-void TspLpData::setupLowerBounds() {
-	OneTree oneTree(inst);
-	oneTree.run();
-	lemon::Bfs<OneTree::Tree> bfs(oneTree.getTree());
-	bfs.run(oneTree.getGraph()(0));
-	std::cout << "Lower bound is " << oneTree.getBound() << std::endl;
-	assert(lemon::connected(oneTree.getTree()));
-	const OneTree::FullGraph::EdgeMap<bool>& inTree = oneTree.getInTree();
-	const OneTree::FullGraph::EdgeMap<double>& redCosts = oneTree.getReducedCosts();
-	std::pair<city_id, city_id> oneNeighbors = oneTree.getOneNeighbors();
-	OneTree::FullGraph::Node zero = oneTree.getGraph()(0);
-	OneTree::FullGraph::Node neighbor1 = oneTree.getGraph()(oneNeighbors.first - 1);
-	OneTree::FullGraph::Node neighbor2 = oneTree.getGraph()(oneNeighbors.second - 1);
-	double expensiveOneEdge = std::max(redCosts[oneTree.getGraph().edge(zero, neighbor1)],
-									   redCosts[oneTree.getGraph().edge(zero, neighbor2)]);
-	for (variable_id i = 0; i < variableToEdge.size(); ++i) {
-		Edge e = getEdge(i);
-		if (e.first == 0 || e.second == 0) {
-			//TODO removalBound[i] = oneTree.getBound()+1+redCost-expensiveOneEdge;
-		} else {
-			OneTree::FullGraph::Node endA = oneTree.getGraph()(e.first - 1);
-			OneTree::FullGraph::Node endB = oneTree.getGraph()(e.second - 1);
-			OneTree::FullGraph::Edge eGraph = oneTree.getGraph().edge(endA, endB);
-			double redCost = redCosts[eGraph];
-			if (inTree[eGraph])
-				continue;
-			double expensiveCycleEdge = -std::numeric_limits<double>::max();
-			while (endA != endB) {
-				OneTree::Tree::Arc next;
-				if (bfs.dist(endA) > bfs.dist(endB)) {
-					next = bfs.predArc(endA);
-					endA = oneTree.getTree().source(next);
-				} else {
-					next = bfs.predArc(endB);
-					endB = oneTree.getTree().source(next);
-				}
-				expensiveCycleEdge = std::max(expensiveCycleEdge, redCosts[next]);
-			}
-			removalBound[i] = oneTree.getBound() + 1 + redCost - expensiveCycleEdge;
-		}
-
-	}
-}
-
-std::vector<variable_id> TspLpData::removeVariables(const std::vector<value_t>& variables) {
+std::vector<variable_id> TspLpData::removeOnUpperBound(const std::vector<value_t>& variables) {
 	std::vector<bool> asBools(variables.size());
+	cost_t bound = 0;
 	for (size_t i = 0; i < asBools.size(); ++i) {
-		asBools[i] = variables[i] != 0;
+		if (variables[i] != 0) {
+			asBools[i] = true;
+			bound += getCost(i);
+		}
+	}
+	if (upperBound.isValid() && bound >= upperBound.getCost()) {
+		return {};
 	}
 	return removeVariables(TSPSolution(inst, asBools, *this));
 
 }
 
+std::vector<variable_id> TspLpData::removeOnRootSolution(const LinearProgram::Solution& rootSol) {
+	for (variable_id i = 0; i < getVariableCount(); ++i) {
+		double lpThreshold = rootSol.getValue() + 1 + rootSol.getReducedCosts()[i];
+		if (lpThreshold > removalBound[i] && rootSol[i] == 0) {
+			removalBound[i] = lpThreshold;
+		}
+	}
+	if (!upperBound.isValid()) {
+		return {};
+	} else {
+		return removeVariables(upperBound);
+	}
+}
+
+
 std::vector<variable_id> TspLpData::removeVariables(const TSPSolution& solution) {
 	const cost_t bound = solution.getCost();
-	if (upperBound.isValid() && bound >= upperBound.getCost()) {
-		return {};
-	}
 	upperBound = solution;
 	std::vector<variable_id> toRemove;
 	variable_id newId = 0;
@@ -97,7 +72,6 @@ std::vector<variable_id> TspLpData::removeVariables(const TSPSolution& solution)
 	tsp_util::eraseEntries(variableToEdge, toRemove);
 	return toRemove;
 }
-
 
 /**
  * Fügt Variablen für alle Kanten und Gradbedingungen für alle Knoten zum LP hinzu

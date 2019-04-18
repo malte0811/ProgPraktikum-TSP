@@ -7,7 +7,8 @@
 
 class VariableRemover {
 public:
-	virtual std::vector<variable_id> removeVariables(const std::vector<value_t>& variables) = 0;
+	virtual std::vector<variable_id> removeOnUpperBound(const std::vector<value_t>& variables) = 0;
+	virtual std::vector<variable_id> removeOnRootSolution(const LinearProgram::Solution& rootSol) = 0;
 };
 
 #endif

@@ -8,6 +8,17 @@
 namespace tsp_util {
 	using ContractionMapTSP = Graph::NodeMap<std::vector<city_id>>;
 	using ContractionMapGraph = Graph::NodeMap<std::vector<Graph::Node>>;
+	struct ConstraintWithSlack {
+		ConstraintWithSlack() = delete;
+
+		LinearProgram::Constraint constraint;
+		double slack;
+	};
+
+	struct CompareOrderedConstraint {
+		bool operator()(const ConstraintWithSlack & p1, const ConstraintWithSlack & p2);
+	};
+
 	std::vector<variable_id> createFractionalGraph(const TSPInstance& tsp, const TspLpData& lpData,
 												   lemon::Tolerance<double> tolerance,
 												   const std::vector<double>& solution, Graph& workGraph,
