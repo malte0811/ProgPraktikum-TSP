@@ -68,6 +68,8 @@ private:
 
 		size_t estimateSize() const;
 
+		variable_id getVarCount() const;
+
 	private:
 		std::map<variable_id, VariableBounds> bounds;
 		std::vector<bool> fixUpper;
@@ -131,7 +133,8 @@ private:
 	const lemon::Tolerance<double> intTolerance;
 	//Anzahl der bereits behandelten Knoten im "Suchbaum"
 	size_t handledNodes = 0;
-	BranchNode* currentNode = nullptr;
+	std::vector<BranchNode *> currStack;
+	std::vector<variable_id> correspondingOrigVar;
 
 	bool isBetter(double a, double b);
 

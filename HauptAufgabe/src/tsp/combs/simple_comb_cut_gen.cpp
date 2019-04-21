@@ -169,7 +169,7 @@ LinearProgram::Constraint SimpleCombCutGen::checkHandle
 		for (const VirtualEdge& e:teeth) {
 			std::vector<city_id> toothTSP;
 			toothTSP.reserve(handleNodes.size());
-			for (Graph::Node n:handleNodes) {
+			for (Graph::Node n:e) {
 				toothTSP.push_back(toTSP[n]);
 			}
 			lpRHS += lpData.sparserInducedSum(toothTSP, coeffs, usedIndices);
