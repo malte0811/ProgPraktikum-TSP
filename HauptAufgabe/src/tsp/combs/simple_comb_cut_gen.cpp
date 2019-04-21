@@ -57,7 +57,7 @@ CutGenerator::CutStatus SimpleCombCutGen::validate(LinearProgram& lp, const std:
 		if (mainBlock.size()>=3) {
 			LinearProgram::Constraint constr = checkHandle({mainBlockIt}, fractional, blocks, lp, solution, oneEdges,
 														   toOrig, toFractional, odd);
-			if (constr.isValid()) {
+			if (constr.isValid() && constr.isViolated(solution, tolerance)) {
 				newConstraints.push_back(constr);
 			}
 			for (Graph::OutArcIt arcIt1(blocks.blockCutTree, mainBlockIt); arcIt1 != lemon::INVALID; ++arcIt1) {
@@ -157,25 +157,25 @@ LinearProgram::Constraint SimpleCombCutGen::checkHandle
 		}
 	}
 	if (teeth.size()>=3) {
-		if (handleNodes.size() > tsp.getCityCount() / 2) {
-			std::vector<Graph::Node> newHandle;
-			newHandle.reserve(tsp.getCityCount() - handleNodes.size());
-			for (Graph::NodeIt it(mainGraph); it != lemon::INVALID; ++it) {
-				inHandle[it] = !inHandle[it];
-				if (inHandle[it]) {
-					newHandle.push_back(it);
-				}
-			}
-			rhs += newHandle.size();
-			rhs -= handleNodes.size();
-			handleNodes = newHandle;
+		std::vector<city_id> handleTSP;
+		handleTSP.reserve(handleNodes.size());
+		for (Graph::Node n:handleNodes) {
+			handleTSP.push_back(toTSP[n]);
 		}
-		std::vector<variable_id> indices;
-		inducedSum(handleNodes, toTSP, indices);
+		size_t lpRHS = 0;
+		std::vector<variable_id> usedIndices;
+		std::vector<double> coeffs(lpData.getVariableCount());
+		lpRHS += lpData.sparserInducedSum(handleTSP, coeffs, usedIndices) + 1;
 		for (const VirtualEdge& e:teeth) {
-			inducedSum(e, toTSP, indices);
+			std::vector<city_id> toothTSP;
+			toothTSP.reserve(handleNodes.size());
+			for (Graph::Node n:handleNodes) {
+				toothTSP.push_back(toTSP[n]);
+			}
+			lpRHS += lpData.sparserInducedSum(toothTSP, coeffs, usedIndices);
 		}
-		return LinearProgram::Constraint(indices, std::vector<double>(indices.size(), 1), LinearProgram::less_eq, rhs);
+		lpRHS -= (1 + teeth.size()) / 2;
+		return LinearProgram::Constraint::fromDense(usedIndices, coeffs, LinearProgram::less_eq, lpRHS);
 	} else {
 		return LinearProgram::Constraint();
 	}
@@ -286,7 +286,6 @@ void SimpleCombCutGen::addAndMinDiff(std::vector<SimpleCombCutGen::VirtualEdge>&
 	}
 }
 
-//TODO kann man das beides irgendwie in eine Methode packen?
 //TODO die Graphen sind nicht mehr vollstd, gibt es schönere/schnellere Ansätze?
 double SimpleCombCutGen::inducedSum(const std::vector<Graph::Node>& inducing, const Graph::NodeMap <city_id>& toCity,
 									const std::vector<double>& solution) {
@@ -302,21 +301,6 @@ double SimpleCombCutGen::inducedSum(const std::vector<Graph::Node>& inducing, co
 		}
 	}
 	return ret;
-}
-
-void SimpleCombCutGen::inducedSum(const std::vector<Graph::Node>& inducing, const Graph::NodeMap <city_id>& toCity,
-								  std::vector<variable_id>& out) {
-	for (size_t i1 = 1; i1<inducing.size(); ++i1) {
-		city_id city1 = toCity[inducing[i1]];
-		for (size_t i2 = 0; i2<i1; ++i2) {
-			city_id city2 = toCity[inducing[i2]];
-			variable_id var = lpData.getVariable(city1, city2);
-			if (var != LinearProgram::invalid_variable) {
-				out.push_back(var);
-			}
-		}
-	}
-
 }
 
 SimpleCombCutGen::BlockDecomposition::BlockDecomposition(const Graph& tree,

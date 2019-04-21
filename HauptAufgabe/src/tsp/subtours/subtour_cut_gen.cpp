@@ -34,40 +34,21 @@ CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::ve
 	//Positive Kapazität <2->Verletzte Subtour-Constraint
 	Graph::NodeMap<bool> inCut(workGraph);
 	minCut.minCutMap(inCut);
-	city_id cutSize = 0;
+	std::vector<city_id> inducing;
 	for (Graph::NodeIt it(workGraph); it != lemon::INVALID; ++it) {
 		if (inCut[it]) {
-			++cutSize;
+			inducing.push_back(workToOrig[it]);
 		}
-	}
-	/*
-	 * Falls der gefundene Cut mehr als die Hälfte aller Knoten enthält, wird das Komplement hinzugefügt. Wie oben
-	 * wird so die Anzahl an Einträgen ungleich 0 minimiert.
-	 */
-	const bool cutVal = cutSize < tsp.getCityCount() / 2;
-	if (!cutVal) {
-		cutSize = tsp.getCityCount() - cutSize;
 	}
 	//Kann auftreten, wenn alle Constraints erfüllt sind, aber Kanten mit sehr kleinen positiven Werten existieren
-	if (cutSize <= 2) {
+	if (inducing.size() <= 2 || inducing.size() >= tsp.getCityCount() - 2) {
 		return valid;
 	}
-	std::vector<variable_id> induced;
-	for (city_id lowerEnd = 0; lowerEnd < tsp.getCityCount() - 1; ++lowerEnd) {
-		for (city_id higherEnd = lowerEnd + 1; higherEnd < tsp.getCityCount(); ++higherEnd) {
-			bool vInCut = inCut[origToWork[lowerEnd]];
-			bool uInCut = inCut[origToWork[higherEnd]];
-			if (vInCut == cutVal && uInCut == cutVal) {
-				variable_id var = lpData.getVariable(higherEnd, lowerEnd);
-				if (var >= 0) {
-					induced.push_back(var);
-				}
-			}
-		}
-	}
-	assert(!induced.empty());
-	LinearProgram::Constraint constr(induced, std::vector<double>(induced.size(), 1), LinearProgram::less_eq,
-									 cutSize - 1);
+	std::vector<variable_id> usedVars;
+	std::vector<double> coeffs(lpData.getVariableCount());
+	city_id rhs = lpData.sparserInducedSum(inducing, coeffs, usedVars);
+	LinearProgram::Constraint constr = LinearProgram::Constraint::fromDense(usedVars, coeffs, LinearProgram::less_eq,
+																			rhs);
 	//Möglich, da Kanten mit kleinen positiven Werte nicht zum Graphen hinzugefügt werden
 	if (constr.isViolated(solution, tolerance)) {
 		lp.addConstraint(constr);

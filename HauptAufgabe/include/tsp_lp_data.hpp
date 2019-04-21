@@ -43,7 +43,6 @@ private:
 	std::vector<std::pair<city_id, city_id>> variableToEdge;
 	std::vector<std::vector<variable_id>> edgeToVariable;
 	std::vector<double> removalBound;
-	std::vector<bool> shouldHaveRemoved;
 	TSPSolution upperBound;
 };
 

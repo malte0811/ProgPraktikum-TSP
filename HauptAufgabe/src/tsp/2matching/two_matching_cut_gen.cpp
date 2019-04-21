@@ -73,24 +73,27 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 			for (Graph::Node n:min.handle) {
 				handleTSP.push_back(workToOrig[n]);
 			}
-			lpData.sparserInducedSum(handleTSP, coeffs, indices);
+			city_id handleSubtourRHS = lpData.sparserInducedSum(handleTSP, coeffs, indices);
 			if (!indices.empty()) {
 				LinearProgram::Constraint constr;
 				std::sort(indices.begin(), indices.end());
 				if (sizeF > 1) {
 					//2-Matching-Constraint
 					constr = LinearProgram::Constraint::fromDense(indices, coeffs,
-													   LinearProgram::less_eq,
-													   static_cast<size_t>(min.handle.size() + sizeF / 2));
+																  LinearProgram::less_eq,
+																  static_cast<size_t>(handleSubtourRHS + 1 +
+																					  sizeF / 2));
 				} else {
 					//Subtour-Constraint
 					constr = LinearProgram::Constraint::fromDense(indices, coeffs,
-													   LinearProgram::less_eq,
-										 min.handle.size() - 1);
+																  LinearProgram::less_eq,
+																  handleSubtourRHS);
 				}
 				double lhs = constr.evalLHS(solution);
 				if (tolerance.less(constr.getRHS(), lhs)) {
 					allConstrs.insert({constr, constr.getRHS()-lhs});
+				} else if (constr.getRHS() - lhs > 0.5) {
+					std::cout << "Not violated: " << lhs << " vs " << constr.getRHS() << std::endl;
 				}
 			}
 		}
@@ -104,7 +107,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 				if (nz>maxNonzero) {
 					maxNonzero = nz;
 				}
-				if (sumNZ>(tsp.getCityCount()*tsp.getCityCount())) {
+				if (sumNZ > (tsp.getCityCount() * tsp.getCityCount()) / 2) {
 					break;
 				}
 			}

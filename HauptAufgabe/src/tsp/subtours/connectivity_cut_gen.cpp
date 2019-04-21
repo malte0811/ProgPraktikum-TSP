@@ -74,19 +74,11 @@ CutGenerator::CutStatus ConnectivityCutGen::validate(LinearProgram& lp, const st
 		 */
 		for (size_t i = 0; i < components.size(); ++i) {
 			if (i != maxIndex) {
-				std::vector<variable_id> indices;
 				const std::vector<city_id>& currentComponent = components[i];
-				for (size_t aId = 1; aId < currentComponent.size(); ++aId) {
-					for (size_t bId = 0; bId < aId; ++bId) {
-						variable_id var = lpData.getVariable(currentComponent[aId], currentComponent[bId]);
-						if (var != LinearProgram::invalid_variable) {
-							indices.push_back(var);
-						}
-					}
-				}
-				assert(!indices.empty());
-				constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::less_eq,
-									 currentComponent.size() - 1);
+				std::vector<variable_id> usedVars;
+				std::vector<double> coeffs(lpData.getVariableCount());
+				city_id rhs = lpData.sparserInducedSum(currentComponent, coeffs, usedVars);
+				constrs.push_back(LinearProgram::Constraint::fromDense(usedVars, coeffs, LinearProgram::less_eq, rhs));
 			}
 		}
 		lp.addConstraints(constrs);

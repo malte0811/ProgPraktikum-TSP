@@ -58,9 +58,6 @@ private:
 	double inducedSum(const std::vector<Graph::Node>& inducing, const Graph::NodeMap <city_id>& toCity,
 					  const std::vector<double>& solution);
 
-	void inducedSum(const std::vector<Graph::Node>& inducing, const Graph::NodeMap <city_id>& toCity,
-					std::vector<variable_id>& out);
-
 	void addAndMinDiff(std::vector<SimpleCombCutGen::VirtualEdge>& out, const VirtualEdge& add,
 					   VirtualEdge& minDiffEdge, double& minDiffVal, size_t& minDiffIndex, double weight);
 };

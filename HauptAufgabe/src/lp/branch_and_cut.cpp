@@ -212,6 +212,9 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool dfs, bool isRoot) {
 	BranchNode* prevNode = currentNode;
 	currentNode = &node;
 	++handledNodes;
+	if (handledNodes % 16 == 0) {
+		std::cout << "Handling search node " << handledNodes << std::endl;
+	}
 	setupBounds(node.bounds);
 	solveLP(fractOpt, isRoot);
 	/*

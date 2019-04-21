@@ -27,7 +27,7 @@ namespace tspsolvers {
 		extern const char *const simpleCombs = "simpleCombs";
 		extern const char *const twoMatching = "2matching";
 		extern const char *const generalCombs = "combs";
-		extern const char *const defaultGens = "connected;subtour;simpleCombs;2matching;combs";
+		extern const char *const defaultGens = "connected,subtour,simpleCombs,2matching,combs";
 	}
 
 	/**

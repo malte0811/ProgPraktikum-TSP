@@ -21,7 +21,7 @@ std::vector<variable_id> tsp_util::createFractionalGraph(const TSPInstance& tsp,
 			 * Kanten mit Wert 0 können nicht in F enthalten sein, da der Wert der Blüte dann schon mindestens 1 wäre
 			 * (und damit die Constraint nicht verletzt ist)
 			 */
-			if (solution[varId] > 0) {
+			if (varId != LinearProgram::invalid_variable && solution[varId] > 0) {
 				Graph::Node endU = origToWork[lower];
 				Graph::Node endV = origToWork[higher];
 				if (tolerance.less(solution[varId], 1)) {

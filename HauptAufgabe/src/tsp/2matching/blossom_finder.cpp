@@ -297,16 +297,18 @@ bool BlossomFinder::finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& 
 	if (handle.size() < 2 || handle.size() > nodeCount - 2) {
 		return false;
 	}
-	Graph::NodeMap<bool> inHandle(mainGraph, false);
-	for (Graph::Node n:handle) {
-		inHandle[n] = true;
+	Graph::NodeMap<int> handleIndex(mainGraph, -1);
+	for (size_t i = 0; i < handle.size(); ++i) {
+		handleIndex[handle[i]] = i;
 	}
 	//Gibt an, ob eine Variable/Kante im TSP-Graphen in F ist
 	Graph::EdgeMap<bool> fTSP(mainGraph, false);
 	//Die Menge F vor dem Umwandeln zu einem Matching
 	//Alle 1-Kanten im Schnitt von X sind in F
 	for (Graph::Edge e:oneEdges) {
-		if (inHandle[mainGraph.u(e)] != inHandle[mainGraph.v(e)]) {
+		bool uInHandle = handleIndex[mainGraph.u(e)] >= 0;
+		bool vInHandle = handleIndex[mainGraph.v(e)] >= 0;
+		if (uInHandle != vInHandle) {
 			teeth.push_back(e);
 		}
 	}
@@ -328,7 +330,6 @@ bool BlossomFinder::finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& 
 			}
 		}
 	}
-	size_t handleSize = b.handle.size();
 	//Ordnet jedem Knoten die inzidente Kante in F zu
 	Graph::NodeMap <Graph::Edge> incidentF(mainGraph, lemon::INVALID);
 	for (Graph::Edge e:teeth) {
@@ -347,11 +348,15 @@ bool BlossomFinder::finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& 
 				fTSP[oldEdge] = false;
 				fTSP[e] = false;
 				//Das gemeinsame Ende aus X entfernen bzw zu X hinzufügen
-				inHandle[end] = !inHandle[end];
-				if (inHandle[end]) {
-					++handleSize;
+				if (handleIndex[end] >= 0) {
+					assert(handle[handleIndex[end]] == end);
+					handleIndex[handle.back()] = handleIndex[end];
+					std::swap(handle[handleIndex[end]], handle.back());
+					handle.pop_back();
+					handleIndex[end] = -1;
 				} else {
-					--handleSize;
+					handleIndex[end] = handle.size();
+					handle.push_back(end);
 				}
 				break;
 			}
@@ -364,22 +369,10 @@ bool BlossomFinder::finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& 
 			std::swap(teeth[i], teeth.back());
 			teeth.pop_back();
 		} else {
-			assert(inHandle[mainGraph.u(tooth)] != inHandle[mainGraph.v(tooth)]);
+			assert((handleIndex[mainGraph.u(tooth)] >= 0) != (handleIndex[mainGraph.v(tooth)] >= 0));
 			++i;
 		}
 	}
-	/*
-	 * Wahr, falls das berechnete X verwendet werden soll; falsch, falls das Komplement verwendet werden soll,
-	 * um eine dünner besetzte Constraint zu erhalten.
-	 */
-	//TODO
-	//const bool handleVal = handleSize < nodeCount / 2;
-	//handle.clear();
-	//for (Graph::NodeIt it(mainGraph); it != lemon::INVALID; ++it) {
-	//	if (inHandle[it] == handleVal) {
-	//		handle.push_back(it);
-	//	}
-	//}
 	return handle.size() >= 2 && handle.size() <= nodeCount - 2;
 }
 

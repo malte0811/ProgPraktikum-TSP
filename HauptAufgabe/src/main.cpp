@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
 		const std::string noBound = "<none>";
 		std::string startingBound = getOption<std::string>(options, "startingBound", "<greedy>");
 		std::string generatorString = getOption<std::string>(options, "cutGens", tspsolvers::cutgens::defaultGens);
-		std::vector<std::string> generators = splitOnChar(generatorString, ';');
+		std::vector<std::string> generators = splitOnChar(generatorString, ',');
 		auto maxOpenSize = getOption<size_t>(options, "maxOpenSize", 1536*1024*1024);
 		cost_t expectedValue = getOption(options, "expectedResult", 0U);
 		if (!options.empty()) {

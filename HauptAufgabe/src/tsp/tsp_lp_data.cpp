@@ -4,8 +4,7 @@
 
 TspLpData::TspLpData(const TSPInstance& inst) : inst(inst), variableToEdge(inst.getEdgeCount()),
 												edgeToVariable(inst.getCityCount() - 1),
-												removalBound(inst.getEdgeCount(), -std::numeric_limits<double>::max()),
-												shouldHaveRemoved(inst.getEdgeCount()) {
+												removalBound(inst.getEdgeCount(), -std::numeric_limits<double>::max()) {
 	variable_id currVar = 0;
 	for (city_id higher = 1; higher < inst.getCityCount(); ++higher) {
 		edgeToVariable[higher - 1].resize(higher);
@@ -121,9 +120,24 @@ city_id TspLpData::inducedSum(const std::vector<city_id>& set, std::vector<doubl
 	return set.size() - 1;
 }
 
+/**
+ * Erhöht die Koeffizienten der induzierten Kanten um 1. Falls dadurch eine dünner besetzte Constraint entsteht, werden
+ * die vom Komplement induzierten Kanten verwendet.
+ * @param set Die induzierende Menge
+ * @param values Die (dichten) Koeffizienten der Constraint
+ * @param usedVars Die Variablen mit Wert ungleich 0
+ * @return Die RHS der zur verwendeten inuzierten Menge gehörenden Subtour-Constraint
+ */
 city_id TspLpData::sparserInducedSum(const std::vector<city_id>& set, std::vector<double>& values,
 									 std::vector<variable_id>& usedVars) const {
-	if (set.size() <= inst.getCityCount() / 2) {
+	/*
+	 * Die Menge mit weniger induzierten Kanten ist in vollstd. Graphen die mit weniger Knoten. Wenn viele Variablen
+	 * entfernt wurden, kann das prinzipiell die falsche/dichtere Menge sein. Praktisch tritt dies aber so selten auf
+	 * (<<1%), dass eine genauere Entscheidung mehr Zeit verbraucht als durch die dünner besetzten Constraints gespart
+	 * wird
+	 */
+	bool useSet = set.size() <= inst.getCityCount() / 2;
+	if (useSet) {
 		return inducedSum(set, values, usedVars);
 	} else {
 		std::vector<bool> inSet(inst.getCityCount());
