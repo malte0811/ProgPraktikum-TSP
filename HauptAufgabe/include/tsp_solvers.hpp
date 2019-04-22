@@ -19,8 +19,13 @@ namespace tspsolvers {
 
 	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution *initial, CPXENVptr& lpEnv, size_t maxOpenSize,
 						const std::vector<std::string>& cutGenerators =
-								{cutgens::connected, cutgens::subtour, cutgens::simpleCombs,
-								 cutgens::twoMatching, cutgens::generalCombs});
+								{
+										cutgens::connected,
+										cutgens::subtour,
+										cutgens::simpleCombs,
+										cutgens::twoMatching,
+										cutgens::generalCombs
+								});
 
 	void closeHamiltonPath(const lemon::FullGraph& g, lemon::FullGraph::EdgeMap<bool>& used,
 						   const lemon::FullGraph::NodeMap<size_t>& degree);

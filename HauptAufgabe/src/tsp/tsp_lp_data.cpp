@@ -2,9 +2,9 @@
 #include <lemon/connectivity.h>
 #include <tsp_utils.hpp>
 
-TspLpData::TspLpData(const TSPInstance& inst) : inst(inst), variableToEdge(inst.getEdgeCount()),
-												edgeToVariable(inst.getCityCount() - 1),
-												removalBound(inst.getEdgeCount(), -std::numeric_limits<double>::max()) {
+TspLpData::TspLpData(const TSPInstance& inst)
+		: inst(inst), variableToEdge(inst.getEdgeCount()), edgeToVariable(inst.getCityCount() - 1),
+		  removalBound(inst.getEdgeCount(), -std::numeric_limits<double>::max()), tolerance(0.1) {
 	variable_id currVar = 0;
 	for (city_id higher = 1; higher < inst.getCityCount(); ++higher) {
 		edgeToVariable[higher - 1].resize(higher);
@@ -53,8 +53,7 @@ std::vector<variable_id> TspLpData::removeVariables(const TSPSolution& solution)
 	std::vector<variable_id> toRemove;
 	variable_id newId = 0;
 	for (variable_id oldId = 0; oldId < variableToEdge.size(); ++oldId) {
-		//TODO tolernace?
-		if (removalBound[oldId] > bound) {
+		if (tolerance.less(bound, removalBound[oldId])) {
 			toRemove.push_back(oldId);
 		} else {
 			Edge e = variableToEdge[oldId];

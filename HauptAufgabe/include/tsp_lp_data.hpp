@@ -44,6 +44,7 @@ private:
 	std::vector<std::vector<variable_id>> edgeToVariable;
 	std::vector<double> removalBound;
 	TSPSolution upperBound;
+	lemon::Tolerance<double> tolerance;
 };
 
 TspLpData::Edge TspLpData::getEdge(variable_id var) const {
