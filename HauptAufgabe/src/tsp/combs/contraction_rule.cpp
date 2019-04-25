@@ -9,6 +9,7 @@ bool ContractionRule::contractAll(Graph& g, lemon::GraphExtender<lemon::ListGrap
 	bool changed = true;
 	bool ret = false;
 	do {
+		//Alle noch nicht genutzten 1-Kanten und Knoten auflisten
 		std::vector<Graph::Node> possibleNodes;
 		std::vector<Graph::Edge> possibleOneEdges;
 		for (Graph::NodeIt it(g); it != lemon::INVALID; ++it) {
@@ -21,6 +22,7 @@ bool ContractionRule::contractAll(Graph& g, lemon::GraphExtender<lemon::ListGrap
 				possibleOneEdges.push_back(it);
 			}
 		}
+		//Zu kontrahierende Mangen finden
 		Contraction contr = validate(g, possibleNodes, possibleOneEdges, costs, used);
 		if (!contr.empty()) {
 			for (const std::vector<Graph::Node>& newNode:contr) {
@@ -41,18 +43,15 @@ bool ContractionRule::contractAll(Graph& g, lemon::GraphExtender<lemon::ListGrap
 
 void ContractionRule::contract(const Contraction& contr, Graph& g, Graph::EdgeMap<double>& costs,
 							   tsp_util::ContractionMapTSP& map) const {
-	Graph::NodeMap<bool> used(g, false);
 	for (std::vector<Graph::Node> toContract:contr) {
-		for (auto n:toContract) {
-			assert(!used[n]);
-			assert(g.valid(n));
-			used[n] = true;
-		}
+		//Nur ein einzelner Knoten->nur enthalten, um als genutzt markiert zu werden
 		if (toContract.size() < 2) {
 			continue;
 		}
+		//Knoten, der nach der Kontraktion der Gesamtmenge entspricht
 		Graph::Node remaining = toContract.back();
 		toContract.pop_back();
+		//Kosten der am verbleibenden Knoten anliegenden Kanten
 		Graph::NodeMap<double> adjCosts(g, 0);
 		for (Graph::OutArcIt it(g, remaining); it != lemon::INVALID; ++it) {
 			adjCosts[g.target(it)] = costs[it];
@@ -65,10 +64,12 @@ void ContractionRule::contract(const Contraction& contr, Graph& g, Graph::EdgeMa
 			}
 			g.erase(toRemove);
 		}
+		//Kosten der bereits existierenden Kanten erhöhen
 		for (Graph::OutArcIt it(g, remaining); it != lemon::INVALID; ++it) {
 			costs[it] = adjCosts[g.target(it)];
 			adjCosts[g.target(it)] = 0;
 		}
+		//Neue Kanten hinzufügen (falls nötig)
 		for (Graph::NodeIt it(g); it != lemon::INVALID; ++it) {
 			if (adjCosts[it] > 0 && it != remaining) {
 				Graph::Edge newE = g.addEdge(it, remaining);

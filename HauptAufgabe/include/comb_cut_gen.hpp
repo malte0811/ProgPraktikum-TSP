@@ -4,6 +4,10 @@
 #include <contraction_rule.hpp>
 #include <comb_heuristic.hpp>
 
+/*
+ * Findet heuristisch verletzte Kamm-Ungleichungen mit der Heuristik aus: Martin Grötschel, Olaf Holland: "Solution of
+ * large-scale symmetric travelling salesman problems", 1991
+ */
 class CombCutGen : public CutGenerator {
 public:
 	CombCutGen(const TSPInstance& tsp, const TspLpData& lpData);
@@ -22,35 +26,34 @@ private:
 	CombHeuristic heuristic4;
 	const TSPInstance& tsp;
 	const TspLpData& lpData;
+	const lemon::Tolerance<double> tolerance;
 
 	LinearProgram::Constraint getContraintFor(const CombHeuristic::Comb& c);
 
-	static ContractionRule::Contraction contractOnePath(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
-														const std::vector<Graph::Edge>& possibleOneEdges,
-														const Graph::EdgeMap<double>& costs,
-														const Graph::NodeMap<bool>& used);
+	static ContractionRule::Contraction findOnePath(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
+													const std::vector<Graph::Edge>& possibleOneEdges,
+													const Graph::EdgeMap<double>& costs,
+													const Graph::NodeMap<bool>& used);
 
-	static ContractionRule::Contraction contractTriangle2(const Graph& g,
-														  const std::vector<Graph::Node>& possibleNodes,
-														  const std::vector<Graph::Edge>& possibleOneEdges,
-														  const Graph::EdgeMap<double>& costs,
-														  const Graph::NodeMap<bool>& used);
+	static ContractionRule::Contraction findTriangle2(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
+													  const std::vector<Graph::Edge>& possibleOneEdges,
+													  const Graph::EdgeMap<double>& costs,
+													  const Graph::NodeMap<bool>& used);
 
-	static ContractionRule::Contraction contractSquare3(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
-														const std::vector<Graph::Edge>& possibleOneEdges,
-														const Graph::EdgeMap<double>& costs,
-														const Graph::NodeMap<bool>& used);
+	static ContractionRule::Contraction findSquare3(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
+													const std::vector<Graph::Edge>& possibleOneEdges,
+													const Graph::EdgeMap<double>& costs,
+													const Graph::NodeMap<bool>& used);
 
-	static ContractionRule::Contraction contractOneSquare(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
-														  const std::vector<Graph::Edge>& possibleOneEdges,
-														  const Graph::EdgeMap<double>& costs,
-														  const Graph::NodeMap<bool>& used);
+	static ContractionRule::Contraction findOneSquare(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
+													  const std::vector<Graph::Edge>& possibleOneEdges,
+													  const Graph::EdgeMap<double>& costs,
+													  const Graph::NodeMap<bool>& used);
 
-	static ContractionRule::Contraction contractTriangleGE05(const Graph& g,
-															 const std::vector<Graph::Node>& possibleNodes,
-															 const std::vector<Graph::Edge>& possibleOneEdges,
-															 const Graph::EdgeMap<double>& costs,
-															 const Graph::NodeMap<bool>& used);
+	static ContractionRule::Contraction findTriangleGE05(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
+														 const std::vector<Graph::Edge>& possibleOneEdges,
+														 const Graph::EdgeMap<double>& costs,
+														 const Graph::NodeMap<bool>& used);
 };
 
 

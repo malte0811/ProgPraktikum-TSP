@@ -7,18 +7,20 @@
 #include <contraction_rule.hpp>
 #include "blossom_finder.hpp"
 
+//Eine Instanz der Generic Comb Heruistic aus Grötschel, Holland 1991
 class CombHeuristic {
 public:
 	struct Comb {
 		Comb(const Graph& g, const BlossomFinder::Blossom& b,
 			 const tsp_util::ContractionMapTSP& contr);
 
+		//Wahr, falls der Kamm eine Blüte ist, d.h. alle Zinken Größe 2 haben
 		bool isBlossom() const;
 
-		size_t estimateNonzeroCount() const;
-
+		//Vereinfacht den Kamm, z.B. durch das Entfernen langer Ketten von 1-Kanten aus dem Griff
 		void simplify(const TspLpData& lpData, const std::vector<double>& solution);
 
+		//Prüft, dass der Kamm "gültig" (d.h. tatsächlich ein Kamm) ist
 		void validate(city_id cityCount) const;
 
 		std::vector<city_id> handle;

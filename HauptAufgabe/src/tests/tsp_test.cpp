@@ -59,7 +59,7 @@ int main() {
 			{"d198",      15780},
 			{"kroA200", 29368},
 			{"kroB200", 29437},
-			{"gr202",   40160},
+			/*{"gr202",   40160},
 			//{"ts225",     126643},//Braucht aus mir nicht ersichtlichen Gründen sehr lange (>10h)
 			{"tsp225",  3916},
 			{"pr226",   80369},
@@ -85,7 +85,7 @@ int main() {
 			{"p654",    34643},
 			{"d657",    48913},//Ist auf der Website falsch
 			{"gr666",   294358},
-			{"u724",    41910},
+			{"u724",    41910},*/
 	};
 	int status;
 	CPXENVptr env = CPXopenCPLEX(&status);

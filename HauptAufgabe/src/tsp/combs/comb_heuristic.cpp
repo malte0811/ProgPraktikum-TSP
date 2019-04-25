@@ -9,6 +9,7 @@ std::vector<CombHeuristic::Comb> CombHeuristic::findViolatedCombs(const TspLpDat
 	std::vector<Graph::Node> origToWork;
 	Graph::EdgeMap<double> capacity(g);
 	tsp_util::ContractionMapTSP contrMap(g);
+	//Graph und Kontraktionsdaten initialisieren
 	{
 		Graph::NodeMap <city_id> workToOrig(g);
 		tsp_util::addSupportGraphEdges(inst, lpData, tolerance, sol, g, origToWork, workToOrig, capacity);
@@ -20,12 +21,14 @@ std::vector<CombHeuristic::Comb> CombHeuristic::findViolatedCombs(const TspLpDat
 	bool changed;
 	do {
 		changed = false;
+		//Graph nach den vorgegebenen Mustern kontrahieren, ohne Knoten doppelt zu nutzen
 		Graph::NodeMap<bool> used(g, false);
 		for (ContractionRule *cr:rules) {
 			changed |= cr->contractAll(g, used, capacity, contrMap);
 		}
 		if (changed) {
-			BlossomFinder bf(g, capacity, tolerance, true);//TODO geht contractPaths hier?
+			//Verletzte Blüten im kontrahierten Graphen finden
+			BlossomFinder bf(g, capacity, tolerance, true);
 			std::vector<BlossomFinder::Blossom> blossoms = bf.findViolatedBlossoms();
 			for (const BlossomFinder::Blossom& b:blossoms) {
 				if (b.isProperBlossom()) {
@@ -33,10 +36,12 @@ std::vector<CombHeuristic::Comb> CombHeuristic::findViolatedCombs(const TspLpDat
 				}
 			}
 		}
+		//Abbrechen, wenn keine Mengen mehr kontrahiert wurden oder mehr als 100 Combs gefunden sind
 	} while (changed && ret.size() < 100);
 	return ret;
 }
 
+//Wandelt eine Blüte im kontrahierten Graphen in einen Kamm im TSP-Graphen um
 CombHeuristic::Comb::Comb(const Graph& g, const BlossomFinder::Blossom& b,
 						  const tsp_util::ContractionMapTSP& contr) {
 	for (Graph::Node n:b.handle) {
@@ -58,15 +63,8 @@ bool CombHeuristic::Comb::isBlossom() const {
 	return true;
 }
 
-size_t CombHeuristic::Comb::estimateNonzeroCount() const {
-	size_t ret = (handle.size() * (handle.size() - 1)) / 2;
-	for (const std::vector<city_id>& tooth:teeth) {
-		ret += (tooth.size() * (tooth.size() - 1)) / 2;
-	}
-	return ret;
-}
-
 void CombHeuristic::Comb::simplify(const TspLpData& lpData, const std::vector<double>& solution) {
+	//TODO 1. Wieviel bringt das? 2. Verschönern, aufteilen, etc
 	const city_id invalid_city = TSPInstance::invalid_city;
 	const city_id cityCount = lpData.getTSP().getCityCount();
 	std::vector<bool> isHandle(cityCount);
@@ -101,13 +99,10 @@ void CombHeuristic::Comb::simplify(const TspLpData& lpData, const std::vector<do
 		}
 		if (oneNeighbors.size() == 2) {
 			neighbors[i] = {oneNeighbors[0], oneNeighbors[1]};
-			//std::cout << "Found inner node " << i << " with neighbors " << oneNeighbors[0] << "," << oneNeighbors[1] << std::endl;
 		} else if (oneNeighbors.size() == 1) {
 			neighbors[i] = {oneNeighbors[0], invalid_city};
-			//std::cout << "Found end node " << i << " with neighbor " << oneNeighbors[0] << std::endl;
 		}
 	}
-	//std::cout << "Done" << std::endl;
 	for (city_id i:handle) {
 		std::pair<city_id, city_id> neighborsI = neighbors[i];
 		if (neighborsI.first != invalid_city && neighborsI.second == invalid_city) {
@@ -174,7 +169,7 @@ void CombHeuristic::Comb::validate(city_id cityCount) const {
 			} else {
 				foundNonHandle = true;
 			}
-			inComb[i] = false;
+			inComb[i] = true;
 		}
 		assert(foundHandle);
 		assert(foundNonHandle);

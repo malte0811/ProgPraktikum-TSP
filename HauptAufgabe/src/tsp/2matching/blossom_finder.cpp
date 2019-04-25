@@ -2,46 +2,27 @@
 #include <lemon/gomory_hu.h>
 
 BlossomFinder::BlossomFinder(const Graph& g, Graph::EdgeMap<double>& capacities, lemon::Tolerance<double> tolerance,
-							 bool contractPaths) :
-		mainGraph(g), tolerance(tolerance), capacitiesMain(capacities), capacitiesFractional(fractionalGraph),
-		shouldContractPaths(contractPaths), nodeCount(lemon::countNodes(mainGraph)) {}
-
-std::vector<BlossomFinder::Blossom> BlossomFinder::findViolatedBlossoms() {
-	fractionalGraph.clear();
-	tsp_util::ContractionMapGraph contraction(fractionalGraph);
-	Graph::EdgeMap <Graph::Edge> fractToMainEdges(fractionalGraph, lemon::INVALID);
-	Graph::NodeMap<bool> odd(fractionalGraph, false);
-	std::vector<Graph::Edge> oneEdges;
-	{
-		Graph::NodeMap <Graph::Node> mainToFract(mainGraph, lemon::INVALID);
-		for (Graph::NodeIt it(mainGraph); it != lemon::INVALID; ++it) {
-			Graph::Node newNode = fractionalGraph.addNode();
-			contraction[newNode] = {it};
-			mainToFract[it] = newNode;
-			for (Graph::OutArcIt arcIt(mainGraph, it); arcIt != lemon::INVALID; ++arcIt) {
-				Graph::Node target = mainGraph.target(arcIt);
-				if (mainToFract[target] != lemon::INVALID) {
-					if (!tolerance.different(capacitiesMain[arcIt], 1)) {
-						oneEdges.push_back(arcIt);
-						odd[newNode] = !odd[newNode];
-						odd[mainToFract[target]] = !odd[mainToFract[target]];
-					} else {
-						Graph::Edge newEdge = fractionalGraph.addEdge(newNode, mainToFract[target]);
-						fractToMainEdges[newEdge] = arcIt;
-						capacitiesFractional[newEdge] = capacitiesMain[arcIt];
-					}
-				}
-			}
-		}
-	}
+							 bool shouldContractPaths) :
+		inputGraph(g), tolerance(tolerance), capacitiesMain(capacities), capacitiesFractional(fractionalGraph),
+		oddNodes(fractionalGraph, false), contraction(fractionalGraph),
+		fractToMainEdges(fractionalGraph, lemon::INVALID),
+		shouldContractPaths(shouldContractPaths), nodeCount(lemon::countNodes(inputGraph)) {
+	setupFractionalGraph();
 	if (shouldContractPaths) {
-		contractPaths(odd, contraction);
+		contractPaths();
 	}
-	std::vector<Blossom> violated = lemma1220(odd);
+}
+
+/**
+ * Berechnet möglichst viele von den gegebenen Gewichten verletzte Blüten. Sollte nur einmal aufgerufen werden.
+ * @return Ein Vector von verletzten Blüten
+ */
+std::vector<BlossomFinder::Blossom> BlossomFinder::findViolatedBlossoms() {
+	std::vector<Blossom> violated = lemma1220();
 	for (size_t i = 0; i < violated.size();) {
 		Blossom& b = violated[i];
 		b.replaceByMapped(contraction, fractToMainEdges);
-		if (finalizeBlossom(b, oneEdges)) {
+		if (finalizeBlossom(b)) {
 			++i;
 			assert(b.teeth.size() % 2 == 1);
 		} else {
@@ -54,12 +35,9 @@ std::vector<BlossomFinder::Blossom> BlossomFinder::findViolatedBlossoms() {
 
 /**
  * Berechnet wie in Lemma 12.20 Blüten mit Wert kleiner als 1. c'(e) ist für alle Kanten 1-c(e)
- * @param graph Der zu betrachtende Graph
- * @param odd die ungeraden Knoten, bzw. die Menge T
- * @param c Die Kostenfunktion c
  * @return ein Vector mit Blüten mit Wert kleiner als 1. Falls es solche gibt, ist der Vector nicht leer.
  */
-std::vector<BlossomFinder::Blossom> BlossomFinder::lemma1220(const Graph::NodeMap<bool>& odd) {
+std::vector<BlossomFinder::Blossom> BlossomFinder::lemma1220() {
 	//d wie im Beweis von Lemma 12.20
 	Graph::EdgeMap<double> d(fractionalGraph);
 	//Die Anzahl der inzidenten Kanten in E'
@@ -124,7 +102,7 @@ std::vector<BlossomFinder::Blossom> BlossomFinder::lemma1220(const Graph::NodeMa
 		double cutCost = gh.predValue(currentNode);
 		//Der Wert der Blüte ist mindestens der Wert des Schnitts
 		if (tolerance.less(cutCost, 1)) {
-			Blossom b = calculateAndAddBlossom(nodeToUF, components, xIndex, cutCost, odd, adjacentEDash);
+			Blossom b = calculateBlossomFor(nodeToUF, components, xIndex, cutCost, adjacentEDash);
 			if (!b.handle.empty()) {
 				ret.push_back(b);
 			}
@@ -141,13 +119,13 @@ std::vector<BlossomFinder::Blossom> BlossomFinder::lemma1220(const Graph::NodeMa
 /**
  * Kontrahiert so lange alternierende Pfade in G, bis es keine mehr gibt, und speichert die Kontraktionen in toOrig
  */
-void BlossomFinder::contractPaths(Graph::NodeMap<bool>& odd, tsp_util::ContractionMapGraph& toOrig) {
+void BlossomFinder::contractPaths() {
 	bool contracted;
 	do {
 		contracted = false;
 		for (Graph::NodeIt start(fractionalGraph); start != lemon::INVALID && !contracted; ++start) {
-			if (odd[start]) {
-				contracted = findAndContractPath(start, toOrig, odd);
+			if (oddNodes[start]) {
+				contracted = findAndContractPath(start);
 			}
 		}
 	} while (contracted);
@@ -157,23 +135,22 @@ void BlossomFinder::contractPaths(Graph::NodeMap<bool>& odd, tsp_util::Contracti
  * Findet und kontrahiert einen start enthaltenden alternierenden Pfad in G, falls es einen solchen gibt
  * @return true, genau dann wenn ein Pfad kontrahiert wurde
  */
-bool BlossomFinder::findAndContractPath(Graph::Node start, tsp_util::ContractionMapGraph& toOrig,
-										Graph::NodeMap<bool>& odd) {
-	if (!isValidInternalNode(fractionalGraph, start, capacitiesFractional)) {
+bool BlossomFinder::findAndContractPath(Graph::Node start) {
+	if (!isValidInternalNode(start)) {
 		return false;
 	}
 	Graph::NodeMap<bool> inPath(fractionalGraph);
 	//Wird im ersten discoverPath-Aufruf auf die erste Kante des linken Teilpfades gesetzt
 	Graph::Edge firstEdge = lemon::INVALID;
 	//Teilpfad in eine Richtung ("links") finden
-	std::vector<Graph::Node> left = discoverPath(start, firstEdge, odd, inPath);
+	std::vector<Graph::Node> left = discoverPath(start, firstEdge, inPath);
 	std::vector<Graph::Node> right;
 	//Ein isolierter Kreis aus ungeraden Knoten
 	bool isCycle = left.front() == left.back();
 	//Falls der Pfad noch kein Kreis ist, gibt es einen rechten Teilpfad
 	if (!isCycle) {
 		//Anderen Teilpfad finden
-		right = discoverPath(start, firstEdge, odd, inPath);
+		right = discoverPath(start, firstEdge, inPath);
 		//Kreis mit einem geraden Knoten
 		isCycle = right.back() == left.back();
 	}
@@ -207,18 +184,18 @@ bool BlossomFinder::findAndContractPath(Graph::Node start, tsp_util::Contraction
 		}
 	}
 	//Ob der durch die Kontraktion entstehende Knoten ungerade ist
-	bool resultOdd = odd[remainingNode];
-	std::vector<Graph::Node>& contractedSet = toOrig[remainingNode];
+	bool resultOdd = oddNodes[remainingNode];
+	std::vector<Graph::Node>& contractedSet = contraction[remainingNode];
 	//Kontrahieren
 	for (Graph::Node remove:toRemove) {
 		assert(remove != remainingNode);
-		if (odd[remove]) {
+		if (oddNodes[remove]) {
 			resultOdd = !resultOdd;
 		}
-		contractedSet.insert(contractedSet.end(), toOrig[remove].begin(), toOrig[remove].end());
+		contractedSet.insert(contractedSet.end(), contraction[remove].begin(), contraction[remove].end());
 		fractionalGraph.erase(remove);
 	}
-	odd[remainingNode] = resultOdd;
+	oddNodes[remainingNode] = resultOdd;
 	return true;
 }
 
@@ -230,29 +207,27 @@ bool BlossomFinder::findAndContractPath(Graph::Node start, tsp_util::Contraction
  * @param c Die Kantengewichte
  * @return das gewicht einer Kante im alternierenden Pfad oder -1, falls es keinen gibt
  */
-bool BlossomFinder::isValidInternalNode(const Graph& g, Graph::Node start, const Graph::EdgeMap<double>& c) {
+bool BlossomFinder::isValidInternalNode(Graph::Node start) {
 	size_t degree = 0;
 	double edgeSum = 0;
-	for (Graph::OutArcIt it(g, start); it != lemon::INVALID && degree <= 2 && !tolerance.less(1, edgeSum); ++it) {
+	for (Graph::OutArcIt it(fractionalGraph, start);
+		 it != lemon::INVALID && degree <= 2 && !tolerance.less(1, edgeSum); ++it) {
 		++degree;
-		edgeSum += c[it];
+		edgeSum += capacitiesFractional[it];
 	}
 	return degree == 2 && !tolerance.different(edgeSum, 1);
 }
 
 /**
  * Findet einen Teil eines alternierenden Pfades
- * @param graph der Graph, in dem der alternierende Pfad gefunden werden soll
  * @param start der Ausgangsknoten. Muss als innerer Knoten eines alternierenden Pfades gültig sein.
  * @param exclude Entweder lemon::INVALID: in diesem Fall wird die erste Kante im Teilpfad hier gespeichert; oder eine
  * Kante, die nicht im Teilpfad genutzt werden darf
- * @param odd Die ungeraden Knoten
  * @param visited Gibt an, ob ein Knoten schon im Pfad enthalten ist
- * @param c Die Kantengewichte
  * @return den Teilpfad eines alternierenden Pfades mit den angegebenen Eigenschaften. Das erste Element ist immer start
  */
-std::vector<Graph::Node> BlossomFinder::discoverPath(Graph::Node start, lemon::ListGraphBase::Edge& exclude,
-													 const Graph::NodeMap<bool>& odd, Graph::NodeMap<bool>& visited) {
+std::vector<Graph::Node> BlossomFinder::discoverPath(Graph::Node start, Graph::Edge& exclude,
+													 Graph::NodeMap<bool>& visited) {
 	//Die Knoten auf dem Pfad
 	std::vector<Graph::Node> path;
 	Graph::Node current = start;
@@ -279,8 +254,8 @@ std::vector<Graph::Node> BlossomFinder::discoverPath(Graph::Node start, lemon::L
 		}
 		//Prüfen, ob der nächste Knoten ein gültiger innerer Knoten ist
 		assert(fractionalGraph.valid(nextNode));
-		canContinuePath = fractionalGraph.valid(nextNode) && !visited[nextNode] && odd[nextNode]
-						  && isValidInternalNode(fractionalGraph, nextNode, capacitiesFractional);
+		canContinuePath = fractionalGraph.valid(nextNode) && !visited[nextNode] && oddNodes[nextNode]
+						  && isValidInternalNode(nextNode);
 		current = nextNode;
 	} while (canContinuePath);
 	if (current != lemon::INVALID) {
@@ -291,62 +266,69 @@ std::vector<Graph::Node> BlossomFinder::discoverPath(Graph::Node start, lemon::L
 }
 
 //TODO better name?
-bool BlossomFinder::finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& oneEdges) {
+/**
+ * Fügt die 1-Kanten zur Blüte hinzu und wandelt sie in eine Blüte mit selbem Wert um, deren Zähne ein Matching bilden.
+ * Der Rückgabewert ist wahr, falls eine gültige Blüte entstanden ist.
+ */
+bool BlossomFinder::finalizeBlossom(Blossom& b) {
+	const size_t minHandleSize = 3;
 	std::vector<Graph::Edge>& teeth = b.teeth;
 	std::vector<Graph::Node>& handle = b.handle;
-	if (handle.size() < 2 || handle.size() > nodeCount - 2) {
+	//Falls der Griff zu klein oder zu groß ist, ist die Blüte ungültig
+	if (handle.size() < minHandleSize || handle.size() > nodeCount - minHandleSize) {
 		return false;
 	}
-	Graph::NodeMap<int> handleIndex(mainGraph, -1);
+	Graph::NodeMap<int> handleIndex(inputGraph, -1);
 	for (size_t i = 0; i < handle.size(); ++i) {
 		handleIndex[handle[i]] = i;
 	}
-	//Gibt an, ob eine Variable/Kante im TSP-Graphen in F ist
-	Graph::EdgeMap<bool> fTSP(mainGraph, false);
-	//Die Menge F vor dem Umwandeln zu einem Matching
 	//Alle 1-Kanten im Schnitt von X sind in F
 	for (Graph::Edge e:oneEdges) {
-		bool uInHandle = handleIndex[mainGraph.u(e)] >= 0;
-		bool vInHandle = handleIndex[mainGraph.v(e)] >= 0;
+		bool uInHandle = handleIndex[inputGraph.u(e)] >= 0;
+		bool vInHandle = handleIndex[inputGraph.v(e)] >= 0;
 		if (uInHandle != vInHandle) {
 			teeth.push_back(e);
 		}
 	}
 	assert(teeth.size() % 2 == 1);
-	//Die Kanten im berechneten F zu F hinzufügen
-	for (Graph::Edge tooth:teeth) {
-		fTSP[tooth] = true;
-	}
+	//Gibt an, ob eine Variable/Kante im TSP-Graphen in F ist
+	Graph::EdgeMap<bool> isTooth(inputGraph, false);
 	{
-		Graph::NodeMap <size_t> incident(mainGraph);
+		//Anzahl der zu einem Knoten inzidenten Zähne
+		Graph::NodeMap <size_t> incident(inputGraph);
+		/*
+		 * Setzt die Einträge von isTooth und stellt sicher, dass zu jedem Knoten maximal 2 Zähne inzident sind. Wenn
+		 * mehr als 3 Zähne inzident sind, kann die Blüte nicht verletzt sein, durch Rundungsfehler werden trotzdem
+		 * manchmal solche Blüten berechnet.
+		 */
 		for (Graph::Edge tooth:teeth) {
-			++incident[mainGraph.u(tooth)];
-			if (incident[mainGraph.u(tooth)] >= 3) {
+			isTooth[tooth] = true;
+			++incident[inputGraph.u(tooth)];
+			if (incident[inputGraph.u(tooth)] >= 3) {
 				return false;
 			}
-			++incident[mainGraph.v(tooth)];
-			if (incident[mainGraph.v(tooth)] >= 3) {
+			++incident[inputGraph.v(tooth)];
+			if (incident[inputGraph.v(tooth)] >= 3) {
 				return false;
 			}
 		}
 	}
-	//Ordnet jedem Knoten die inzidente Kante in F zu
-	Graph::NodeMap <Graph::Edge> incidentF(mainGraph, lemon::INVALID);
+	//Ordnet jedem Knoten den inzidenten Zahn zu
+	Graph::NodeMap <Graph::Edge> incidentTooth(inputGraph, lemon::INVALID);
 	for (Graph::Edge e:teeth) {
-		Graph::Node ends[2] = {mainGraph.u(e), mainGraph.v(e)};
-		for (Graph::Node end:ends) {
-			if (incidentF[end] == lemon::INVALID) {
-				//Es ist noch keine Kante in F zu end inzident
-				incidentF[end] = e;
+		for (Graph::Node end:{inputGraph.u(e), inputGraph.v(e)}) {
+			if (incidentTooth[end] == lemon::INVALID) {
+				//Es gibt noch keinen Zahn, der zu end inzident ist
+				incidentTooth[end] = e;
 			} else {
-				//Die Kanten entfernen, die ein gemeinsames Ende haben
-				Graph::Edge oldEdge = incidentF[end];
-				incidentF[mainGraph.u(oldEdge)] = lemon::INVALID;
-				incidentF[mainGraph.v(oldEdge)] = lemon::INVALID;
-				incidentF[mainGraph.u(e)] = lemon::INVALID;
-				incidentF[mainGraph.v(e)] = lemon::INVALID;
-				fTSP[oldEdge] = false;
-				fTSP[e] = false;
+				//Die Zähne entfernen, die ein gemeinsames Ende haben
+				Graph::Edge oldEdge = incidentTooth[end];
+				incidentTooth[inputGraph.u(oldEdge)] = lemon::INVALID;
+				incidentTooth[inputGraph.v(oldEdge)] = lemon::INVALID;
+				incidentTooth[inputGraph.u(e)] = lemon::INVALID;
+				incidentTooth[inputGraph.v(e)] = lemon::INVALID;
+				isTooth[oldEdge] = false;
+				isTooth[e] = false;
 				//Das gemeinsame Ende aus X entfernen bzw zu X hinzufügen
 				if (handleIndex[end] >= 0) {
 					assert(handle[handleIndex[end]] == end);
@@ -362,31 +344,33 @@ bool BlossomFinder::finalizeBlossom(Blossom& b, const std::vector<Graph::Edge>& 
 			}
 		}
 	}
+	//Zähne, die zu Erzeugen des Matchings entfernt wurden, auch aus den in der Blüte gespeicherten Zähnen entfernen
 	size_t i = 0;
 	while (i < teeth.size()) {
 		Graph::Edge tooth = teeth[i];
-		if (!fTSP[tooth]) {
+		if (!isTooth[tooth]) {
 			std::swap(teeth[i], teeth.back());
 			teeth.pop_back();
 		} else {
-			assert((handleIndex[mainGraph.u(tooth)] >= 0) != (handleIndex[mainGraph.v(tooth)] >= 0));
+			assert((handleIndex[inputGraph.u(tooth)] >= 0) != (handleIndex[inputGraph.v(tooth)] >= 0));
 			++i;
 		}
 	}
-	return handle.size() >= 2 && handle.size() <= nodeCount - 2;
+	return handle.size() >= minHandleSize && handle.size() <= nodeCount - minHandleSize;
 }
 
-BlossomFinder::Blossom BlossomFinder::calculateAndAddBlossom(const Graph::NodeMap <size_t>& nodeToUF,
-															 UnionFind& components, size_t xIndex,
-															 double cutCost, const Graph::NodeMap<bool>& odd,
-															 const Graph::NodeMap <size_t>& adjacentEDash) {
+BlossomFinder::Blossom BlossomFinder::calculateBlossomFor(const Graph::NodeMap <size_t>& nodeToUF,
+														  UnionFind& components,
+														  size_t xIndex, double cutCost,
+														  const Graph::NodeMap <size_t>& adjacentEDash) {
 	//Die Blüte zur aktuellen Kante
 	Blossom curr;
-	//Informationen zur Kante mit abs(c'(e)-c(e)) bzw. abs(c(e)-0.5) minimal:
+	//Informationen zur Kante e mit abs(c'(e)-c(e)) bzw. abs(c(e)-0.5) minimal:
 	//Die Kante selbst
 	Graph::Edge minDiffEdge = lemon::INVALID;
 	//c(e)-0.5
 	double minDiffVal = std::numeric_limits<double>::max();
+
 	/*
 	 * Der Index der Kante in curr.teeth, um sie schnell entfernen zu können, oder std::numeric_limits<size_t>::max(),
 	 * falls die Kante nicht in curr.teeth enthalten ist.
@@ -420,7 +404,7 @@ BlossomFinder::Blossom BlossomFinder::calculateAndAddBlossom(const Graph::NodeMa
 		//Ist der Knoten in X?
 		if (components.find(nodeToUF[nIt]) == xIndex) {
 			//Ist der Knoten in T delta V'?
-			if (odd[nIt] != (adjacentEDash[nIt] % 2 == 1)) {
+			if (oddNodes[nIt] != (adjacentEDash[nIt] % 2 == 1)) {
 				++xAndTDash;
 			}
 			curr.handle.push_back(nIt);
@@ -451,6 +435,38 @@ BlossomFinder::Blossom BlossomFinder::calculateAndAddBlossom(const Graph::NodeMa
 	}
 }
 
+/**
+ * Erzeugt den fraktionalen Graphen zum Eingabegraphen
+ */
+void BlossomFinder::setupFractionalGraph() {
+	//Ordnet jedem Knoten den entsprechenden Knoten im fraktionalen Graphen zu
+	Graph::NodeMap <Graph::Node> mainToFract(inputGraph, lemon::INVALID);
+	for (Graph::NodeIt it(inputGraph); it != lemon::INVALID; ++it) {
+		Graph::Node newNode = fractionalGraph.addNode();
+		contraction[newNode] = {it};
+		mainToFract[it] = newNode;
+	}
+	for (Graph::EdgeIt it(inputGraph); it != lemon::INVALID; ++it) {
+		Graph::Node u = inputGraph.u(it);
+		Graph::Node v = inputGraph.v(it);
+		if (!tolerance.different(capacitiesMain[it], 1)) {
+			//1-Kante entfernen
+			oneEdges.push_back(it);
+			oddNodes[mainToFract[u]] = !oddNodes[mainToFract[u]];
+			oddNodes[mainToFract[v]] = !oddNodes[mainToFract[v]];
+		} else {
+			Graph::Edge newEdge = fractionalGraph.addEdge(mainToFract[u], mainToFract[v]);
+			fractToMainEdges[newEdge] = it;
+			capacitiesFractional[newEdge] = capacitiesMain[it];
+		}
+	}
+}
+
+/**
+ * Ersetzt eine Blüte in einem durch Kontraktion entstandenen Graphen durch die Blüte im ursprünglichen Graphen
+ * @param nodeMap Ordnet jedem Knoten die entsprechenden ursprünglichen Knoten zu
+ * @param edgeMap Ordnet jeder Kante die entsprechende ursprüngliche Kante zu
+ */
 void BlossomFinder::Blossom::replaceByMapped(const tsp_util::ContractionMapGraph& nodeMap,
 											 const Graph::EdgeMap <Graph::Edge>& edgeMap) {
 	std::vector<Graph::Node> newHandle;
@@ -463,6 +479,10 @@ void BlossomFinder::Blossom::replaceByMapped(const tsp_util::ContractionMapGraph
 	}
 }
 
+/**
+ * @return Ob die Blüte eine "echte" Blüte mit mindestens 3 Zähnen ist, die eine 2-Matching-Constraint erzeugt, oder
+ * eine "falsche" Blüte mit nur einem Zahn, die eine Subtour-Constraint erzeugt
+ */
 bool BlossomFinder::Blossom::isProperBlossom() const {
 	return teeth.size() >= 3;
 }
