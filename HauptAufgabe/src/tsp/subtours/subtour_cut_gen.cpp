@@ -21,7 +21,8 @@ SubtourCutGen::SubtourCutGen(const TSPInstance& inst, const TspLpData& lpData)
 
 CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
 												CutStatus currentStatus) {
-	if (currentStatus != valid) {
+	if (currentStatus == recalc) {
+		//Der Zusammenhangs-CutGen hat schon verletzte Subtour-Ungleichungen gefunden
 		return valid;
 	}
 	tsp_util::addSupportGraphEdges(tsp, lpData, tolerance, solution, workGraph, origToWork, workToOrig, capacity);
@@ -31,7 +32,7 @@ CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::ve
 	if (!tolerance.less(cutScale * cutCapacity, cutScale * 2)) {
 		return valid;
 	}
-	//Positive Kapazität <2->Verletzte Subtour-Constraint
+	//Positive Kapazität<2 ->Verletzte Subtour-Constraint
 	Graph::NodeMap<bool> inCut(workGraph);
 	minCut.minCutMap(inCut);
 	std::vector<city_id> inducing;

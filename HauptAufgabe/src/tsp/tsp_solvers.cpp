@@ -121,10 +121,10 @@ namespace tspsolvers {
 	 * @param inst Die zu lösende TSP-Instanz
 	 * @param initial Eine erste obere Schranke, oder nullptr falls ohne eine solche gearbeitet werden soll
 	 * @param lpEnv Die zu verwendende LP-Umgebung
-	 * @param maxOpenSize Die maximale Größe der offenen Menge in Bytes. Auf 0 setzen, um DFS zu verwenden
+	 * @param dfs Gibt an, ob DFS verwendet werden soll
 	 * @return eine optimal Lösung der gegebenen TSP-Instanz
 	 */
-	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution *initial, CPXENVptr& lpEnv, size_t maxOpenSize,
+	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution *initial, CPXENVptr& lpEnv, bool dfs,
 						const std::vector<std::string>& cutGenerators) {
 		TspLpData data(inst);
 		if (initial != nullptr) {
@@ -155,7 +155,7 @@ namespace tspsolvers {
 				throw std::runtime_error("Unknown cut generator: " + genName);
 			}
 		}
-		BranchAndCut bac(lp, gens, &data, maxOpenSize);
+		BranchAndCut bac(lp, gens, &data, dfs);
 		if (initial!=nullptr) {
 			bac.setUpperBound({}, initial->getCost());
 		}

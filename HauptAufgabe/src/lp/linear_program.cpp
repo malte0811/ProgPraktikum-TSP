@@ -81,6 +81,10 @@ void LinearProgram::removeSetConstraints(std::vector<int>& shouldDelete) {
 	constraints = std::move(newConstrs);
 }
 
+/**
+ * Entfernt die Variablen mit Wert 1 im vector und setzt den Wert an Index i entweder auf die neue ID der Variablen i
+ * oder auf -1, falls i entfernt wurde
+ */
 void LinearProgram::removeSetVariables(std::vector<int>& shouldDelete) {
 	int status = CPXdelsetcols(env, problem, shouldDelete.data());
 	for (Constraint& c:constraints) {

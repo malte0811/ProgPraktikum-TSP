@@ -10,7 +10,7 @@
 
 int main() {
 	const std::vector<std::pair<std::string, cost_t>> instances{
-			{"burma14",   3323},
+			/*{"burma14",   3323},
 			{"ulysses16", 6859},
 			{"gr17",      2085},
 			{"gr21",      2707},
@@ -59,7 +59,7 @@ int main() {
 			{"d198",      15780},
 			{"kroA200", 29368},
 			{"kroB200", 29437},
-			/*{"gr202",   40160},
+			{"gr202",   40160},
 			//{"ts225",     126643},//Braucht aus mir nicht ersichtlichen Gründen sehr lange (>10h)
 			{"tsp225",  3916},
 			{"pr226",   80369},
@@ -84,8 +84,30 @@ int main() {
 			{"rat575",  6773},
 			{"p654",    34643},
 			{"d657",    48913},//Ist auf der Website falsch
-			{"gr666",   294358},
-			{"u724",    41910},*/
+			{"gr666",   294358},*/
+			{"u724",    41910},
+			{"rat783",  8806},
+			{"dsj1000", 18660188},
+			{"pr1002",  259045},
+			{"si1032",  92650},
+			{"u1060",   224094},
+			{"vm1084",  239297},
+			{"pcb1173", 56892},
+			{"d1291",   50801},
+			{"rl1304",  252948},
+			{"rl1323",  270199},
+			{"nrw1379", 56638},
+			//{"fl1400",  20127},
+			{"u1432",   152970},
+			//{"fl1577",  22249},
+			{"d1655",   62128},
+			{"vm1748",  336556},
+			{"u1817",   57201},
+			{"rl1889",  316536},
+			{"d2103",   80450},
+			{"u2152",   64253},
+			{"u2319",   234256},
+			{"pr2392",  378032},
 	};
 	int status;
 	CPXENVptr env = CPXopenCPLEX(&status);
@@ -104,7 +126,7 @@ int main() {
 		TSPInstance tsp(in);
 		TSPSolution init = tspsolvers::solveGreedy(tsp);
 		std::cout << "Using initial solution with cost " << init.getCost() << std::endl;
-		TSPSolution sol = tspsolvers::solveLP(tsp, &init, env, 1536 * 1024 * 1024);
+		TSPSolution sol = tspsolvers::solveLP(tsp, &init, env, false);
 		clock_t end = std::clock();
 		double elapsed_secs = double(end-start)/CLOCKS_PER_SEC;
 		if (sol.getCost()!=inst.second) {

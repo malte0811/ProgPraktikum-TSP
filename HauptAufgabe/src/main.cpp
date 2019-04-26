@@ -79,7 +79,7 @@ int main(int argc, char** argv) {
 		std::string startingBound = getOption<std::string>(options, "startingBound", "<greedy>");
 		std::string generatorString = getOption<std::string>(options, "cutGens", tspsolvers::cutgens::defaultGens);
 		std::vector<std::string> generators = splitOnChar(generatorString, ',');
-		auto maxOpenSize = getOption<size_t>(options, "maxOpenSize", 1536*1024*1024);
+		bool useDFS = getOption(options, "dfs", false);
 		cost_t expectedValue = getOption(options, "expectedResult", 0U);
 		if (!options.empty()) {
 			std::cerr << "Found unknown options:" << std::endl;
@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
 			std::ifstream boundIn(startingBound);
 			initial = TSPSolution(inst, boundIn);
 		}
-		TSPSolution optimal = tspsolvers::solveLP(inst, initial.isValid() ? &initial : nullptr, env, maxOpenSize,
+		TSPSolution optimal = tspsolvers::solveLP(inst, initial.isValid() ? &initial : nullptr, env, useDFS,
 												  generators);
 		if (args.size()==1) {
 			optimal.write(std::cout);
