@@ -30,7 +30,9 @@ bool ContractionRule::contractAll(Graph& g, lemon::GraphExtender<lemon::ListGrap
 					used[n] = true;
 				}
 			}
-			contract(contr, g, costs, contrMap);
+			if (!contract(contr, g, costs, contrMap)) {
+				changed = false;
+			}
 		} else {
 			changed = false;
 		}
@@ -41,7 +43,7 @@ bool ContractionRule::contractAll(Graph& g, lemon::GraphExtender<lemon::ListGrap
 	return ret;
 }
 
-void ContractionRule::contract(const Contraction& contr, Graph& g, Graph::EdgeMap<double>& costs,
+bool ContractionRule::contract(const Contraction& contr, Graph& g, Graph::EdgeMap<double>& costs,
 							   tsp_util::ContractionMapTSP& map) const {
 	for (std::vector<Graph::Node> toContract:contr) {
 		//Nur ein einzelner Knoten->nur enthalten, um als genutzt markiert zu werden
@@ -56,12 +58,17 @@ void ContractionRule::contract(const Contraction& contr, Graph& g, Graph::EdgeMa
 		for (Graph::OutArcIt it(g, remaining); it != lemon::INVALID; ++it) {
 			adjCosts[g.target(it)] = costs[it];
 		}
+		for (Graph::Node toRemove:toContract) {
+			for (Graph::OutArcIt it(g, toRemove); it != lemon::INVALID; ++it) {
+				adjCosts[g.target(it)] += costs[it];
+				if (adjCosts[g.target(it)] > 1) {
+					return false;
+				}
+			}
+		}
 		std::vector<city_id>& contracted = map[remaining];
 		for (Graph::Node toRemove:toContract) {
 			contracted.insert(contracted.end(), map[toRemove].begin(), map[toRemove].end());
-			for (Graph::OutArcIt it(g, toRemove); it != lemon::INVALID; ++it) {
-				adjCosts[g.target(it)] += costs[it];
-			}
 			g.erase(toRemove);
 		}
 		//Kosten der bereits existierenden Kanten erhöhen
@@ -77,4 +84,5 @@ void ContractionRule::contract(const Contraction& contr, Graph& g, Graph::EdgeMa
 			}
 		}
 	}
+	return true;
 }

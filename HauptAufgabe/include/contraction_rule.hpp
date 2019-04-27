@@ -25,7 +25,7 @@ public:
 private:
 	const Validator validate;
 
-	void contract(const Contraction& contr, Graph& g, Graph::EdgeMap<double>& costs,
+	bool contract(const Contraction& contr, Graph& g, Graph::EdgeMap<double>& costs,
 				  tsp_util::ContractionMapTSP& map) const;
 };
 

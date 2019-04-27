@@ -77,19 +77,19 @@ ContractionRule::Contraction CombCutGen::findOnePath(const Graph& g, const std::
 													 const Graph::NodeMap<bool>& used) {
 	lemon::Tolerance<double> tolerance;
 	for (Graph::Node middle : possibleNodes) {
-		size_t adjEdges = 0;
+		size_t degree = 0;
 		std::array<Graph::Node, 2> neighbors;
 		for (Graph::OutArcIt it(g, middle); it != lemon::INVALID; ++it) {
-			++adjEdges;
+			++degree;
 			Graph::Node target = g.target(it);
-			if (adjEdges > 2 || tolerance.different(costs[it], 1) || used[target]) {
+			if (degree > 2 || tolerance.different(costs[it], 1) || used[target]) {
 				//Mehr als 2 Kanten, eine Kante mit Wert !=1 oder schon genutzt->Kann nicht als mittlerer Knoten genutzt werden
-				adjEdges = 10;
+				degree = 10;
 				break;
 			}
-			neighbors[adjEdges - 1] = target;
+			neighbors[degree - 1] = target;
 		}
-		if (adjEdges == 2) {
+		if (degree == 2) {
 			assert(neighbors[0] != neighbors[1]);
 			return {{middle, neighbors[0]},
 					{neighbors[1]}};
@@ -104,12 +104,14 @@ ContractionRule::Contraction CombCutGen::findTriangle2(const Graph& g, const std
 													   const Graph::EdgeMap<double>& costs,
 													   const Graph::NodeMap<bool>& used) {
 	lemon::Tolerance<double> tolerance;
+	//Über alle möglichen Kanten {u, v} iterieren
 	for (Graph::Edge oneEdge:possibleOneEdges) {
 		//Kosten der an u anliegenden Kante zum entsprechenden Knoten
 		Graph::NodeMap<double> adjCosts(g, 0);
 		for (Graph::OutArcIt it(g, g.u(oneEdge)); it != lemon::INVALID; ++it) {
 			adjCosts[g.target(it)] = costs[it];
 		}
+		//Über alle möglichen Knoten w iterieren
 		for (Graph::OutArcIt it(g, g.v(oneEdge)); it != lemon::INVALID; ++it) {
 			if (oneEdge != it && !tolerance.different(adjCosts[g.target(it)] + costs[it], 1)) {
 				assert(g.target(it) != g.v(oneEdge));
@@ -125,32 +127,36 @@ ContractionRule::Contraction CombCutGen::findSquare3(const Graph& g, const std::
 													 const std::vector<Graph::Edge>& possibleOneEdges,
 													 const Graph::EdgeMap<double>& costs,
 													 const Graph::NodeMap<bool>& used) {
-	//TODO das muss auch schöner gehen!
 	lemon::Tolerance<double> tolerance;
 	for (Graph::Node first:possibleNodes) {
+		//Kosten der Kanten an first
 		Graph::NodeMap<double> adjCosts1(g, 0);
 		for (Graph::OutArcIt it(g, first); it != lemon::INVALID; ++it) {
 			adjCosts1[g.target(it)] = costs[it];
 		}
-		for (Graph::OutArcIt it1(g, first); it1 != lemon::INVALID; ++it1) {
-			Graph::Node second = g.target(it1);
+		//Mindestens ein Knoten im "Quadrat" muss mit 2 oder mehr der anderen Knoten im Quadrat benachbart sein
+		for (Graph::OutArcIt itSecond(g, first); itSecond != lemon::INVALID; ++itSecond) {
+			Graph::Node second = g.target(itSecond);
+			if (used[second]) {
+				continue;
+			}
+			//Kosten der Kanten an second
 			Graph::NodeMap<double> adjCosts2(g, 0);
 			for (Graph::OutArcIt it(g, second); it != lemon::INVALID; ++it) {
 				adjCosts2[g.target(it)] = costs[it];
 			}
-			if (used[second]) {
-				continue;
-			}
-			Graph::OutArcIt it2 = it1;
-			++it2;
-			for (; it2 != lemon::INVALID; ++it2) {
-				Graph::Node third = g.target(it2);
+			//Alle weiteren Nachbarn von 1 kommen als dritter Knoten in Frage
+			Graph::OutArcIt itThird = itSecond;
+			++itThird;
+			for (; itThird != lemon::INVALID; ++itThird) {
+				Graph::Node third = g.target(itThird);
+				if (used[third]) {
+					continue;
+				}
+				//Kosten der Kanten an third
 				Graph::NodeMap<double> adjCosts3(g, 0);
 				for (Graph::OutArcIt it(g, third); it != lemon::INVALID; ++it) {
 					adjCosts3[g.target(it)] = costs[it];
-				}
-				if (used[third]) {
-					continue;
 				}
 				for (Graph::Node fourth:possibleNodes) {
 					if (fourth == first || fourth == second || fourth == third) {
@@ -189,6 +195,9 @@ ContractionRule::Contraction CombCutGen::findOneSquare(const Graph& g,
 			Graph::Edge vx = possibleOneEdges[i2];
 			Graph::Node v = g.u(vx);
 			Graph::Node x = g.v(vx);
+			if (v == u || v == w || x == u || x == w) {
+				continue;
+			}
 			//Erste verbindende Kante finden
 			for (Graph::OutArcIt it(g, v); it != lemon::INVALID; ++it) {
 				Graph::Node target = g.target(it);
@@ -220,17 +229,21 @@ ContractionRule::Contraction CombCutGen::findTriangleGE05(const Graph& g, const 
 														  const std::vector<Graph::Edge>& possibleOneEdges,
 														  const Graph::EdgeMap<double>& costs,
 														  const Graph::NodeMap<bool>& used) {
-	lemon::Tolerance<double> tolerance;
 	for (Graph::Edge oneEdge:possibleOneEdges) {
-		Graph::NodeMap<double> adjCosts(g, 0);
-		for (Graph::OutArcIt it(g, g.u(oneEdge)); it != lemon::INVALID; ++it) {
-			adjCosts[g.target(it)] = costs[it];
+		Graph::Node u = g.u(oneEdge);
+		Graph::Node v = g.v(oneEdge);
+		//Kosten der Kanten an u
+		Graph::NodeMap<double> adjUCosts(g, 0);
+		for (Graph::OutArcIt it(g, u); it != lemon::INVALID; ++it) {
+			adjUCosts[g.target(it)] = costs[it];
 		}
-		for (Graph::OutArcIt it(g, g.v(oneEdge)); it != lemon::INVALID; ++it) {
-			if (oneEdge != it && !tolerance.less(adjCosts[g.target(it)] + costs[it], 0.5)) {
-				assert(g.target(it) != g.v(oneEdge));
-				return {{g.u(oneEdge), g.v(oneEdge)},
-						{g.target(it)}};
+		for (Graph::OutArcIt it(g, v); it != lemon::INVALID; ++it) {
+			Graph::Node w = g.target(it);
+			double uwCost = adjUCosts[w];
+			if (oneEdge != it && uwCost > 0 && uwCost + costs[it] >= 0.5) {
+				assert(w != v && w != u);
+				return {{u, v},
+						{w}};
 			}
 		}
 	}

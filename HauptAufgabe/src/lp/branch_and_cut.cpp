@@ -90,7 +90,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out, bool isRoot) {
 	do {
 		++iterations;
 		if (iterations%64==0) {
-			std::cout << "Currently at " << iterations << " iterations, using " << problem.getConstraintCount()
+			std::cout << "Currently at " << iterations << " cutting iterations, using " << problem.getConstraintCount()
 					  << " constraints!" << std::endl;
 		}
 		problem.solve(out);
@@ -171,8 +171,9 @@ std::vector<value_t> BranchAndCut::solve() {
 		branchAndBound(next, isRoot);
 		isRoot = false;
 		++iterations;
-		if (iterations%16==0) {
-			std::cout << "At iteration " << iterations << ", cost is " << next.value << std::endl;
+		if (iterations % 16 == 0) {
+			std::cout << "At iteration " << iterations << ", cost is " << next.value << ", open set contains " <<
+					  open.size() << " nodes" << std::endl;
 		}
 	}
 	std::cout << "Found solution in " << handledNodes << " nodes" << std::endl;
@@ -212,11 +213,11 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool isRoot) {
 				 * Die Variable, die beschränkt wird, wird so gewählt, dass der Abstand zur nächsten ganzen Zahl maximal
 				 * ist und (unter diesen Variablen) die Kosten der Variable betragsmäßig maximal sind.
 				 */
-				double distInt = std::abs(diff);
+				double distToInt = std::abs(diff);
 				coeff_t cost = std::abs(objCoefficients[i]);
-				if (varToBound < 0 || generalTolerance.less(optDist, distInt) ||
-					(!generalTolerance.less(distInt, optDist) && cost > varWeight)) {
-					optDist = distInt;
+				if (varToBound < 0 || generalTolerance.less(optDist, distToInt) ||
+					(!generalTolerance.less(distToInt, optDist) && cost > varWeight)) {
+					optDist = distToInt;
 					varToBound = i;
 					varWeight = cost;
 				}
@@ -227,13 +228,11 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool isRoot) {
 				 * die reduzierten Kosten bestimmte Bedingungen erfüllen, kann die Variable auf diesen Wert festgelegt
 				 * werden
 				 */
-				if (node.bounds[i][LinearProgram::upper] != node.bounds[i][LinearProgram::lower]) {
+				if (!node.bounds[i].isFixed()) {
 					double minDifference = upperBound - 1 - fractOpt.getValue();
-					if (rounded == node.bounds[i][LinearProgram::upper]
-						&& intTolerance.less(reducedCosts[i], -minDifference)) {
+					if (rounded == 1 && intTolerance.less(reducedCosts[i], -minDifference)) {
 						node.bounds.fix(i, LinearProgram::upper);
-					} else if (rounded == node.bounds[i][LinearProgram::lower]
-							   && intTolerance.less(minDifference, reducedCosts[i])) {
+					} else if (rounded == 0 && intTolerance.less(minDifference, reducedCosts[i])) {
 						node.bounds.fix(i, LinearProgram::lower);
 					}
 				}
@@ -250,11 +249,11 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool isRoot) {
 				newOpt[i] = std::lround(fractOpt[i]);
 				value += newOpt[i]*objCoefficients[i];
 			}
-			if (value!=std::lround(fractOpt.getValue()))
+			if (value != std::lround(fractOpt.getValue())) {
 				std::cerr << "Fractional: " << fractOpt.getValue() << ", integer: " << value << std::endl;
+			}
 			setUpperBound(newOpt, value);
 		} else {
-			value_t rounded = std::lround(fractOpt[varToBound]);
 			double fractVal = fractOpt.getValue();
 			variable_id origVar = correspondingOrigVar[varToBound];
 			/*

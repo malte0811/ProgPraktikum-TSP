@@ -51,6 +51,7 @@ std::vector<BlossomFinder::Blossom> BlossomFinder::lemma1220() {
 		} else {
 			d[it] = capacitiesFractional[it];
 		}
+		assert(d[it] > -0.01);
 	}
 	//Gomory-Hu-Baum/Arboreszenz bezüglich d berechnen
 	lemon::GomoryHu<Graph, Graph::EdgeMap < double>>
