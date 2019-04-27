@@ -2,9 +2,9 @@
 #define CONNECTIVITY_CUT_GEN_HPP
 
 
-#include "cut_generator.hpp"
-#include "tsp_instance.hpp"
-#include "tsp_lp_data.hpp"
+#include <cut_generator.hpp>
+#include <tsp_instance.hpp>
+#include <tsp_lp_data.hpp>
 
 class ConnectivityCutGen : public CutGenerator {
 public:

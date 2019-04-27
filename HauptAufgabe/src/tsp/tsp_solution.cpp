@@ -69,6 +69,10 @@ TSPSolution::TSPSolution(const TSPInstance& inst, std::vector<city_id>  order)
 	initTourCost();
 }
 
+/**
+ * Liest eine Tour im TSPLib-Format ein
+ * @param instance Die zur Tour gehörende Instanz
+ */
 TSPSolution::TSPSolution(const TSPInstance& instance, std::istream& input) : inst(&instance) {
 	std::string line;
 	bool emptyLines = false;
@@ -152,12 +156,15 @@ void TSPSolution::write(std::ostream& out) const {
 	out << "-1\n";
 }
 
+/**
+ * Gibt eine mit 2-Opt (aus lemon) optimierte Version dieser Tour zurück
+ */
 TSPSolution TSPSolution::opt2() const {
 	using lemon::FullGraph;
 	FullGraph g(inst->getCityCount());
 	FullGraph::EdgeMap<cost_t> costs(g);
 	for (FullGraph::EdgeIt it(g); it != lemon::INVALID; ++it) {
-		costs[it] = inst->getDistance(g.id(g.u(it)), g.id(g.v(it)));
+		costs[it] = inst->getDistance(FullGraph::id(g.u(it)), FullGraph::id(g.v(it)));
 	}
 	lemon::Opt2Tsp<FullGraph::EdgeMap<cost_t>> opt2(g, costs);
 	std::vector<FullGraph::Node> orderGraph(inst->getCityCount());
@@ -168,7 +175,7 @@ TSPSolution TSPSolution::opt2() const {
 	orderGraph = opt2.tourNodes();
 	std::vector<city_id> orderInt(inst->getCityCount());
 	for (city_id i = 0; i < inst->getCityCount(); ++i) {
-		orderInt[i] = g.id(orderGraph[i]);
+		orderInt[i] = FullGraph::id(orderGraph[i]);
 	}
 	return TSPSolution(*inst, orderInt);
 }
@@ -177,6 +184,9 @@ bool TSPSolution::isValid() const {
 	return inst != nullptr;
 }
 
+/**
+ * Berechnet die Kosten der Tour aus der Knotenreihenfolge
+ */
 void TSPSolution::initTourCost() {
 	cost = 0;
 	for (city_id i = 0; i < inst->getCityCount(); ++i) {

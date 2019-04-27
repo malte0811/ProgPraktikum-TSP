@@ -84,7 +84,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 			}
 		}
 		if (!allConstrs.empty()) {
-			size_t maxNonzero = 0, sumNZ = 0;
+			size_t sumNZ = 0;
 			/*
 			 * Constraints hinzufügen (stark verletzte zuerst), bis viele Nonzeroes zum LP hinzugefügt wurden. Dann
 			 * werden keine weiteren Constraints hinzugefügt, um den Speicherverbrauch möglichst klein zu halten
@@ -94,14 +94,10 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 				toAdd.push_back(cws.constraint);
 				const size_t nz = cws.constraint.getNonzeroes().size();
 				sumNZ += nz;
-				if (nz>maxNonzero) {
-					maxNonzero = nz;
-				}
-				if (sumNZ > (tsp.getCityCount() * tsp.getCityCount()) / 2) {
+				if (sumNZ > (tsp.getCityCount() * tsp.getCityCount()) / 4) {
 					break;
 				}
 			}
-			std::cout << "2Matching: Max nonzero: " << maxNonzero << ", sum: " << sumNZ << std::endl;
 			lp.addConstraints(toAdd);
 			return CutGenerator::maybe_recalc;
 		}

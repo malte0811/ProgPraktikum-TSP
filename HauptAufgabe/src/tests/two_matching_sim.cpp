@@ -22,7 +22,7 @@ int main() {
 	if (status!=0) {
 		throw std::runtime_error("Failed to open CPLEX environment: "+std::to_string(status));
 	}
-	TspLpData lpData(inst);
+	TspLpData lpData(inst, nullptr);
 	LinearProgram lp(env, "test", LinearProgram::minimize);
 	lpData.setupBasicLP(lp);
 	TwoMatchingCutGen cg(inst, lpData, false);

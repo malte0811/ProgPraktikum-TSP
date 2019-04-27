@@ -5,7 +5,7 @@
 #include <vector>
 #include <tsp_instance.hpp>
 #include <contraction_rule.hpp>
-#include "blossom_finder.hpp"
+#include <blossom_finder.hpp>
 
 //Eine Instanz der Generic Comb Heruistic aus Grötschel, Holland 1991
 class CombHeuristic {

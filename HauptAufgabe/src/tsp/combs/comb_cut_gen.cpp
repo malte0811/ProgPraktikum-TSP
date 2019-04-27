@@ -51,7 +51,6 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 				break;
 			}
 		}
-		std::cout << "Adding comb constraints with a total of " << sumNZ << " nonzeroes" << std::endl;
 		lp.addConstraints(toAdd);
 		return CutGenerator::maybe_recalc;
 	} else {

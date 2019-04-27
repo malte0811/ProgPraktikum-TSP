@@ -5,7 +5,7 @@
 #include <lemon/smart_graph.h>
 #include <lemon_fixes/nagamochi_ibaraki.h>
 #include <tsp_instance.hpp>
-#include "tsp_lp_data.hpp"
+#include <tsp_lp_data.hpp>
 
 class SubtourCutGen : public CutGenerator {
 public:

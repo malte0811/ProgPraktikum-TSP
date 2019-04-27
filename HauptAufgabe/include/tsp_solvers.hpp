@@ -3,15 +3,16 @@
 
 #include <tsp_instance.hpp>
 #include <tsp_solution.hpp>
-#include "tsp_lp_data.hpp"
+#include <tsp_lp_data.hpp>
 
 namespace tspsolvers {
 	namespace cutgens {
+		//Die Namen der Cut-Generatoren, für den cutGenerators-Parameter von solveLP
 		extern const char *const connected;
 		extern const char *const subtour;
-		extern const char *const simpleCombs;
 		extern const char *const twoMatching;
 		extern const char *const generalCombs;
+		//Die Standard-Konfiguration der CutGens
 		extern const char *const defaultGens;
 	}
 
@@ -22,7 +23,6 @@ namespace tspsolvers {
 								{
 										cutgens::connected,
 										cutgens::subtour,
-										cutgens::simpleCombs,
 										cutgens::twoMatching,
 										cutgens::generalCombs
 								});

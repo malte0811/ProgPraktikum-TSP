@@ -14,7 +14,6 @@
 #include <subtour_cut_gen.hpp>
 #include <two_matching_cut_gen.hpp>
 #include <branch_and_cut.hpp>
-#include <simple_comb_cut_gen.hpp>
 #include <connectivity_cut_gen.hpp>
 #include <tsp_lp_data.hpp>
 #include <comb_cut_gen.hpp>
@@ -24,10 +23,9 @@ namespace tspsolvers {
 	namespace cutgens {
 		extern const char *const connected = "connected";
 		extern const char *const subtour = "subtour";
-		extern const char *const simpleCombs = "simpleCombs";
 		extern const char *const twoMatching = "2matching";
 		extern const char *const generalCombs = "combs";
-		extern const char *const defaultGens = "connected,subtour,simpleCombs,2matching,combs";
+		extern const char *const defaultGens = "connected,subtour,2matching,combs";
 	}
 
 	/**
@@ -122,19 +120,16 @@ namespace tspsolvers {
 	 * @param initial Eine erste obere Schranke, oder nullptr falls ohne eine solche gearbeitet werden soll
 	 * @param lpEnv Die zu verwendende LP-Umgebung
 	 * @param dfs Gibt an, ob DFS verwendet werden soll
+	 * @param cutGenerators die Namen der zu nutzenden CutGens (siehe tspsolvers::cutgens)
 	 * @return eine optimal Lösung der gegebenen TSP-Instanz
 	 */
 	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution *initial, CPXENVptr& lpEnv, bool dfs,
 						const std::vector<std::string>& cutGenerators) {
-		TspLpData data(inst);
-		if (initial != nullptr) {
-			data.removeVariables(*initial);
-		}
+		TspLpData data(inst, initial);
 		std::cout << "Starting at variable count " << data.getVariableCount() << std::endl;
 		ConnectivityCutGen connected(inst, data);
 		SubtourCutGen subtours(inst, data);
 		TwoMatchingCutGen matchings(inst, data, true);
-		SimpleCombCutGen simpleCombs(inst, data);
 		CombCutGen generalCombs(inst, data);
 		LinearProgram lp(lpEnv, inst.getName(), LinearProgram::minimize);
 		data.setupBasicLP(lp);
@@ -145,8 +140,6 @@ namespace tspsolvers {
 				gens.push_back(&connected);
 			} else if (tspsolvers::cutgens::subtour == genName) {
 				gens.push_back(&subtours);
-			} else if (tspsolvers::cutgens::simpleCombs == genName) {
-				gens.push_back(&simpleCombs);
 			} else if (tspsolvers::cutgens::twoMatching == genName) {
 				gens.push_back(&matchings);
 			} else if (tspsolvers::cutgens::generalCombs == genName) {

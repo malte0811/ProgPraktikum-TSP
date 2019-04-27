@@ -3,7 +3,7 @@
 
 #include <linear_program.hpp>
 #include <tsp_instance.hpp>
-#include "tsp_lp_data.hpp"
+#include <tsp_lp_data.hpp>
 
 namespace tsp_util {
 	using ContractionMapTSP = Graph::NodeMap<std::vector<city_id>>;

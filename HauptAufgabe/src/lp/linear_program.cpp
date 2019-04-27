@@ -14,7 +14,7 @@ LinearProgram::LinearProgram(CPXENVptr& env, const std::string& name, Goal opt) 
 	int status;
 	problem = CPXcreateprob(env, &status, name.c_str());
 	if (status!=0) {
-		throw std::runtime_error("Could not create CPLEX problem: "+std::to_string(status));
+		throw std::runtime_error("Could not create CPLEX problem: " + getErrorMessage(status));
 	}
 	CPXchgobjsen(env, problem, opt);
 }
@@ -36,19 +36,19 @@ void LinearProgram::addVariables(const std::vector<double>& objCoeff, const std:
 							upper.data(),
 							nullptr, nullptr);
 	if (result != 0) {
-		throw std::runtime_error("Could not add variables to LP, return value was " + std::to_string(result));
+		throw std::runtime_error("Could not add variables to LP, return value was " + getErrorMessage(result));
 	}
 }
 
 //TODO typedef for constraint indices
-void LinearProgram::addVariable(double objCoeff, double lower, double upper, const std::vector<int>& indices,
-								const std::vector<double>& constrCoeffs) {
+void LinearProgram::addVariableWithCoeffs(double objCoeff, double lower, double upper, const std::vector<int>& indices,
+										  const std::vector<double>& constrCoeffs) {
 	assert(constrCoeffs.size() == indices.size());
 	int zero = 0;
 	int result = CPXaddcols(env, problem, 1, constrCoeffs.size(), &objCoeff, &zero, indices.data(), constrCoeffs.data(),
 							&lower, &upper, nullptr);
 	if (result != 0) {
-		throw std::runtime_error("Could not add variable to LP, return value was " + std::to_string(result));
+		throw std::runtime_error("Could not add variable to LP, return value was " + getErrorMessage(result));
 	}
 }
 
@@ -70,7 +70,7 @@ void LinearProgram::removeSetConstraints(std::vector<int>& shouldDelete) {
 	assert(constraints.size()==shouldDelete.size());
 	int status = CPXdelsetrows(env, problem, shouldDelete.data());
 	if (status!=0) {
-		throw std::runtime_error("Error while deleting constraints: "+std::to_string(status));
+		throw std::runtime_error("Error while deleting constraints: " + getErrorMessage(status));
 	}
 	std::vector<Constraint> newConstrs;
 	for (size_t i = 0; i<constraints.size(); ++i) {
@@ -91,7 +91,7 @@ void LinearProgram::removeSetVariables(std::vector<int>& shouldDelete) {
 		c.deleteVariables(shouldDelete);
 	}
 	if (status != 0) {
-		throw std::runtime_error("Error while deleting variables: " + std::to_string(status));
+		throw std::runtime_error("Error while deleting variables: " + getErrorMessage(status));
 	}
 }
 
@@ -108,7 +108,7 @@ LinearProgram::Solution LinearProgram::solvePrimal() {
 	Solution sol(static_cast<size_t>(getVariableCount()), static_cast<size_t>(getConstraintCount()));
 	int result = CPXprimopt(env, problem);
 	if (result != 0) {
-		throw std::runtime_error("Could not solve LP, return value was " + std::to_string(result));
+		throw std::runtime_error("Could not solve LP, return value was " + getErrorMessage(result));
 	}
 	writeSolution(sol);
 	return sol;
@@ -123,7 +123,7 @@ LinearProgram::Solution LinearProgram::solvePrimal() {
 void LinearProgram::solve(LinearProgram::Solution& out) {
 	int result = CPXdualopt(env, problem);
 	if (result!=0) {
-		throw std::runtime_error("Could not solve LP, return value was "+std::to_string(result));
+		throw std::runtime_error("Could not solve LP, return value was " + getErrorMessage(result));
 	}
 	writeSolution(out);
 }
@@ -137,7 +137,7 @@ void LinearProgram::writeSolution(Solution& out) {
 			int result = CPXsolution(env, problem, &status, &out.value, out.vector.data(), out.shadowCosts.data(),
 									 out.slack.data(), out.reduced.data());
 			if (result != 0) {
-				throw std::runtime_error("Failed to copy LP solution: " + std::to_string(status));
+				throw std::runtime_error("Failed to copy LP solution: " + getErrorMessage(status));
 			}
 		}
 			break;
@@ -168,7 +168,7 @@ double LinearProgram::getBound(variable_id var, BoundType bound) {
 		result = CPXgetub(env, problem, &ret, var, var);
 	}
 	if (result!=0) {
-		throw std::runtime_error("Failed to get variable bound: "+std::to_string(result));
+		throw std::runtime_error("Failed to get variable bound: " + getErrorMessage(result));
 	}
 	return ret;
 }
@@ -191,7 +191,7 @@ std::vector<double> LinearProgram::getObjective() {
 	std::vector<double> ret(static_cast<size_t>(varCount));
 	int status = CPXgetobj(env, problem, ret.data(), 0, varCount-1);
 	if (status!=0) {
-		throw std::runtime_error("Could not get objective coefficients: "+std::to_string(status));
+		throw std::runtime_error("Could not get objective coefficients: " + getErrorMessage(status));
 	}
 	return ret;
 }
@@ -312,4 +312,13 @@ LinearProgram::Constraint LinearProgram::Constraint::fromDense(const std::vector
 		usedCoeffs.push_back(coeffs[var]);
 	}
 	return Constraint(usedVars, usedCoeffs, sense, rhs);
+}
+
+
+std::string LinearProgram::getErrorMessage(int error) {
+	char buffer[4096];
+	if (CPXgeterrorstring(env, error, buffer) != nullptr) {
+		return buffer;
+	}
+	return "Unkown error: " + std::to_string(error);
 }

@@ -100,8 +100,8 @@ public:
 	void addVariables(const std::vector<double>& objCoeff, const std::vector<double>& lower,
 					  const std::vector<double>& upper);
 
-	void addVariable(double objCoeff, double lower, double upper, const std::vector<int>& indices,
-					 const std::vector<double>& constrCoeffs);
+	void addVariableWithCoeffs(double objCoeff, double lower, double upper, const std::vector<int>& indices,
+							   const std::vector<double>& constrCoeffs);
 
 	void addConstraint(const Constraint& constr);
 
@@ -136,6 +136,8 @@ public:
 private:
 	void writeSolution(Solution& sol);
 
+	std::string getErrorMessage(int error);
+
 	CPXENVptr& env;
 	CPXLPptr problem;
 	std::vector<Constraint> constraints;
@@ -158,17 +160,11 @@ void LinearProgram::addConstraints(const T& constrs) {
 		sense.push_back(c.getSense());
 		indices.insert(indices.end(), c.getNonzeroes().begin(), c.getNonzeroes().end());
 		coeffs.insert(coeffs.end(), c.getCoeffs().begin(), c.getCoeffs().end());
-		//std::set<variable_id> inds;
-		//for (variable_id i:c.indices) {
-		//	assert(i >= 0 && i < getVariableCount());
-		//	assert(!inds.count(i));
-		//	inds.insert(i);
-		//}
 	}
 	int result = CPXaddrows(env, problem, 0, constrs.size(), indices.size(), rhs.data(),
 							sense.data(), constrStarts.data(), indices.data(), coeffs.data(), nullptr, nullptr);
 	if (result != 0) {
-		throw std::runtime_error("Could not add constraint to LP, return value was " + std::to_string(result));
+		throw std::runtime_error("Could not add constraint to LP, return value was " + getErrorMessage(result));
 	}
 	constraints.insert(constraints.end(), constrs.begin(), constrs.end());
 }

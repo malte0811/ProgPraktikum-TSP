@@ -2,9 +2,10 @@
 #include <lemon/connectivity.h>
 #include <tsp_utils.hpp>
 
-TspLpData::TspLpData(const TSPInstance& inst)
+TspLpData::TspLpData(const TSPInstance& inst, const TSPSolution *initial)
 		: inst(inst), variableToEdge(inst.getEdgeCount()), edgeToVariable(inst.getCityCount() - 1),
 		  removalBound(inst.getEdgeCount(), -std::numeric_limits<double>::max()), tolerance(0.1) {
+	//Allen Kanten im vollständigen Graphen Variablen zuordnen
 	variable_id currVar = 0;
 	for (city_id higher = 1; higher < inst.getCityCount(); ++higher) {
 		edgeToVariable[higher - 1].resize(higher);
@@ -14,8 +15,17 @@ TspLpData::TspLpData(const TSPInstance& inst)
 			++currVar;
 		}
 	}
+	if (initial != nullptr) {
+		upperBound = *initial;
+	}
 }
 
+/**
+ * Setzt die beste bekannte Schranke auf die variables entsprechende Tour und entfernt dadurch unnötig gewordene
+ * Variablen
+ * @param variables Die LP-Variablen für die neue obere Schranke
+ * @return die entfernten Variablen
+ */
 std::vector<variable_id> TspLpData::removeOnUpperBound(const std::vector<value_t>& variables) {
 	std::vector<bool> asBools(variables.size());
 	cost_t bound = 0;
@@ -28,43 +38,54 @@ std::vector<variable_id> TspLpData::removeOnUpperBound(const std::vector<value_t
 	if (upperBound.isValid() && bound >= upperBound.getCost()) {
 		return {};
 	}
-	return removeVariables(TSPSolution(inst, asBools, *this));
+	upperBound = TSPSolution(inst, asBools, *this);
+	return removeVariables();
 
 }
 
+/**
+ * Verbessert die "Entfernungsschranken" auf die aus der LP-Lösung und den reduzierten Kosten erhaltenen Werte und
+ * entfernt alle dadurch unnötig gewordenen Variablen
+ * @param rootSol Eine Lösung des Wurzelknotens im B&B-Suchbaum (die nicht unbedingt alle Cut-Generatoren erfüllt)
+ * @return die entfernten Variablen
+ */
 std::vector<variable_id> TspLpData::removeOnRootSolution(const LinearProgram::Solution& rootSol) {
 	for (variable_id i = 0; i < getVariableCount(); ++i) {
+		/*
+		 * Entfernen, falls L+red>U-1 <=> U<L+1+red (U: obere Schranke, L: untere Schranke aus dem LP, red: reduzierte
+		 * Kosten)
+		 */
 		double lpThreshold = rootSol.getValue() + 1 + rootSol.getReducedCosts()[i];
 		if (lpThreshold > removalBound[i] && rootSol[i] == 0) {
 			removalBound[i] = lpThreshold;
 		}
 	}
 	if (!upperBound.isValid()) {
+		//Es gibt noch keine obere Schranke
 		return {};
 	} else {
-		return removeVariables(upperBound);
+		return removeVariables();
 	}
 }
 
-
-std::vector<variable_id> TspLpData::removeVariables(const TSPSolution& solution) {
-	const cost_t bound = solution.getCost();
-	upperBound = solution;
+/**
+ * Entfernt alle Variablen, die in einer Lösung, die um min. 1 besser als die beste bekannte, sicher Wert 0 haben.
+ * @return die entfernten Variablen
+ */
+std::vector<variable_id> TspLpData::removeVariables() {
+	const cost_t bound = upperBound.getCost();
 	std::vector<variable_id> toRemove;
+	//Die nächste freie neue Variablen-ID
 	variable_id newId = 0;
 	for (variable_id oldId = 0; oldId < variableToEdge.size(); ++oldId) {
+		Edge e = variableToEdge[oldId];
 		if (tolerance.less(bound, removalBound[oldId])) {
 			toRemove.push_back(oldId);
+			edgeToVariable[e.second - 1][e.first] = LinearProgram::invalid_variable;
 		} else {
-			Edge e = variableToEdge[oldId];
 			edgeToVariable[e.second - 1][e.first] = newId;
 			++newId;
 		}
-	}
-
-	for (variable_id rem:toRemove) {
-		Edge e = variableToEdge[rem];
-		edgeToVariable[e.second - 1][e.first] = LinearProgram::invalid_variable;
 	}
 	tsp_util::eraseEntries(removalBound, toRemove);
 	tsp_util::eraseEntries(variableToEdge, toRemove);
@@ -103,6 +124,13 @@ const TSPSolution& TspLpData::getUpperBound() const {
 	return upperBound;
 }
 
+/**
+ * Erhöht die Koeffizienten der induzierten Kanten um 1.
+ * @param set Die induzierende Menge
+ * @param values Die (dichten) Koeffizienten der Constraint
+ * @param usedVars Die Variablen mit Wert ungleich 0
+ * @return Die RHS der zur verwendeten inuzierten Menge gehörenden Subtour-Constraint (set.size()-1)
+ */
 city_id TspLpData::inducedSum(const std::vector<city_id>& set, std::vector<double>& values,
 							  std::vector<variable_id>& usedVars) const {
 	for (size_t i = 1; i < set.size(); ++i) {
@@ -121,7 +149,7 @@ city_id TspLpData::inducedSum(const std::vector<city_id>& set, std::vector<doubl
 
 /**
  * Erhöht die Koeffizienten der induzierten Kanten um 1. Falls dadurch eine dünner besetzte Constraint entsteht, werden
- * die vom Komplement induzierten Kanten verwendet.
+ * die vom Komplement induzierten Kanten verwendet (x(X)<=|X|-k <=> x(V\X)<=|V\X|-k).
  * @param set Die induzierende Menge
  * @param values Die (dichten) Koeffizienten der Constraint
  * @param usedVars Die Variablen mit Wert ungleich 0

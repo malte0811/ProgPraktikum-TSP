@@ -15,6 +15,7 @@ public:
 	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution, CutStatus currentStatus) override;
 
 private:
+	//Die Transformationen und die daraus entstehenden Heuristiken aus dem Paper
 	ContractionRule onePath;
 	ContractionRule triangle2;
 	ContractionRule square3;
