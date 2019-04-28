@@ -32,29 +32,28 @@ private:
 	LinearProgram::Constraint getContraintFor(const CombHeuristic::Comb& c);
 
 	static ContractionRule::Contraction findOnePath(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
-													const std::vector<Graph::Edge>& possibleOneEdges,
+													const std::vector<Graph::Edge>&,
 													const Graph::EdgeMap<double>& costs,
 													const Graph::NodeMap<bool>& used);
 
-	static ContractionRule::Contraction findTriangle2(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
+	static ContractionRule::Contraction findTriangle2(const Graph& g, const std::vector<Graph::Node>&,
 													  const std::vector<Graph::Edge>& possibleOneEdges,
 													  const Graph::EdgeMap<double>& costs,
-													  const Graph::NodeMap<bool>& used);
+													  const Graph::NodeMap<bool>&);
 
 	static ContractionRule::Contraction findSquare3(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
-													const std::vector<Graph::Edge>& possibleOneEdges,
+													const std::vector<Graph::Edge>&,
 													const Graph::EdgeMap<double>& costs,
 													const Graph::NodeMap<bool>& used);
 
-	static ContractionRule::Contraction findOneSquare(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
+	static ContractionRule::Contraction findOneSquare(const Graph& g, const std::vector<Graph::Node>&,
 													  const std::vector<Graph::Edge>& possibleOneEdges,
-													  const Graph::EdgeMap<double>& costs,
-													  const Graph::NodeMap<bool>& used);
+													  const Graph::EdgeMap<double>& costs, const Graph::NodeMap<bool>&);
 
-	static ContractionRule::Contraction findTriangleGE05(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
+	static ContractionRule::Contraction findTriangleGE05(const Graph& g, const std::vector<Graph::Node>&,
 														 const std::vector<Graph::Edge>& possibleOneEdges,
 														 const Graph::EdgeMap<double>& costs,
-														 const Graph::NodeMap<bool>& used);
+														 const Graph::NodeMap<bool>&);
 };
 
 

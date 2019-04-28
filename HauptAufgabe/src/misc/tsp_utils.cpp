@@ -8,7 +8,7 @@ std::vector<variable_id> tsp_util::createFractionalGraph(const TSPInstance& tsp,
 														 std::vector<Graph::Node>& origToWork,
 														 Graph::EdgeMap <variable_id>& toVariable,
 														 Graph::EdgeMap<double>& c, Graph::NodeMap<bool>& odd) {
-	for (city_id i = 0; i<tsp.getCityCount(); ++i) {
+	for (city_id i = 0; i < tsp.getCityCount(); ++i) {
 		Graph::Node newNode = workGraph.addNode();
 		origToWork[i] = newNode;
 		workToOrig[newNode] = {i};
@@ -66,7 +66,7 @@ void tsp_util::addSupportGraphEdges(const TSPInstance& tsp, const TspLpData& lpD
 	/*
 	 * Alle Kanten einfügen, deren Variablen einen echt positiven Wert haben
 	 */
-	for (variable_id i = 0; i < solution.size(); ++i) {
+	for (variable_id i = 0; i < lpData.getVariableCount(); ++i) {
 		if (tolerance.positive(solution[i])) {
 			TspLpData::Edge e = lpData.getEdge(i);
 			Graph::Edge inWork = workGraph.addEdge(origToWork[e.first], origToWork[e.second]);
@@ -90,7 +90,7 @@ std::string tsp_util::readKeyword(std::istream& in) {
 	return keyword;
 }
 
-bool tsp_util::CompareOrderedConstraint::operator()(const ConstraintWithSlack & p1, const ConstraintWithSlack & p2) {
+bool tsp_util::CompareOrderedConstraint::operator()(const ConstraintWithSlack& p1, const ConstraintWithSlack& p2) {
 	if (p1.slack != p2.slack) {
 		return p1.slack < p2.slack;
 	}

@@ -14,7 +14,7 @@ public:
 
 	TSPSolution(const TSPInstance& inst, const lemon::FullGraph& g, const lemon::FullGraph::EdgeMap<bool>& used);
 
-	TSPSolution(const TSPInstance& inst, std::vector<city_id>  order);
+	TSPSolution(const TSPInstance& inst, std::vector<city_id> order);
 
 	TSPSolution(const TSPInstance& instance, std::istream& input);
 
@@ -33,7 +33,7 @@ private:
 
 	void initFromGraph(const lemon::FullGraph& g, const lemon::FullGraph::EdgeMap<bool>& used);
 
-	const TSPInstance* inst = nullptr;
+	const TSPInstance *inst = nullptr;
 	//Die Reihenfolge der Städte auf der gespeicherten Tour
 	std::vector<city_id> order;
 	//Die Kosten der Tour

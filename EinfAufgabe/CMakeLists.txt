@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.13)
 project(EinfAufgabe)
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -pedantic")
 
 set(CMAKE_CXX_STANDARD 14)
 

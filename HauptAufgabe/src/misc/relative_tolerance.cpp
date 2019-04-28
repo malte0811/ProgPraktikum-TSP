@@ -6,17 +6,17 @@ RelativeTolerance::RelativeTolerance() : RelativeTolerance(lemon::Tolerance<doub
 RelativeTolerance::RelativeTolerance(double eps) : eps(eps) {}
 
 bool RelativeTolerance::less(double a, double b) const {
-	if (a>=b) {
+	if (a >= b) {
 		return false;
 	}
-	if (a<0) {
-		if (b<0) {
-			return a<b*(1+eps);
+	if (a < 0) {
+		if (b < 0) {
+			return a < b * (1 + eps);
 		} else {
-			return a+eps<b;
+			return a + eps < b;
 		}
 	} else {
-		return a*(1+eps)<b;
+		return a * (1 + eps) < b;
 	}
 }
 
@@ -25,11 +25,11 @@ bool RelativeTolerance::different(double a, double b) const {
 }
 
 bool RelativeTolerance::positive(double a) const {
-	return eps<a;
+	return eps < a;
 }
 
 bool RelativeTolerance::negative(double a) const {
-	return a<-eps;
+	return a < -eps;
 }
 
 bool RelativeTolerance::nonZero(double a) const {

@@ -55,19 +55,19 @@ private:
 
 
 city_id TSPInstance::getCityCount() const {
-	return static_cast<city_id>(distances.size()+1);
+	return static_cast<city_id>(distances.size() + 1);
 }
 
 variable_id TSPInstance::getEdgeCount() const {
 	city_id size = getCityCount();
-	return (size*(size-1))/2;
+	return (size * (size - 1)) / 2;
 }
 
 cost_t TSPInstance::getDistance(city_id a, city_id b) const {
-	if (a>b) {
-		return distances[a-1][b];
-	} else if (b>a) {
-		return distances[b-1][a];
+	if (a > b) {
+		return distances[a - 1][b];
+	} else if (b > a) {
+		return distances[b - 1][a];
 	} else {
 		return 0;
 	}

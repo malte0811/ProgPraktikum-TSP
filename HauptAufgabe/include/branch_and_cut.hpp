@@ -13,9 +13,9 @@
 #include <set>
 #include <relative_tolerance.hpp>
 
-//TODO durch char/bool ersetzen?
-using value_t = long;
+using value_t = char;
 using coeff_t = long;
+using obj_t = typename std::common_type<value_t, coeff_t>::type;
 
 class VariableRemover;
 
@@ -29,7 +29,7 @@ class BranchAndCut {
 public:
 	BranchAndCut(LinearProgram& program, std::vector<CutGenerator *> gens, VariableRemover *remover, bool dfs);
 
-	void setUpperBound(const std::vector<value_t>& value, value_t cost);
+	void setUpperBound(const std::vector<value_t>& value, obj_t cost);
 
 	std::vector<value_t> solve();
 
@@ -106,7 +106,7 @@ private:
 	//Gibt an, ob der Suchbaum nach der üblichen Strategie oder mit DFS durchlaufen werden soll
 	const bool dfs;
 	//Die Schnittebenen-Generatoren, die erfüllt sein müssen
-	const std::vector<CutGenerator*> generators;
+	const std::vector<CutGenerator *> generators;
 	VariableRemover *remover;
 	//Anzahl der Nebenbedingungen am Start der Berechnung
 	const size_t constraintsAtStart;

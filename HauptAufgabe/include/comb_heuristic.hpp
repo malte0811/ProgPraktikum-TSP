@@ -14,13 +14,16 @@ public:
 		Comb(const Graph& g, const BlossomFinder::Blossom& b,
 			 const tsp_util::ContractionMapTSP& contr);
 
-		//Wahr, falls der Kamm eine Blüte ist, d.h. alle Zinken Größe 2 haben
 		bool isBlossom() const;
 
-		//Vereinfacht den Kamm, z.B. durch das Entfernen langer Ketten von 1-Kanten aus dem Griff
 		void simplify(const TspLpData& lpData, const std::vector<double>& solution);
 
-		//Prüft, dass der Kamm "gültig" (d.h. tatsächlich ein Kamm) ist
+		std::vector<std::pair<city_id, city_id>> findOneNeighbors(const std::vector<bool>& isPureHandle,
+																  const TspLpData& lpData,
+																  const std::vector<double>& solution);
+
+		void simplifyPureOnePaths(std::vector<std::pair<city_id, city_id>>& oneNeighbors, std::vector<bool>& isHandle);
+
 		void validate(city_id cityCount) const;
 
 		std::vector<city_id> handle;

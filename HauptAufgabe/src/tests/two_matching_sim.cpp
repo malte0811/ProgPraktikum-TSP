@@ -19,8 +19,8 @@ int main() {
 	}
 	int status;
 	CPXENVptr env = CPXopenCPLEX(&status);
-	if (status!=0) {
-		throw std::runtime_error("Failed to open CPLEX environment: "+std::to_string(status));
+	if (status != 0) {
+		throw std::runtime_error("Failed to open CPLEX environment: " + std::to_string(status));
 	}
 	TspLpData lpData(inst, nullptr);
 	LinearProgram lp(env, "test", LinearProgram::minimize);

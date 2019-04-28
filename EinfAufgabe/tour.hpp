@@ -1,5 +1,6 @@
 #ifndef TOUR_HPP
 #define TOUR_HPP
+
 #include <vector>
 #include <array>
 #include <ostream>
@@ -12,7 +13,7 @@ public:
 	using cost_t = Graph::cost_t;
 	using Vec2 = Graph::Vec2;
 
-	Tour(std::vector<node_id> order, cost_t length, const std::string& name);
+	Tour(std::vector<node_id> order, cost_t length, std::string name);
 
 	const cost_t length;
 	const std::string name;

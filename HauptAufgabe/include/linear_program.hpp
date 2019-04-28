@@ -80,7 +80,8 @@ public:
 
 		void deleteVariables(const std::vector<variable_id>& removalMap);
 
-		static Constraint fromDense(const std::vector<variable_id>& usedVars, const std::vector<double>& coeffs, CompType sense,
+		static Constraint fromDense(const std::vector<variable_id>& usedVars, const std::vector<double>& coeffs,
+									CompType sense,
 									double rhs);
 
 	private:

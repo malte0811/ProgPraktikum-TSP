@@ -1,3 +1,5 @@
+#include <utility>
+
 #include <iostream>
 #include <ctime>
 #include <istream>
@@ -25,6 +27,7 @@ T readOrThrow(std::istream& input) {
 	}
 	return ret;
 }
+
 Graph::Graph(std::istream& input) {
 	std::string line;
 	edgeType = euc_2d;
@@ -38,38 +41,38 @@ Graph::Graph(std::istream& input) {
 			std::stringstream ss(line);
 			std::string keyword;
 			ss >> keyword >> std::ws;
-			if (ss.peek()==':') {
+			if (ss.peek() == ':') {
 				ss.ignore();
-			} else if (keyword.back()==':') {
-				keyword = keyword.substr(0, keyword.size()-1);
+			} else if (keyword.back() == ':') {
+				keyword = keyword.substr(0, keyword.size() - 1);
 			}
-			if (keyword=="NAME") {
+			if (keyword == "NAME") {
 				ss >> name;
-			} else if (keyword=="COMMENT") {
+			} else if (keyword == "COMMENT") {
 				//NOP
-			} else if (keyword=="DIMENSION") {
+			} else if (keyword == "DIMENSION") {
 				auto nodeCount = readOrThrow<node_id>(ss);
 				nodes.resize(nodeCount);
 				nodeLocations.resize(nodeCount);
-			} else if (keyword=="EDGE_WEIGHT_TYPE") {
+			} else if (keyword == "EDGE_WEIGHT_TYPE") {
 				auto type = readOrThrow<std::string>(ss);
-				if (type=="EUC_2D") {
+				if (type == "EUC_2D") {
 					edgeType = euc_2d;
-				} else if (type=="CEIL_2D") {
+				} else if (type == "CEIL_2D") {
 					edgeType = ceil_2d;
 				}
-			} else if (keyword=="NODE_COORD_SECTION") {
+			} else if (keyword == "NODE_COORD_SECTION") {
 				readNodes(input, edgeType);
 				input >> std::ws;
-			} else if (keyword=="TYPE") {
+			} else if (keyword == "TYPE") {
 				auto type = readOrThrow<std::string>(ss);
-				if (type!="TSP") {
+				if (type != "TSP") {
 					throw std::invalid_argument("Input is not a symmetric TSP instance!");
 				}
-			} else if (keyword=="EOF") {
+			} else if (keyword == "EOF") {
 				break;
 			} else {
-				throw std::invalid_argument("Invalid keyword in input: \""+keyword+"\"");
+				throw std::invalid_argument("Invalid keyword in input: \"" + keyword + "\"");
 			}
 		} else {
 			emptyLines = true;
@@ -80,24 +83,22 @@ Graph::Graph(std::istream& input) {
 void Graph::readNodes(std::istream& input, EdgeWeightType type) {
 	std::vector<bool> set(getNodeCount(), false);
 	node_id setCount = 0;
-	for (node_id iteration = 0;iteration<getNodeCount();++iteration) {
-		auto id = readOrThrow<node_id>(input)-1;
-		assert(id<getNodeCount());
+	for (node_id iteration = 0; iteration < getNodeCount(); ++iteration) {
+		auto id = readOrThrow<node_id>(input) - 1;
+		assert(id < getNodeCount());
 		assert(!set[id]);
 		set[id] = true;
 		++setCount;
 		nodeLocations[id] = {readOrThrow<double>(input), readOrThrow<double>(input)};
 	}
-	assert(setCount==getNodeCount());
-	for (node_id endA = 1;endA<getNodeCount();++endA) {
-		for (node_id endB = 0;endB<endA;++endB) {
-			Vec2 dist = nodeLocations[endA]-nodeLocations[endB];
+	assert(setCount == getNodeCount());
+	for (node_id endA = 1; endA < getNodeCount(); ++endA) {
+		for (node_id endB = 0; endB < endA; ++endB) {
+			Vec2 dist = nodeLocations[endA] - nodeLocations[endB];
 			addEdge(endA, endB, dist.length(type));
 		}
 	}
 }
-
-Graph::Graph(node_id nodeCount, const std::string& name) : nodes(nodeCount), name(name), nodeLocations(nodeCount) {}
 
 edge Graph::getEdge(edge_id id) const {
 	return edges[id];
@@ -131,7 +132,7 @@ const std::string& Graph::getName() const {
 Einfache Helfer-Methode, gibt den jeweils anderen Endknoten zu known zurück
 */
 Graph::node_id edge::getOtherNode(Graph::node_id known) const {
-	if (known==endA) {
+	if (known == endA) {
 		return endB;
 	} else {
 		return endA;
@@ -144,7 +145,7 @@ std::ostream& operator<<(std::ostream& out, const edge& e) {
 }
 
 Graph::cost_t Graph::Vec2::length(EdgeWeightType norm) const {
-	double realLen = std::sqrt(x*x+y*y);
+	double realLen = std::sqrt(x * x + y * y);
 	switch (norm) {
 		case euc_2d:
 			return static_cast<cost_t>(std::round(realLen));
@@ -155,5 +156,5 @@ Graph::cost_t Graph::Vec2::length(EdgeWeightType norm) const {
 }
 
 Graph::Vec2 Graph::Vec2::operator-(const Graph::Vec2& other) const {
-	return {x-other.x, y-other.y};
+	return {x - other.x, y - other.y};
 }

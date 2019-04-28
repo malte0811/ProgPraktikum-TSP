@@ -10,13 +10,11 @@ class ConnectivityCutGen : public CutGenerator {
 public:
 	explicit ConnectivityCutGen(const TSPInstance& inst, const TspLpData& lpData);
 
-	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution, CutStatus currentStatus) override;
+	CutStatus validate(LinearProgram& lp, const std::vector<double>& solution, CutStatus) override;
 
 private:
 	//Der Arbeitsgraph. Enthält alle Kanten, deren Wert in der LP-Lösung nicht 0 ist
 	Graph workGraph;
-	//Der Grundzustand des Arbeitsgraphen: Keine Kanten, nur die korrekte Anzahl an Knoten
-	Graph::Snapshot baseState;
 	//Ordnet jedem Stadt der TSP-Instanz einen Knoten im Arbeitsgraphen zu
 	std::vector<Graph::Node> origToWork;
 	//Die Umkehrabbildung zu origToWork

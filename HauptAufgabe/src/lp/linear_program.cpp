@@ -13,7 +13,7 @@ variable_id LinearProgram::invalid_variable = -1;
 LinearProgram::LinearProgram(CPXENVptr& env, const std::string& name, Goal opt) : env(env) {
 	int status;
 	problem = CPXcreateprob(env, &status, name.c_str());
-	if (status!=0) {
+	if (status != 0) {
 		throw std::runtime_error("Could not create CPLEX problem: " + getErrorMessage(status));
 	}
 	CPXchgobjsen(env, problem, opt);
@@ -31,7 +31,7 @@ LinearProgram::~LinearProgram() {
  */
 void LinearProgram::addVariables(const std::vector<double>& objCoeff, const std::vector<double>& lower,
 								 const std::vector<double>& upper) {
-	assert(objCoeff.size()==lower.size() && objCoeff.size()==upper.size());
+	assert(objCoeff.size() == lower.size() && objCoeff.size() == upper.size());
 	int result = CPXnewcols(env, problem, static_cast<int>(objCoeff.size()), objCoeff.data(), lower.data(),
 							upper.data(),
 							nullptr, nullptr);
@@ -40,7 +40,6 @@ void LinearProgram::addVariables(const std::vector<double>& objCoeff, const std:
 	}
 }
 
-//TODO typedef for constraint indices
 void LinearProgram::addVariableWithCoeffs(double objCoeff, double lower, double upper, const std::vector<int>& indices,
 										  const std::vector<double>& constrCoeffs) {
 	assert(constrCoeffs.size() == indices.size());
@@ -67,14 +66,14 @@ void LinearProgram::addConstraint(const Constraint& constr) {
  * Entfernt die Constraints, die im Vector den Wert 1 haben
  */
 void LinearProgram::removeSetConstraints(std::vector<int>& shouldDelete) {
-	assert(constraints.size()==shouldDelete.size());
+	assert(constraints.size() == shouldDelete.size());
 	int status = CPXdelsetrows(env, problem, shouldDelete.data());
-	if (status!=0) {
+	if (status != 0) {
 		throw std::runtime_error("Error while deleting constraints: " + getErrorMessage(status));
 	}
 	std::vector<Constraint> newConstrs;
-	for (size_t i = 0; i<constraints.size(); ++i) {
-		if (shouldDelete[i]>=0) {
+	for (size_t i = 0; i < constraints.size(); ++i) {
+		if (shouldDelete[i] >= 0) {
 			newConstrs.push_back(constraints[i]);
 		}
 	}
@@ -122,7 +121,7 @@ LinearProgram::Solution LinearProgram::solvePrimal() {
  */
 void LinearProgram::solve(LinearProgram::Solution& out) {
 	int result = CPXdualopt(env, problem);
-	if (result!=0) {
+	if (result != 0) {
 		throw std::runtime_error("Could not solve LP, return value was " + getErrorMessage(result));
 	}
 	writeSolution(out);
@@ -149,7 +148,7 @@ void LinearProgram::writeSolution(Solution& out) {
 		case CPX_STAT_UNBOUNDED:
 			throw std::runtime_error("LP is unbounded");
 		default:
-			char errStr[510];
+			char errStr[4096];
 			CPXgetstatstring(env, status, errStr);
 			throw std::runtime_error("LP solver gave error: " + std::string(errStr));
 	}
@@ -162,12 +161,12 @@ variable_id LinearProgram::getVariableCount() {
 double LinearProgram::getBound(variable_id var, BoundType bound) {
 	double ret;
 	int result;
-	if (bound==lower) {
+	if (bound == lower) {
 		result = CPXgetlb(env, problem, &ret, var, var);
 	} else {
 		result = CPXgetub(env, problem, &ret, var, var);
 	}
-	if (result!=0) {
+	if (result != 0) {
 		throw std::runtime_error("Failed to get variable bound: " + getErrorMessage(result));
 	}
 	return ret;
@@ -189,8 +188,8 @@ int LinearProgram::getConstraintCount() {
 std::vector<double> LinearProgram::getObjective() {
 	variable_id varCount = getVariableCount();
 	std::vector<double> ret(static_cast<size_t>(varCount));
-	int status = CPXgetobj(env, problem, ret.data(), 0, varCount-1);
-	if (status!=0) {
+	int status = CPXgetobj(env, problem, ret.data(), 0, varCount - 1);
+	if (status != 0) {
 		throw std::runtime_error("Could not get objective coefficients: " + getErrorMessage(status));
 	}
 	return ret;
@@ -239,7 +238,7 @@ void LinearProgram::Solution::removeVariables(const std::vector<variable_id>& to
 LinearProgram::Constraint::Constraint(const std::vector<int>& indices, const std::vector<double>& coeffs,
 									  LinearProgram::CompType cmp, double rhs) :
 		indices(indices), coeffs(coeffs), comp(cmp), rhs(rhs) {
-	assert(indices.size()==coeffs.size());
+	assert(indices.size() == coeffs.size());
 }
 
 const std::vector<int>& LinearProgram::Constraint::getNonzeroes() const {
@@ -272,8 +271,8 @@ bool LinearProgram::Constraint::isValidLHS(double lhs, lemon::Tolerance<double> 
 
 double LinearProgram::Constraint::evalLHS(const std::vector<double>& variables) const {
 	double ret = 0;
-	for (size_t i = 0; i<indices.size(); ++i) {
-		ret += variables[indices[i]]*coeffs[i];
+	for (size_t i = 0; i < indices.size(); ++i) {
+		ret += variables[indices[i]] * coeffs[i];
 	}
 	return ret;
 }
@@ -287,8 +286,8 @@ bool LinearProgram::Constraint::isValid() const {
 void LinearProgram::Constraint::deleteVariables(const std::vector<variable_id>& removalMap) {
 	std::vector<variable_id> newNZ;
 	std::vector<double> newCoeffs;
-	for (size_t i = 0;i<coeffs.size();++i) {
-		if (removalMap[indices[i]]>=0) {
+	for (size_t i = 0; i < coeffs.size(); ++i) {
+		if (removalMap[indices[i]] >= 0) {
 			newNZ.push_back(removalMap[indices[i]]);
 			newCoeffs.push_back(coeffs[i]);
 		}

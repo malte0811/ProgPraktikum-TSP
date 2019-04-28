@@ -20,7 +20,7 @@ int read(std::istream& in) {
 /*
  * Wandelt die Ausgabe von Concorde's linkern in eine TSPLIB-Tour um
  */
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 	if (argc != 3) {
 		std::cout << "Needs exactly 2 arguments!" << std::endl;
 		return 1;

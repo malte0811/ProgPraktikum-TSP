@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <stdexcept>
 
-int main(int argc, char** argv) {
-	if (argc!=2) {
+int main(int argc, char **argv) {
+	if (argc != 2) {
 		std::cout << "Requires exactly one argument (input file name)" << std::endl;
 		return 1;
 	}
@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
 		std::cout << "Cost of reference tour: " << ref.length << std::endl;
 		std::cout << "Cost of greedy tour: " << greedy.length << std::endl;
 		greedy.print(std::cout);
-	} catch (std::invalid_argument &x) {
+	} catch (std::invalid_argument& x) {
 		std::cout << "ERROR: " << x.what() << std::endl;
 	}
 }

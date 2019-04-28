@@ -3,7 +3,7 @@
 
 BlossomFinder::BlossomFinder(const Graph& g, Graph::EdgeMap<double>& capacities, lemon::Tolerance<double> tolerance,
 							 bool shouldContractPaths) :
-		inputGraph(g), tolerance(tolerance), capacitiesMain(capacities), capacitiesFractional(fractionalGraph),
+		tolerance(tolerance), inputGraph(g), capacitiesMain(capacities), capacitiesFractional(fractionalGraph),
 		oddNodes(fractionalGraph, false), contraction(fractionalGraph),
 		fractToMainEdges(fractionalGraph, lemon::INVALID),
 		shouldContractPaths(shouldContractPaths), nodeCount(lemon::countNodes(inputGraph)) {
@@ -241,7 +241,6 @@ std::vector<Graph::Node> BlossomFinder::discoverPath(Graph::Node start, Graph::E
 		visited[current] = true;
 		Graph::Node nextNode = lemon::INVALID;
 		for (Graph::OutArcIt it(fractionalGraph, current); it != lemon::INVALID && nextNode == lemon::INVALID; ++it) {
-			//TODO warum gibt it!=lastEdge eigentlich einen Compiler-Error?
 			//current ist ein gültiger innerer Knoten, hat also Grad 2 und Kantensumme 1. it ist nicht die vorherige
 			//Kante im Pfad, also muss it die nächste Kante des Pfades sein
 			if (lastEdge != it) {
@@ -266,7 +265,6 @@ std::vector<Graph::Node> BlossomFinder::discoverPath(Graph::Node start, Graph::E
 	return path;
 }
 
-//TODO better name?
 /**
  * Fügt die 1-Kanten zur Blüte hinzu und wandelt sie in eine Blüte mit selbem Wert um, deren Zähne ein Matching bilden.
  * Der Rückgabewert ist wahr, falls eine gültige Blüte entstanden ist.

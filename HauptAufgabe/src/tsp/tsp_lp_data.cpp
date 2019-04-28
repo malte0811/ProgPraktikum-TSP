@@ -77,7 +77,7 @@ std::vector<variable_id> TspLpData::removeVariables() {
 	std::vector<variable_id> toRemove;
 	//Die nächste freie neue Variablen-ID
 	variable_id newId = 0;
-	for (variable_id oldId = 0; oldId < variableToEdge.size(); ++oldId) {
+	for (variable_id oldId = 0; oldId < getVariableCount(); ++oldId) {
 		Edge e = variableToEdge[oldId];
 		if (tolerance.less(bound, removalBound[oldId])) {
 			toRemove.push_back(oldId);
@@ -97,7 +97,7 @@ std::vector<variable_id> TspLpData::removeVariables() {
  * @param lp das zu initialisierende LP
  */
 void TspLpData::setupBasicLP(LinearProgram& lp) const {
-	auto varCount = static_cast<size_t>(getVariableCount());
+	variable_id varCount = getVariableCount();
 	std::vector<double> objCoeffs(varCount);
 	for (variable_id i = 0; i < varCount; ++i) {
 		objCoeffs[i] = getCost(i);
@@ -163,7 +163,7 @@ city_id TspLpData::sparserInducedSum(const std::vector<city_id>& set, std::vecto
 	 * (<<1%), dass eine genauere Entscheidung mehr Zeit verbraucht als durch die dünner besetzten Constraints gespart
 	 * wird
 	 */
-	bool useSet = set.size() <= inst.getCityCount() / 2;
+	bool useSet = static_cast<city_id>(set.size()) <= inst.getCityCount() / 2;
 	if (useSet) {
 		return inducedSum(set, values, usedVars);
 	} else {

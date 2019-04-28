@@ -12,13 +12,13 @@ namespace tspsolvers {
 	 */
 	Tour greedyTSP(const Graph& g) {
 		std::vector<edge> sortedEdges(g.getEdgeCount());
-		for (edge_id i = 0; i<g.getEdgeCount(); ++i) {
+		for (edge_id i = 0; i < g.getEdgeCount(); ++i) {
 			sortedEdges[i] = g.getEdge(i);
 		}
 		//Sortieren nach Kosten der entsprechenden Kanten
 		std::sort(sortedEdges.begin(), sortedEdges.end(),
 				  [](const edge& edgeA, const edge& edgeB) {
-					  return edgeA.cost<edgeB.cost;
+					  return edgeA.cost < edgeB.cost;
 				  }
 		);
 		/*
@@ -27,7 +27,7 @@ namespace tspsolvers {
 		 * andere Ende des Toursegments. Falls an i 2 Kanten anliegen, ist der Wert beliebig.
 		 */
 		std::vector<node_id> otherEnd(g.getNodeCount());
-		for (node_id i = 0; i<g.getNodeCount(); ++i) {
+		for (node_id i = 0; i < g.getNodeCount(); ++i) {
 			otherEnd[i] = i;
 		}
 		//Speichert die gewählten Kanten, die schon zu einem Knoten inzident sind
@@ -37,23 +37,23 @@ namespace tspsolvers {
 		for (const edge& e:sortedEdges) {
 			//Falls an einem der beiden Enden schon 2 Kanten anliegen, kann die Kante nicht hinzugefügt werden
 			std::vector<edge>& edgesAtA = edgesAtNode[e.endA];
-			if (edgesAtA.size()>=2) {
+			if (edgesAtA.size() >= 2) {
 				continue;
 			}
 			std::vector<edge>& edgesAtB = edgesAtNode[e.endB];
-			if (edgesAtB.size()>=2) {
+			if (edgesAtB.size() >= 2) {
 				continue;
 			}
 			/*
 			 * Wenn die Enden beide Grad <2 haben (also Enden von Toursegmenten sind), können sie genau dann verbunden
 			 * werden, wenn sie nicht zum selben Segment gehören.
 			 */
-			if (otherEnd[e.endA]!=e.endB) {
+			if (otherEnd[e.endA] != e.endB) {
 				++addedEdges;
 				totalCost += e.cost;
 				edgesAtA.push_back(e);
 				edgesAtB.push_back(e);
-				if (addedEdges==g.getNodeCount()-1) {
+				if (addedEdges == g.getNodeCount() - 1) {
 					break;//Tour ist fast vollständig, die letzte Kante ist aber eindeutig bestimmt
 				}
 				//Enden des neuen Segments setzen
@@ -77,11 +77,11 @@ namespace tspsolvers {
 		std::vector<node_id> order;
 		order.reserve(g.getNodeCount());
 		cost_t totalCost = 0;
-		for (node_id curr = 0; curr<g.getNodeCount(); ++curr) {
+		for (node_id curr = 0; curr < g.getNodeCount(); ++curr) {
 			order.push_back(curr);
 			for (edge_id eid:g.getEdgesAt(curr)) {
 				const edge& e = g.getEdge(eid);
-				if (e.getOtherNode(curr)==(curr+1)%g.getNodeCount()) {
+				if (e.getOtherNode(curr) == (curr + 1) % g.getNodeCount()) {
 					totalCost += e.cost;
 					break;
 				}
@@ -101,14 +101,14 @@ namespace tspsolvers {
 		do {
 			for (const edge& e:edgesAtNode[currentNode]) {
 				node_id otherNode = e.getOtherNode(currentNode);
-				if (otherNode!=prevNode) {
+				if (otherNode != prevNode) {
 					order.push_back(currentNode);
 					prevNode = currentNode;
 					currentNode = otherNode;
 					break;
 				}
 			}
-		} while (currentNode!=0);
+		} while (currentNode != 0);
 		return order;
 	}
 
@@ -117,12 +117,12 @@ namespace tspsolvers {
 	 */
 	void closeHamiltonPath(const Graph& g, std::vector<std::vector<edge>>& edgesAtNode) {
 		node_id firstEnd = g.getNodeCount();
-		for (node_id i = 0; i<g.getNodeCount(); ++i) {
-			if (edgesAtNode[i].size()==1) {
-				if (firstEnd<g.getNodeCount()) {
+		for (node_id i = 0; i < g.getNodeCount(); ++i) {
+			if (edgesAtNode[i].size() == 1) {
+				if (firstEnd < g.getNodeCount()) {
 					for (edge_id eid:g.getEdgesAt(i)) {
 						const edge& e = g.getEdge(eid);
-						if (e.getOtherNode(i)==firstEnd) {
+						if (e.getOtherNode(i) == firstEnd) {
 							edgesAtNode[i].push_back(e);
 							edgesAtNode[firstEnd].push_back(e);
 							break;

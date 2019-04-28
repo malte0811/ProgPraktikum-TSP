@@ -42,6 +42,7 @@ public:
 
 	city_id sparserInducedSum(const std::vector<city_id>& set, std::vector<double>& values,
 							  std::vector<variable_id>& usedVars) const;
+
 private:
 	const TSPInstance& inst;
 	std::vector<Edge> variableToEdge;

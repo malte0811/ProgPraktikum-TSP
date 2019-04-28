@@ -28,7 +28,7 @@ private:
 	//Die Kantenkapazitäten im Arbeitsgraphen
 	Graph::EdgeMap<double> capacity;
 	//Der Min-Cut-Löser
-	lemon::NagamochiIbaraki<Graph, Graph::EdgeMap<double>> minCut;
+	lemon::NagamochiIbaraki<Graph, Graph::EdgeMap < double>> minCut;
 	lemon::Tolerance<double> tolerance;
 };
 

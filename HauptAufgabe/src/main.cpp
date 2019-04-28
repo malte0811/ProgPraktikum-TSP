@@ -23,14 +23,14 @@ std::vector<std::string> splitOnChar(const std::string& string, char delim) {
 std::map<std::string, std::string> parseArgs(std::vector<std::string>& args) {
 	std::map<std::string, std::string> ret;
 	auto it = args.begin();
-	while (it!=args.end()) {
+	while (it != args.end()) {
 		std::string arg = *it;
 		bool erased = false;
-		if (arg.size()>3 && arg[0]=='-' && arg[1]=='-') {
+		if (arg.size() > 3 && arg[0] == '-' && arg[1] == '-') {
 			arg = arg.substr(2);
 			size_t equals = arg.find('=');
-			if (equals!=std::string::npos && equals>0 && equals<arg.size()-1) {
-				ret[arg.substr(0, equals)] = arg.substr(equals+1);
+			if (equals != std::string::npos && equals > 0 && equals < arg.size() - 1) {
+				ret[arg.substr(0, equals)] = arg.substr(equals + 1);
 				it = args.erase(it);
 				erased = true;
 			}
@@ -59,7 +59,7 @@ T getOption(std::map<std::string, std::string>& options, const std::string& key,
 		T ret;
 		valStream >> ret;
 		if (!valStream) {
-			throw std::runtime_error(retString+" is not a valid value for "+key);
+			throw std::runtime_error(retString + " is not a valid value for " + key);
 		}
 		return ret;
 	} else {
@@ -67,11 +67,11 @@ T getOption(std::map<std::string, std::string>& options, const std::string& key,
 	}
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 	try {
-		std::vector<std::string> args(argv+1, argv+argc);
+		std::vector<std::string> args(argv + 1, argv + argc);
 		std::map<std::string, std::string> options = parseArgs(args);
-		if (args.size()!=1 && args.size()!=2) {
+		if (args.size() != 1 && args.size() != 2) {
 			std::cerr << "Arguments: [options] <input file name> [<output file name>]" << std::endl;
 			return 1;
 		}
@@ -95,8 +95,8 @@ int main(int argc, char** argv) {
 		}
 		int status;
 		CPXENVptr env = CPXopenCPLEX(&status);
-		if (status!=0) {
-			throw std::runtime_error("Failed to open CPLEX environment: "+std::to_string(status));
+		if (status != 0) {
+			throw std::runtime_error("Failed to open CPLEX environment: " + std::to_string(status));
 		}
 		TSPInstance inst(in);
 		in.close();
@@ -112,7 +112,7 @@ int main(int argc, char** argv) {
 		}
 		TSPSolution optimal = tspsolvers::solveLP(inst, initial.isValid() ? &initial : nullptr, env, useDFS,
 												  generators);
-		if (args.size()==1) {
+		if (args.size() == 1) {
 			optimal.write(std::cout);
 		} else {
 			std::ofstream out(args[1]);
@@ -123,7 +123,7 @@ int main(int argc, char** argv) {
 			optimal.write(out);
 			out.close();
 		}
-		if (expectedValue>0 && optimal.getCost()!=expectedValue) {
+		if (expectedValue > 0 && optimal.getCost() != expectedValue) {
 			std::cerr << "Found tour of cost " << optimal.getCost() << ", but expected cost " << expectedValue
 					  << std::endl;
 		}

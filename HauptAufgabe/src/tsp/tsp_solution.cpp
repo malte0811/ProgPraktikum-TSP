@@ -11,12 +11,13 @@
 /**
  * @param inst Die TSP-Instanz
  * @param variables Die Belegung der LP-Variablen
+ * @param variableMap gibt an, welche LP-Variable welcher Kante entspricht
  */
 TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& variables, const TspLpData& variableMap)
 		: inst(&inst), order(static_cast<size_t>(inst.getCityCount())) {
 	lemon::FullGraph g(inst.getCityCount());
 	lemon::FullGraph::EdgeMap<bool> used(g);
-	for (variable_id i = 0; i < variables.size(); ++i) {
+	for (variable_id i = 0; i < variableMap.getVariableCount(); ++i) {
 		if (variables[i]) {
 			TspLpData::Edge e = variableMap.getEdge(i);
 			lemon::FullGraph::Node endA = g(e.first);
@@ -33,7 +34,7 @@ void TSPSolution::initFromGraph(const lemon::FullGraph& g, const lemon::FullGrap
 	FullGraph::Node currentCity = g(0);
 	size_t indexInTour = 0;
 	do {
-		if (indexInTour>=order.size()) {
+		if (indexInTour >= order.size()) {
 			throw std::runtime_error("Invalid TSP solution, includes a cycle not containing node 1");
 		}
 		order[indexInTour] = FullGraph::id(currentCity);
@@ -53,7 +54,7 @@ void TSPSolution::initFromGraph(const lemon::FullGraph& g, const lemon::FullGrap
 			throw std::runtime_error("Invalid TSP solution, includes node with degree 1");
 		}
 	} while (currentCity != g(0));
-	if (indexInTour<order.size()) {
+	if (indexInTour < order.size()) {
 		throw std::runtime_error("Invalid TSP solution, node 1 is in a short cycle");
 	}
 }
@@ -64,7 +65,7 @@ TSPSolution::TSPSolution(const TSPInstance& inst, const lemon::FullGraph& g,
 	initFromGraph(g, used);
 }
 
-TSPSolution::TSPSolution(const TSPInstance& inst, std::vector<city_id>  order)
+TSPSolution::TSPSolution(const TSPInstance& inst, std::vector<city_id> order)
 		: inst(&inst), order(std::move(order)) {
 	initTourCost();
 }
@@ -143,7 +144,7 @@ const std::vector<city_id>& TSPSolution::getOrder() const {
  * Gibt die Lösung im TSPLIB-Format in out aus
  */
 void TSPSolution::write(std::ostream& out) const {
-	if (inst==nullptr) {
+	if (inst == nullptr) {
 		throw std::runtime_error("Tried to write invalid TSP solution!");
 	}
 	out << "NAME: " << inst->getName() << ".tsp.tour\n"
@@ -151,7 +152,7 @@ void TSPSolution::write(std::ostream& out) const {
 		<< "DIMENSION: " << inst->getCityCount() << "\n"
 		<< "TOUR_SECTION\n";
 	for (city_id c:getOrder()) {
-		out << c+1 << "\n";
+		out << c + 1 << "\n";
 	}
 	out << "-1\n";
 }

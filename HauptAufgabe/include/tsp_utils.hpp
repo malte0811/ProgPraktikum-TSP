@@ -8,6 +8,7 @@
 namespace tsp_util {
 	using ContractionMapTSP = Graph::NodeMap<std::vector<city_id>>;
 	using ContractionMapGraph = Graph::NodeMap<std::vector<Graph::Node>>;
+
 	struct ConstraintWithSlack {
 		ConstraintWithSlack() = delete;
 
@@ -16,7 +17,7 @@ namespace tsp_util {
 	};
 
 	struct CompareOrderedConstraint {
-		bool operator()(const ConstraintWithSlack & p1, const ConstraintWithSlack & p2);
+		bool operator()(const ConstraintWithSlack& p1, const ConstraintWithSlack& p2);
 	};
 
 	std::vector<variable_id> createFractionalGraph(const TSPInstance& tsp, const TspLpData& lpData,
@@ -53,9 +54,9 @@ void tsp_util::eraseEntries(std::vector<T>& vec, const std::vector<variable_id>&
 	}
 	std::vector<T> result;
 	result.reserve(vec.size() - toRemove.size());
-	size_t removeIndex = 0;
-	for (size_t i = 0; i < vec.size(); ++i) {
-		if (removeIndex < toRemove.size() && toRemove[removeIndex] == i) {
+	variable_id removeIndex = 0;
+	for (variable_id i = 0; i < static_cast<variable_id>(vec.size()); ++i) {
+		if (removeIndex < static_cast<variable_id>(toRemove.size()) && toRemove[removeIndex] == i) {
 			++removeIndex;
 		} else {
 			result.push_back(vec[i]);

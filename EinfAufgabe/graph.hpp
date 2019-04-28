@@ -1,5 +1,6 @@
 #ifndef GRAPH_HPP
 #define GRAPH_HPP
+
 #include <istream>
 #include <ostream>
 #include <vector>
@@ -27,21 +28,26 @@ public:
 
 		Vec2 operator-(const Vec2& other) const;
 	};
+
 	using node = std::vector<edge_id>;
 
 	explicit Graph(std::istream& input);
 
-	explicit Graph(node_id nodeCount, const std::string& name);
 	edge getEdge(edge_id id) const;
+
 	edge_id addEdge(node_id endA, node_id endB, cost_t c = 0);
+
 	node_id getNodeCount() const;
+
 	edge_id getEdgeCount() const;
 
 	const std::vector<edge_id>& getEdgesAt(node_id node) const;
 
 	const std::string& getName() const;
+
 private:
 	void readNodes(std::istream& input, EdgeWeightType type);
+
 	std::string name;
 	std::vector<node> nodes;
 	std::vector<edge> edges;

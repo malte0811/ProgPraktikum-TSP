@@ -111,14 +111,14 @@ int main() {
 	};
 	int status;
 	CPXENVptr env = CPXopenCPLEX(&status);
-	if (status!=0) {
-		throw std::runtime_error("Failed to open CPLEX environment: "+std::to_string(status));
+	if (status != 0) {
+		throw std::runtime_error("Failed to open CPLEX environment: " + std::to_string(status));
 	}
 	std::vector<double> times;
 	for (const auto& inst:instances) {
 		clock_t start = std::clock();
 		std::cout << "Solving instance " << inst.first << std::endl;
-		std::ifstream in("../instances/"+inst.first+".tsp");
+		std::ifstream in("../instances/" + inst.first + ".tsp");
 		if (!in) {
 			std::cout << "Instance not found!" << std::endl;
 			continue;
@@ -128,8 +128,8 @@ int main() {
 		std::cout << "Using initial solution with cost " << init.getCost() << std::endl;
 		TSPSolution sol = tspsolvers::solveLP(tsp, &init, env, false);
 		clock_t end = std::clock();
-		double elapsed_secs = double(end-start)/CLOCKS_PER_SEC;
-		if (sol.getCost()!=inst.second) {
+		double elapsed_secs = double(end - start) / CLOCKS_PER_SEC;
+		if (sol.getCost() != inst.second) {
 			std::cerr << "Failed to solve " << inst.first << ", found solution has cost " << sol.getCost()
 					  << ", but optimal cost is " << inst.second << std::endl;
 			break;

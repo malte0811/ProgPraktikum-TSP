@@ -3,7 +3,7 @@
 #include <tsp_lp_data.hpp>
 
 ConnectivityCutGen::ConnectivityCutGen(const TSPInstance& inst, const TspLpData& lpData)
-		: tsp(inst), workToOrig(workGraph), lpData(lpData), origToWork(inst.getCityCount()) {
+		: origToWork(inst.getCityCount()), workToOrig(workGraph), tsp(inst), lpData(lpData) {
 	/*
 	 * Grundzustand des Arbeitsgraphen abspeichern: So viele Knoten wie in der TSP-Instanz, aber keine Kanten.
 	 * Außerdem NodeMap's anlegen, um Knoten im TSP-Graphen in Knoten im Arbeitsgraphen umzuwandeln und umgekehrt
@@ -16,7 +16,7 @@ ConnectivityCutGen::ConnectivityCutGen(const TSPInstance& inst, const TspLpData&
 }
 
 CutGenerator::CutStatus ConnectivityCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
-													 CutGenerator::CutStatus currentStatus) {
+													 CutGenerator::CutStatus) {
 	//Grundzustand wiederherstellen
 	for (Graph::EdgeIt it(workGraph); it != lemon::INVALID;) {
 		Graph::Edge e = it;
@@ -27,7 +27,7 @@ CutGenerator::CutStatus ConnectivityCutGen::validate(LinearProgram& lp, const st
 	 * Alle Kanten einfügen, deren Variablen einen echt positiven Wert haben (Kanten mit Wert 0 ändern den minimalen
 	 * Schnitt nicht)
 	 */
-	for (variable_id i = 0; i < solution.size(); ++i) {
+	for (variable_id i = 0; i < lpData.getVariableCount(); ++i) {
 		if (tolerance.positive(solution[i])) {
 			TspLpData::Edge e = lpData.getEdge(i);
 			workGraph.addEdge(origToWork[e.first], origToWork[e.second]);

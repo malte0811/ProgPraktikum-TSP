@@ -47,7 +47,7 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 		for (const tsp_util::ConstraintWithSlack& pair:allConstrs) {
 			sumNZ += pair.constraint.getNonzeroes().size();
 			toAdd.push_back(pair.constraint);
-			if (sumNZ > tsp.getCityCount() * tsp.getCityCount()) {
+			if (static_cast<city_id>(sumNZ) > tsp.getCityCount() * tsp.getCityCount()) {
 				break;
 			}
 		}
@@ -72,7 +72,7 @@ LinearProgram::Constraint CombCutGen::getContraintFor(const CombHeuristic::Comb&
 
 //Transformation 1 aus dem Paper
 ContractionRule::Contraction CombCutGen::findOnePath(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
-													 const std::vector<Graph::Edge>& possibleOneEdges,
+													 const std::vector<Graph::Edge>&,
 													 const Graph::EdgeMap<double>& costs,
 													 const Graph::NodeMap<bool>& used) {
 	lemon::Tolerance<double> tolerance;
@@ -99,10 +99,10 @@ ContractionRule::Contraction CombCutGen::findOnePath(const Graph& g, const std::
 }
 
 //Transformation 2 aus dem Paper
-ContractionRule::Contraction CombCutGen::findTriangle2(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
+ContractionRule::Contraction CombCutGen::findTriangle2(const Graph& g, const std::vector<Graph::Node>&,
 													   const std::vector<Graph::Edge>& possibleOneEdges,
 													   const Graph::EdgeMap<double>& costs,
-													   const Graph::NodeMap<bool>& used) {
+													   const Graph::NodeMap<bool>&) {
 	lemon::Tolerance<double> tolerance;
 	//Über alle möglichen Kanten {u, v} iterieren
 	for (Graph::Edge oneEdge:possibleOneEdges) {
@@ -124,7 +124,7 @@ ContractionRule::Contraction CombCutGen::findTriangle2(const Graph& g, const std
 }
 
 ContractionRule::Contraction CombCutGen::findSquare3(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
-													 const std::vector<Graph::Edge>& possibleOneEdges,
+													 const std::vector<Graph::Edge>&,
 													 const Graph::EdgeMap<double>& costs,
 													 const Graph::NodeMap<bool>& used) {
 	lemon::Tolerance<double> tolerance;
@@ -176,11 +176,10 @@ ContractionRule::Contraction CombCutGen::findSquare3(const Graph& g, const std::
 }
 
 //Transformation 4
-ContractionRule::Contraction CombCutGen::findOneSquare(const Graph& g,
-													   const std::vector<Graph::Node>& possibleNodes,
+ContractionRule::Contraction CombCutGen::findOneSquare(const Graph& g, const std::vector<Graph::Node>&,
 													   const std::vector<Graph::Edge>& possibleOneEdges,
 													   const Graph::EdgeMap<double>& costs,
-													   const Graph::NodeMap<bool>& used) {
+													   const Graph::NodeMap<bool>&) {
 	//Wir brauchen 2 Kanten mit Wert 1
 	if (possibleOneEdges.size() < 2) {
 		return {};
@@ -225,10 +224,10 @@ ContractionRule::Contraction CombCutGen::findOneSquare(const Graph& g,
 }
 
 //Transformation 5
-ContractionRule::Contraction CombCutGen::findTriangleGE05(const Graph& g, const std::vector<Graph::Node>& possibleNodes,
+ContractionRule::Contraction CombCutGen::findTriangleGE05(const Graph& g, const std::vector<Graph::Node>&,
 														  const std::vector<Graph::Edge>& possibleOneEdges,
 														  const Graph::EdgeMap<double>& costs,
-														  const Graph::NodeMap<bool>& used) {
+														  const Graph::NodeMap<bool>&) {
 	for (Graph::Edge oneEdge:possibleOneEdges) {
 		Graph::Node u = g.u(oneEdge);
 		Graph::Node v = g.v(oneEdge);

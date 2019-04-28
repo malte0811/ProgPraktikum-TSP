@@ -60,15 +60,15 @@ namespace tspsolvers {
 		}
 		FullGraph::EdgeMap<bool> used(g);
 		FullGraph::NodeMap<size_t> degree(g);
-		unsigned addedEdges = 0;
+		int addedEdges = 0;
 		for (FullGraph::Edge e:sortedEdges) {
 			//Falls an einem der beiden Enden schon 2 Kanten anliegen, kann die Kante nicht hinzugefügt werden
 			size_t& edgesAtU = degree[g.u(e)];
-			if (edgesAtU>=2) {
+			if (edgesAtU >= 2) {
 				continue;
 			}
 			size_t& edgesAtV = degree[g.v(e)];
-			if (edgesAtV>=2) {
+			if (edgesAtV >= 2) {
 				continue;
 			}
 			/*
@@ -80,7 +80,7 @@ namespace tspsolvers {
 				++edgesAtU;
 				++edgesAtV;
 				used[e] = true;
-				if (addedEdges==inst.getCityCount()-1) {
+				if (addedEdges == inst.getCityCount() - 1) {
 					break;//Tour ist fast vollständig, die letzte Kante ist aber eindeutig bestimmt
 				}
 				//Enden des neuen Segments setzen
@@ -149,7 +149,7 @@ namespace tspsolvers {
 			}
 		}
 		BranchAndCut bac(lp, gens, &data, dfs);
-		if (initial!=nullptr) {
+		if (initial != nullptr) {
 			bac.setUpperBound({}, initial->getCost());
 		}
 		clock_t start = std::clock();
