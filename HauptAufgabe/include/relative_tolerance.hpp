@@ -1,10 +1,6 @@
 #ifndef RELATIVE_TOLERANCE_HPP
 #define RELATIVE_TOLERANCE_HPP
 
-
-#include <cassert>
-#include <lemon/tolerance.h>
-
 class RelativeTolerance {
 public:
 	RelativeTolerance();

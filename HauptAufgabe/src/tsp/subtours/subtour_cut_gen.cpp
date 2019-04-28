@@ -1,9 +1,14 @@
 #include <subtour_cut_gen.hpp>
+#include <lemon/core.h>
 #include <lemon_fixes/nagamochi_ibaraki.h>
-#include <cmath>
-#include <stack>
+#include <cstddef>
 #include <tsp_lp_data.hpp>
 #include <tsp_utils.hpp>
+#include <cut_generator.hpp>
+#include <linear_program.hpp>
+#include <tsp_instance.hpp>
+
+using std::size_t;
 
 SubtourCutGen::SubtourCutGen(const TSPInstance& inst, const TspLpData& lpData)
 		: tsp(inst), lpData(lpData), origToWork(static_cast<size_t>(tsp.getCityCount())), workToOrig(workGraph),

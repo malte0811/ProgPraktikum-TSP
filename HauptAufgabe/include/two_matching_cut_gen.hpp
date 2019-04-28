@@ -1,12 +1,15 @@
 #ifndef TWO_MATCHING_CUT_GEN_HPP
 #define TWO_MATCHING_CUT_GEN_HPP
 
-#include <tsp_instance.hpp>
+#include <lemon/tolerance.h>
 #include <cut_generator.hpp>
-#include <lemon/gomory_hu.h>
-#include <union_find.hpp>
-#include <tsp_lp_data.hpp>
-#include <tsp_utils.hpp>
+#include <vector>
+
+class LinearProgram;
+
+class TSPInstance;
+
+class TspLpData;
 
 class TwoMatchingCutGen : public CutGenerator {
 public:

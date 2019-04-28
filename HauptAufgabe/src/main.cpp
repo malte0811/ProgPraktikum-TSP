@@ -1,8 +1,18 @@
-#include <tsp_solvers.hpp>
-#include <tsp_instance.hpp>
+#include <cstddef>
+#include <iostream>
 #include <fstream>
 #include <map>
+#include <stdexcept>
 #include <string>
+#include <tsp_instance.hpp>
+#include <tsp_solvers.hpp>
+#include <utility>
+#include <vector>
+#include <ilcplex/cplex.h>
+#include <ilcplex/cpxconst.h>
+#include <tsp_solution.hpp>
+
+using std::size_t;
 
 std::vector<std::string> splitOnChar(const std::string& string, char delim) {
 	std::vector<std::string> ret;

@@ -1,4 +1,9 @@
 #include <contraction_rule.hpp>
+#include <lemon/core.h>
+#include <lemon/tolerance.h>
+#include <utility>
+#include <tsp_instance.hpp>
+#include <tsp_utils.hpp>
 
 ContractionRule::ContractionRule(ContractionRule::Validator rule)
 		: validate(std::move(rule)) {}

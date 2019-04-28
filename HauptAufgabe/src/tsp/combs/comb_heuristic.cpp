@@ -1,5 +1,15 @@
 #include <comb_heuristic.hpp>
+#include <cassert>
+#include <lemon/core.h>
+#include <cstddef>
 #include <blossom_finder.hpp>
+#include <contraction_rule.hpp>
+#include <linear_program.hpp>
+#include <tsp_instance.hpp>
+#include <tsp_lp_data.hpp>
+#include <tsp_utils.hpp>
+
+using std::size_t;
 
 CombHeuristic::CombHeuristic(std::vector<ContractionRule *> rules) : rules(std::move(rules)), tolerance(1e-5) {}
 

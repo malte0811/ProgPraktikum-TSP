@@ -1,9 +1,17 @@
 #include <two_matching_cut_gen.hpp>
-#include <lemon/unionfind.h>
-#include <union_find.hpp>
-#include <tsp_utils.hpp>
-#include <tsp_lp_data.hpp>
+#include <cassert>
+#include <cstddef>
+#include <algorithm>
 #include <blossom_finder.hpp>
+#include <iostream>
+#include <set>
+#include <tsp_lp_data.hpp>
+#include <tsp_utils.hpp>
+#include <cut_generator.hpp>
+#include <linear_program.hpp>
+#include <tsp_instance.hpp>
+
+using std::size_t;
 
 TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst, const TspLpData& lpData, bool contract)
 		: tsp(inst), lpData(lpData), enableContraction(contract), tolerance(1e-5) {}
@@ -83,7 +91,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 			}
 		}
 		if (!allConstrs.empty()) {
-			ssize_t sumNZ = 0;
+			int sumNZ = 0;
 			/*
 			 * Constraints hinzufügen (stark verletzte zuerst), bis viele Nonzeroes zum LP hinzugefügt wurden. Dann
 			 * werden keine weiteren Constraints hinzugefügt, um den Speicherverbrauch möglichst klein zu halten

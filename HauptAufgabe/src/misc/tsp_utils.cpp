@@ -1,5 +1,10 @@
 #include <tsp_utils.hpp>
+#include <lemon/core.h>
+#include <cstddef>
+#include <iostream>
 #include <tsp_lp_data.hpp>
+#include <linear_program.hpp>
+#include <tsp_instance.hpp>
 
 std::vector<variable_id> tsp_util::createFractionalGraph(const TSPInstance& tsp, const TspLpData& lpData,
 														 lemon::Tolerance<double> tolerance,

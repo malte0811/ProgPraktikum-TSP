@@ -1,12 +1,25 @@
 #include <utility>
-
-#include <utility>
 #include <branch_and_cut.hpp>
 #include <cmath>
 #include <limits>
-#include <ctime>
 #include <tsp_utils.hpp>
 #include <numeric>
+#include <cassert>
+#include <lemon/tolerance.h>
+#include <algorithm>
+#include <iostream>
+#include <set>
+#include <cstddef>
+#include <stdexcept>
+#include <string>
+#include <vector>
+#include <cstdlib>
+#include <cut_generator.hpp>
+#include <linear_program.hpp>
+#include <relative_tolerance.hpp>
+#include <variable_remover.hpp>
+
+using std::size_t;
 
 BranchAndCut::BranchAndCut(LinearProgram& program, std::vector<CutGenerator *> gens, VariableRemover *remover,
 						   bool dfs) :

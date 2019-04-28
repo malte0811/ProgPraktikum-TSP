@@ -1,13 +1,14 @@
 #ifndef UNION_FIND_HPP
 #define UNION_FIND_HPP
 
-#include <vector>
-#include <cstdint>
 #include <cstddef>
+#include <vector>
+
+using std::size_t;
 
 class UnionFind {
 public:
-	using rank_t = uint32_t;
+	using rank_t = size_t;
 
 	explicit UnionFind(size_t size);
 

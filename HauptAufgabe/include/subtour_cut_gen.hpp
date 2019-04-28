@@ -1,11 +1,15 @@
 #ifndef SUBTOUR_CUT_GEN_HPP
 #define SUBTOUR_CUT_GEN_HPP
 
-#include <cut_generator.hpp>
-#include <lemon/smart_graph.h>
+#include <lemon/tolerance.h>
 #include <lemon_fixes/nagamochi_ibaraki.h>
+#include <cut_generator.hpp>
 #include <tsp_instance.hpp>
-#include <tsp_lp_data.hpp>
+#include <vector>
+
+class LinearProgram;
+
+class TspLpData;
 
 class SubtourCutGen : public CutGenerator {
 public:

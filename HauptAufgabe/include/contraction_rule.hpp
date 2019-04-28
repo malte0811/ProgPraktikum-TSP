@@ -1,12 +1,10 @@
 #ifndef CONTRACTION_RULE_HPP
 #define CONTRACTION_RULE_HPP
 
-#include <utility>
-#include <cstddef>
-#include <vector>
-#include <tsp_instance.hpp>
 #include <functional>
+#include <tsp_instance.hpp>
 #include <tsp_utils.hpp>
+#include <vector>
 
 
 class ContractionRule {

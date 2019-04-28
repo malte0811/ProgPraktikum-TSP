@@ -1,10 +1,14 @@
 #ifndef CONNECTIVITY_CUT_GEN_HPP
 #define CONNECTIVITY_CUT_GEN_HPP
 
-
+#include <lemon/tolerance.h>
 #include <cut_generator.hpp>
 #include <tsp_instance.hpp>
-#include <tsp_lp_data.hpp>
+#include <vector>
+
+class LinearProgram;
+
+class TspLpData;
 
 class ConnectivityCutGen : public CutGenerator {
 public:

@@ -1,12 +1,15 @@
 #include <cassert>
 #include <stdexcept>
 #include <linear_program.hpp>
-#include <cut_generator.hpp>
 #include <cmath>
 #include <ilcplex/cplex.h>
-#include <iostream>
-#include <set>
 #include <tsp_utils.hpp>
+#include <lemon/tolerance.h>
+#include <stddef.h>
+#include <string>
+#include <utility>
+#include <vector>
+#include <ilcplex/cpxconst.h>
 
 variable_id LinearProgram::invalid_variable = -1;
 

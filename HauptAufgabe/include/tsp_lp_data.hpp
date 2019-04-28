@@ -1,11 +1,14 @@
 #ifndef TSP_LP_DATA_HPP
 #define TSP_LP_DATA_HPP
 
-
-#include <lemon/bfs.h>
-#include <variable_remover.hpp>
+#include <lemon/tolerance.h>
 #include <tsp_instance.hpp>
 #include <tsp_solution.hpp>
+#include <utility>
+#include <variable_remover.hpp>
+#include <vector>
+#include <branch_and_cut.hpp>
+#include <linear_program.hpp>
 
 /*
  * Speichert, welche LP-Variablen welchen Kanten entsprechen, entscheidet, welche Variablen entfernt werden können und

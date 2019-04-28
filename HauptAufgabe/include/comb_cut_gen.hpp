@@ -1,8 +1,15 @@
 #ifndef COMB_CUT_GEN_HPP
 #define COMB_CUT_GEN_HPP
 
-#include <contraction_rule.hpp>
+#include <lemon/tolerance.h>
 #include <comb_heuristic.hpp>
+#include <contraction_rule.hpp>
+#include <vector>
+#include <cut_generator.hpp>
+#include <linear_program.hpp>
+#include <tsp_instance.hpp>
+
+class TspLpData;
 
 /*
  * Findet heuristisch verletzte Kamm-Ungleichungen mit der Heuristik aus: Martin Grötschel, Olaf Holland: "Solution of

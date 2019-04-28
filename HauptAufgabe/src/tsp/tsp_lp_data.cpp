@@ -1,6 +1,14 @@
 #include <tsp_lp_data.hpp>
-#include <lemon/connectivity.h>
+#include <cstddef>
+#include <limits>
+#include <memory>
 #include <tsp_utils.hpp>
+#include <tsp_instance.hpp>
+#include <tsp_solution.hpp>
+#include <branch_and_cut.hpp>
+#include <linear_program.hpp>
+
+using std::size_t;
 
 TspLpData::TspLpData(const TSPInstance& inst, const TSPSolution *initial)
 		: inst(inst), variableToEdge(inst.getEdgeCount()), edgeToVariable(inst.getCityCount() - 1),

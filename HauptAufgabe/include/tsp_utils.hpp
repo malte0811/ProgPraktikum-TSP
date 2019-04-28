@@ -1,9 +1,15 @@
 #ifndef TSP_UTILS_HPP
 #define TSP_UTILS_HPP
 
+#include <lemon/tolerance.h>
+#include <iostream>
 #include <linear_program.hpp>
+#include <stdexcept>
+#include <string>
 #include <tsp_instance.hpp>
-#include <tsp_lp_data.hpp>
+#include <vector>
+
+class TspLpData;
 
 namespace tsp_util {
 	using ContractionMapTSP = Graph::NodeMap<std::vector<city_id>>;

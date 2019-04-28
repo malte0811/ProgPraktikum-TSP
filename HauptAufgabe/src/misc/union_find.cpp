@@ -1,5 +1,5 @@
+#include <union_find.hpp>
 #include <vector>
-#include "union_find.hpp"
 
 /*
 Union-Find-Struktur auf der Menge 0,...,size-1.

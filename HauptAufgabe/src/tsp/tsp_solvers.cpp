@@ -1,22 +1,27 @@
-#include <iostream>
 #include <ctime>
-#include <istream>
-#include <sstream>
-#include <vector>
-#include <stdexcept>
-#include <stack>
+#include <ilcplex/cpxconst.h>
+#include <lemon/core.h>
+#include <lemon/full_graph.h>
 #include <algorithm>
-#include <array>
-#include <cassert>
-#include <cmath>
+#include <branch_and_cut.hpp>
+#include <comb_cut_gen.hpp>
+#include <connectivity_cut_gen.hpp>
+#include <iostream>
+#include <linear_program.hpp>
+#include <stdexcept>
+#include <string>
+#include <subtour_cut_gen.hpp>
+#include <tsp_instance.hpp>
+#include <tsp_lp_data.hpp>
 #include <tsp_solution.hpp>
 #include <tsp_solvers.hpp>
-#include <subtour_cut_gen.hpp>
 #include <two_matching_cut_gen.hpp>
-#include <branch_and_cut.hpp>
-#include <connectivity_cut_gen.hpp>
-#include <tsp_lp_data.hpp>
-#include <comb_cut_gen.hpp>
+#include <vector>
+#include <cut_generator.hpp>
+#include <cstddef>
+
+using std::size_t;
+using std::clock_t;
 
 namespace tspsolvers {
 

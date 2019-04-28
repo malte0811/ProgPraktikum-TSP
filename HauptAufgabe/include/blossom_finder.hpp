@@ -1,12 +1,15 @@
 #ifndef BLOSSOM_FINDER_HPP
 #define BLOSSOM_FINDER_HPP
 
-
-#include <vector>
+#include <lemon/tolerance.h>
+#include <cstddef>
 #include <tsp_instance.hpp>
-#include <union_find.hpp>
 #include <tsp_utils.hpp>
+#include <vector>
 
+using std::size_t;
+
+class UnionFind;
 
 /**
  * Findet verletzte 2-Matching-Constraints/Blüten, falls es solche gibt. Der Algorithmus entspricht grob dem aus Satz
@@ -80,8 +83,6 @@ private:
 	Graph::EdgeMap <Graph::Edge> fractToMainEdges;
 	//Die Kanten mit Wert 1, die im Eingabegraphen, aber nicht im fraktionalen Graphen enthalten sind
 	std::vector<Graph::Edge> oneEdges;
-	//Gibt an, ob alternierende Pfade kontrahiert werden sollen
-	const bool shouldContractPaths;
 	//Anzahl der Knoten im Eingabe- bzw. im fraktionalen Graph
 	const size_t nodeCount;
 };

@@ -1,5 +1,19 @@
 #include <comb_cut_gen.hpp>
+#include <cassert>
+#include <lemon/core.h>
+#include <cstddef>
+#include <array>
 #include <comb_heuristic.hpp>
+#include <iostream>
+#include <set>
+#include <contraction_rule.hpp>
+#include <tsp_lp_data.hpp>
+#include <tsp_utils.hpp>
+#include <cut_generator.hpp>
+#include <linear_program.hpp>
+#include <tsp_instance.hpp>
+
+using std::size_t;
 
 CombCutGen::CombCutGen(const TSPInstance& tsp, const TspLpData& lpData) :
 //ContractionRule's für die im Paper beschriebenen Transformationen erstellen

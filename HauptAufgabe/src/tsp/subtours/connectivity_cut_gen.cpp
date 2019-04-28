@@ -1,6 +1,14 @@
 #include <connectivity_cut_gen.hpp>
+#include <lemon/core.h>
+#include <cstddef>
+#include <algorithm>
 #include <stack>
 #include <tsp_lp_data.hpp>
+#include <cut_generator.hpp>
+#include <linear_program.hpp>
+#include <tsp_instance.hpp>
+
+using std::size_t;
 
 ConnectivityCutGen::ConnectivityCutGen(const TSPInstance& inst, const TspLpData& lpData)
 		: origToWork(inst.getCityCount()), workToOrig(workGraph), tsp(inst), lpData(lpData) {

@@ -1,11 +1,16 @@
 #ifndef COMB_HEURISTIC_HPP
 #define COMB_HEURISTIC_HPP
 
+#include <lemon/tolerance.h>
+#include <blossom_finder.hpp>
+#include <tsp_instance.hpp>
 #include <utility>
 #include <vector>
-#include <tsp_instance.hpp>
-#include <contraction_rule.hpp>
-#include <blossom_finder.hpp>
+#include <tsp_utils.hpp>
+
+class ContractionRule;
+
+class TspLpData;
 
 //Eine Instanz der Generic Comb Heruistic aus Grötschel, Holland 1991
 class CombHeuristic {

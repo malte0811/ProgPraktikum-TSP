@@ -1,12 +1,11 @@
 #ifndef TSP_INSTANCE_HPP
 #define TSP_INSTANCE_HPP
 
-#include <istream>
-#include <vector>
 #include <lemon/list_graph.h>
+#include <istream>
 #include <linear_program.hpp>
-#include <cmath>
-#include <cassert>
+#include <string>
+#include <vector>
 
 using cost_t = unsigned;
 using city_id = int;
@@ -24,7 +23,7 @@ public:
 
 	std::string getName() const;
 
-	static constexpr city_id invalid_city = -1;
+	static const city_id invalid_city;
 
 private:
 	enum EdgeWeightType {

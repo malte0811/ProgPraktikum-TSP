@@ -1,11 +1,17 @@
 #include <tsp_instance.hpp>
-#include <sstream>
-#include <cmath>
-#include <array>
+#include <cstddef>
 #include <cassert>
+#include <cmath>
+#include <iostream>
+#include <memory>
+#include <set>
+#include <stdexcept>
 #include <tsp_utils.hpp>
 
+using std::size_t;
 using tsp_util::readOrThrow;
+
+const city_id TSPInstance::invalid_city = -1;
 
 /**
  * Liest eine STSP im TSPLIB-Format ein

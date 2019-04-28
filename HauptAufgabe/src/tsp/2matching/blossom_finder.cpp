@@ -1,12 +1,19 @@
 #include <blossom_finder.hpp>
+#include <cassert>
+#include <lemon/core.h>
 #include <lemon/gomory_hu.h>
+#include <cstdlib>
+#include <limits>
+#include <utility>
+#include <tsp_instance.hpp>
+#include <tsp_utils.hpp>
+#include <union_find.hpp>
 
 BlossomFinder::BlossomFinder(const Graph& g, Graph::EdgeMap<double>& capacities, lemon::Tolerance<double> tolerance,
 							 bool shouldContractPaths) :
 		tolerance(tolerance), inputGraph(g), capacitiesMain(capacities), capacitiesFractional(fractionalGraph),
 		oddNodes(fractionalGraph, false), contraction(fractionalGraph),
-		fractToMainEdges(fractionalGraph, lemon::INVALID),
-		shouldContractPaths(shouldContractPaths), nodeCount(lemon::countNodes(inputGraph)) {
+		fractToMainEdges(fractionalGraph, lemon::INVALID), nodeCount(lemon::countNodes(inputGraph)) {
 	setupFractionalGraph();
 	if (shouldContractPaths) {
 		contractPaths();
