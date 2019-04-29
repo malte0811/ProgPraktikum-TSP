@@ -588,10 +588,5 @@ void BranchAndCut::SystemBounds::setBound(variable_id var, LinearProgram::BoundT
 }
 
 bool BranchAndCut::SystemBounds::operator==(const BranchAndCut::SystemBounds& other) const {
-	for (variable_id i = 0; i < static_cast<variable_id>(fixLower.size()); ++i) {
-		if (!((*this)[i] == other[i])) {
-			return false;
-		}
-	}
-	return true;
+	return fixLower == other.fixLower && fixUpper == other.fixUpper;
 }

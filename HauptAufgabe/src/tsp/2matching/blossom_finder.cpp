@@ -3,6 +3,7 @@
 #include <lemon/core.h>
 #include <lemon/gomory_hu.h>
 #include <cstdlib>
+#include <cmath>
 #include <limits>
 #include <utility>
 #include <tsp_instance.hpp>

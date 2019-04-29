@@ -11,8 +11,8 @@ ContractionRule::ContractionRule(ContractionRule::Validator rule)
 bool ContractionRule::contractAll(Graph& g, lemon::GraphExtender<lemon::ListGraphBase>::NodeMap<bool>& used,
 								  Graph::EdgeMap<double>& costs, tsp_util::ContractionMapTSP& contrMap) const {
 	lemon::Tolerance<double> tolerance;
-	bool changed = true;
-	bool ret = false;
+	bool shouldContinue = true;
+	bool graphChanged = false;
 	do {
 		//Alle noch nicht genutzten 1-Kanten und Knoten auflisten
 		std::vector<Graph::Node> possibleNodes;
@@ -35,17 +35,14 @@ bool ContractionRule::contractAll(Graph& g, lemon::GraphExtender<lemon::ListGrap
 					used[n] = true;
 				}
 			}
-			if (!contract(contr, g, costs, contrMap)) {
-				changed = false;
+			if (contract(contr, g, costs, contrMap)) {
+				graphChanged = true;
 			}
 		} else {
-			changed = false;
+			shouldContinue = false;
 		}
-		if (changed) {
-			ret = true;
-		}
-	} while (changed);
-	return ret;
+	} while (shouldContinue);
+	return graphChanged;
 }
 
 bool ContractionRule::contract(const Contraction& contr, Graph& g, Graph::EdgeMap<double>& costs,
