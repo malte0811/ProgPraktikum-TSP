@@ -86,7 +86,7 @@ private:
 
 	LinearProgram& problem;
 	//Die aktuelle obere Schranke
-	double upperBound;
+	obj_t upperBound;
 	//Die Anzahl der Variablen im LP
 	variable_id varCount;
 	//Die Variablenbelegung, mit der die obere Schranke erreicht wird
@@ -124,7 +124,7 @@ private:
 	 */
 	std::vector<variable_id> correspondingOrigVar;
 
-	bool isBetter(double a, double b);
+	bool canImproveBound(double fractBound);
 
 	void branchAndBound(BranchNode& node, bool isRoot);
 

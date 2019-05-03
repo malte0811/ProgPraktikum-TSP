@@ -26,18 +26,10 @@ namespace tsp_util {
 		bool operator()(const ConstraintWithSlack& p1, const ConstraintWithSlack& p2);
 	};
 
-	std::vector<variable_id> createFractionalGraph(const TSPInstance& tsp, const TspLpData& lpData,
-												   lemon::Tolerance<double> tolerance,
-												   const std::vector<double>& solution, Graph& workGraph,
-												   Graph::NodeMap <city_id>& workToOrig,
-												   std::vector<Graph::Node>& origToWork,
-												   Graph::EdgeMap <variable_id>& toVariable,
-												   Graph::EdgeMap<double>& c, Graph::NodeMap<bool>& odd);
-
-	void addSupportGraphEdges(const TSPInstance& tsp, const TspLpData& lpData, lemon::Tolerance<double> tolerance,
+	void addSupportGraphEdges(const TspLpData& lpData, lemon::Tolerance<double> tolerance,
 							  const std::vector<double>& solution, Graph& workGraph,
-							  std::vector<Graph::Node>& origToWork,
-							  Graph::NodeMap <city_id>& workToOrig, Graph::EdgeMap<double>& c);
+							  std::vector<Graph::Node>& origToWork, Graph::NodeMap <city_id>& workToOrig,
+							  Graph::EdgeMap<double>& c);
 
 	template<typename T>
 	void eraseEntries(std::vector<T>& vec, const std::vector<variable_id>& toRemove);

@@ -90,7 +90,6 @@ int main() {
 			{"dsj1000",   18660188},
 			{"pr1002",    259045},
 			{"si1032",    92650},
-			{"nrw1379",   56638},
 	};
 	int status;
 	CPXENVptr env = CPXopenCPLEX(&status);

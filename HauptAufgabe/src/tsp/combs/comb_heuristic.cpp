@@ -22,7 +22,7 @@ std::vector<CombHeuristic::Comb> CombHeuristic::findViolatedCombs(const TspLpDat
 	//Graph und Kontraktionsdaten initialisieren
 	{
 		Graph::NodeMap <city_id> workToOrig(g);
-		tsp_util::addSupportGraphEdges(inst, lpData, tolerance, sol, g, origToWork, workToOrig, capacity);
+		tsp_util::addSupportGraphEdges(lpData, tolerance, sol, g, origToWork, workToOrig, capacity);
 		for (Graph::NodeIt it(g); it != lemon::INVALID; ++it) {
 			contrMap[it] = {workToOrig[it]};
 		}

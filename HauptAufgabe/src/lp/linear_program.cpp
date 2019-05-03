@@ -27,10 +27,10 @@ LinearProgram::~LinearProgram() {
 }
 
 /**
- * Fügt eine neue Variable zum LP hinzu
- * @param objCoeff Der Koeffizient der Variablen in der Zielfunktion
- * @param lower Untere Schranke für die Variable
- * @param upper Obere Schranke für die variable
+ * Fügt neue Variablen zum LP hinzu
+ * @param objCoeff Die Koeffizienten der Variablen in der Zielfunktion
+ * @param lower Untere Schranken für die Variablen
+ * @param upper Obere Schranken für die variablen
  */
 void LinearProgram::addVariables(const std::vector<double>& objCoeff, const std::vector<double>& lower,
 								 const std::vector<double>& upper) {
@@ -41,32 +41,19 @@ void LinearProgram::addVariables(const std::vector<double>& objCoeff, const std:
 	if (result != 0) {
 		throw std::runtime_error("Could not add variables to LP, return value was " + getErrorMessage(result));
 	}
-}
-
-void LinearProgram::addVariableWithCoeffs(double objCoeff, double lower, double upper, const std::vector<int>& indices,
-										  const std::vector<double>& constrCoeffs) {
-	assert(constrCoeffs.size() == indices.size());
-	int zero = 0;
-	int result = CPXaddcols(env, problem, 1, constrCoeffs.size(), &objCoeff, &zero, indices.data(), constrCoeffs.data(),
-							&lower, &upper, nullptr);
-	if (result != 0) {
-		throw std::runtime_error("Could not add variable to LP, return value was " + getErrorMessage(result));
-	}
+	varCount += objCoeff.size();
 }
 
 /**
- * Fügt eine neue (Un)Gleichung zum LP hinzu
- * @param indices Die Indizes der Koeffizienten, die nicht 0 sind
- * @param coeffs Die Werte dieser Koeffizienten
- * @param rhs Die rechte Seite der Ungleichung
- * @param sense Um welche Art von (Un)Gleichung es sich handelt (kleiner gleich, größer gleich, gleich)
+ * Fügt die angegebene Constraint zum LP hinzu
  */
 void LinearProgram::addConstraint(const Constraint& constr) {
 	addConstraints(std::vector<Constraint>{constr});
 }
 
 /**
- * Entfernt die Constraints, die im Vector den Wert 1 haben
+ * Entfernt die Constraints, die im Vector den Wert 1 haben und setzt den Wert an Index i entweder auf die neue ID der
+ * Constraint i oder auf -1, falls i entfernt wurde
  */
 void LinearProgram::removeSetConstraints(std::vector<int>& shouldDelete) {
 	assert(constraints.size() == shouldDelete.size());
@@ -98,67 +85,42 @@ void LinearProgram::removeSetVariables(std::vector<int>& shouldDelete) {
 }
 
 /**
- * @return eine optimale Lösung des LP
- */
-LinearProgram::Solution LinearProgram::solveDual() {
-	Solution sol(static_cast<size_t>(getVariableCount()), static_cast<size_t>(getConstraintCount()));
-	solve(sol);
-	return sol;
-}
-
-LinearProgram::Solution LinearProgram::solvePrimal() {
-	Solution sol(static_cast<size_t>(getVariableCount()), static_cast<size_t>(getConstraintCount()));
-	int result = CPXprimopt(env, problem);
-	if (result != 0) {
-		throw std::runtime_error("Could not solve LP, return value was " + getErrorMessage(result));
-	}
-	writeSolution(sol);
-	return sol;
-}
-
-/**
  * Löst das LP. Falls das LP erfolgreich gelöst wurde, wird die gefundene Lösung in out ausgegeben.
  * Falls das LP unzulässig ist, wird out dementsprechend gesetzt. In allen anderen Fällen wird ein
  * Fehler geworfen.
  * @param out Eine Solution-Objekt der korrekten Größe. Dient als Ausgabe.
  */
-void LinearProgram::solve(LinearProgram::Solution& out) {
+void LinearProgram::solveDual(LinearProgram::Solution& out) {
 	int result = CPXdualopt(env, problem);
 	if (result != 0) {
 		throw std::runtime_error("Could not solve LP, return value was " + getErrorMessage(result));
 	}
-	writeSolution(out);
-}
-
-void LinearProgram::writeSolution(Solution& out) {
 	int status = CPXgetstat(env, problem);
 	switch (status) {
 		case CPX_STAT_OPTIMAL: {
+			out.valid = true;
 			out.slack.resize(static_cast<size_t>(getConstraintCount()));
 			out.shadowCosts.resize(static_cast<size_t>(getConstraintCount()));
-			int result = CPXsolution(env, problem, &status, &out.value, out.vector.data(), out.shadowCosts.data(),
-									 out.slack.data(), out.reduced.data());
+			result = CPXsolution(env, problem, &status, &out.value, out.vector.data(), out.shadowCosts.data(),
+								 out.slack.data(), out.reduced.data());
 			if (result != 0) {
-				throw std::runtime_error("Failed to copy LP solution: " + getErrorMessage(status));
+				throw std::runtime_error("Failed to copy LP solution: " + getErrorMessage(result));
 			}
 		}
 			break;
 		case CPX_STAT_INFEASIBLE:
 		case CPX_STAT_INForUNBD:
-			//TODO darf ich davon ausgehen, dass NAN existiert/definiert ist?
-			out.value = NAN;
+			out.valid = false;
 			break;
 		case CPX_STAT_UNBOUNDED:
 			throw std::runtime_error("LP is unbounded");
 		default:
-			char errStr[4096];
-			CPXgetstatstring(env, status, errStr);
-			throw std::runtime_error("LP solver gave error: " + std::string(errStr));
+			throw std::runtime_error("LP solver gave error: " + getErrorMessage(status));
 	}
 }
 
 variable_id LinearProgram::getVariableCount() {
-	return CPXgetnumcols(env, problem);
+	return varCount;
 }
 
 double LinearProgram::getBound(variable_id var, BoundType bound) {
@@ -203,7 +165,8 @@ LinearProgram::Constraint LinearProgram::getConstraint(int index) const {
 }
 
 LinearProgram::Solution::Solution(size_t varCount, size_t constraintCount)
-		: vector(varCount), slack(constraintCount), reduced(varCount), shadowCosts(constraintCount), value(0) {}
+		: vector(varCount), slack(constraintCount), reduced(varCount), shadowCosts(constraintCount), value(0),
+		  valid(true) {}
 
 double LinearProgram::Solution::operator[](size_t index) const {
 	return vector[index];
@@ -214,7 +177,7 @@ double LinearProgram::Solution::getValue() const {
 }
 
 bool LinearProgram::Solution::isValid() const {
-	return !std::isnan(value);
+	return valid;
 }
 
 const std::vector<double>& LinearProgram::Solution::getVector() const {

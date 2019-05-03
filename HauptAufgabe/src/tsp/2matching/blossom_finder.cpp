@@ -34,7 +34,7 @@ std::vector<BlossomFinder::Blossom> BlossomFinder::findViolatedBlossoms() {
 			++i;
 			assert(b.teeth.size() % 2 == 1);
 		} else {
-			std::swap(b, violated.back());
+			b = std::move(violated.back());
 			violated.pop_back();
 		}
 	}
@@ -209,14 +209,16 @@ bool BlossomFinder::findAndContractPath(Graph::Node start) {
 }
 
 /**
- * Gibt den Wert einer Kante in einem alternierenden Pfad an, der start als inneren Knoten enthält, oder -1, falls es
- * keinen solchen gibt
+ * Stellt fest, ob ein Knoten als innerer Knoten eines alternierenden Pfades genutzt werden kann
  * @param g Der Graph, in dem der alternierende Pfad existieren soll
  * @param start der Knoten, der im Pfad enthalten sein soll
  * @param c Die Kantengewichte
- * @return das gewicht einer Kante im alternierenden Pfad oder -1, falls es keinen gibt
+ * @return wahr genau dann, wenn der Knoten als innerer Knoten in Frage kommt
  */
 bool BlossomFinder::isValidInternalNode(Graph::Node start) {
+	if (!oddNodes[start]) {
+		return false;
+	}
 	size_t degree = 0;
 	double edgeSum = 0;
 	for (Graph::OutArcIt it(fractionalGraph, start);
@@ -262,8 +264,7 @@ std::vector<Graph::Node> BlossomFinder::discoverPath(Graph::Node start, Graph::E
 		}
 		//Prüfen, ob der nächste Knoten ein gültiger innerer Knoten ist
 		assert(fractionalGraph.valid(nextNode));
-		canContinuePath = fractionalGraph.valid(nextNode) && !visited[nextNode] && oddNodes[nextNode]
-						  && isValidInternalNode(nextNode);
+		canContinuePath = fractionalGraph.valid(nextNode) && !visited[nextNode] && isValidInternalNode(nextNode);
 		current = nextNode;
 	} while (canContinuePath);
 	if (current != lemon::INVALID) {
@@ -289,7 +290,7 @@ bool BlossomFinder::finalizeBlossom(Blossom& b) {
 	for (size_t i = 0; i < handle.size(); ++i) {
 		handleIndex[handle[i]] = i;
 	}
-	//Alle 1-Kanten im Schnitt von X sind in F
+	//Alle 1-Kanten im Schnitt vom Griff sind Zähne
 	for (Graph::Edge e:oneEdges) {
 		bool uInHandle = handleIndex[inputGraph.u(e)] >= 0;
 		bool vInHandle = handleIndex[inputGraph.v(e)] >= 0;
@@ -298,7 +299,7 @@ bool BlossomFinder::finalizeBlossom(Blossom& b) {
 		}
 	}
 	assert(teeth.size() % 2 == 1);
-	//Gibt an, ob eine Variable/Kante im TSP-Graphen in F ist
+	//Gibt an, ob eine Variable/Kante im TSP-Graphen ein Zahn ist
 	Graph::EdgeMap<bool> isTooth(inputGraph, false);
 	{
 		//Anzahl der zu einem Knoten inzidenten Zähne
@@ -336,7 +337,7 @@ bool BlossomFinder::finalizeBlossom(Blossom& b) {
 				incidentTooth[inputGraph.v(e)] = lemon::INVALID;
 				isTooth[oldEdge] = false;
 				isTooth[e] = false;
-				//Das gemeinsame Ende aus X entfernen bzw zu X hinzufügen
+				//Das gemeinsame Ende aus dem Griff entfernen bzw zum Griff hinzufügen
 				if (handleIndex[end] >= 0) {
 					assert(handle[handleIndex[end]] == end);
 					handleIndex[handle.back()] = handleIndex[end];
@@ -383,7 +384,7 @@ BlossomFinder::Blossom BlossomFinder::calculateBlossomFor(const Graph::NodeMap <
 	 * falls die Kante nicht in curr.teeth enthalten ist.
 	 */
 	size_t minIndex = std::numeric_limits<size_t>::max();
-	//F ohne Beachtung der Parität berechnen
+	//Zähne ohne Beachtung der Parität berechnen
 	for (Graph::EdgeIt eIt(fractionalGraph); eIt != lemon::INVALID; ++eIt) {
 		bool uInX = components.find(nodeToUF[fractionalGraph.u(eIt)]) == xIndex;
 		bool vInX = components.find(nodeToUF[fractionalGraph.v(eIt)]) == xIndex;
@@ -408,7 +409,7 @@ BlossomFinder::Blossom BlossomFinder::calculateBlossomFor(const Graph::NodeMap <
 	//Die Kardinalität von Xf geschnitten mit T'
 	unsigned xAndTDash = 0;
 	for (Graph::NodeIt nIt(fractionalGraph); nIt != lemon::INVALID; ++nIt) {
-		//Ist der Knoten in X?
+		//Ist der Knoten im Griff?
 		if (components.find(nodeToUF[nIt]) == xIndex) {
 			//Ist der Knoten in T delta V'?
 			if (oddNodes[nIt] != (adjacentEDash[nIt] % 2 == 1)) {
@@ -424,12 +425,12 @@ BlossomFinder::Blossom BlossomFinder::calculateBlossomFor(const Graph::NodeMap <
 			//Die Paritätsbedingung kann nicht erfüllt werden, es gibt keine Kante im Schnitt
 			valid = false;
 		} else if (minIndex < curr.teeth.size()) {
-			//Kante aus F entfernen
+			//Kante aus den Zähnen entfernen
 			cutCost += 2 * minDiffVal;
 			curr.teeth[minIndex] = curr.teeth.back();
 			curr.teeth.pop_back();
 		} else {
-			//Kante zu F hinzufügen
+			//Kante zu den Zähnen hinzufügen
 			cutCost -= 2 * minDiffVal;
 			curr.teeth.push_back(minDiffEdge);
 		}

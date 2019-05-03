@@ -31,11 +31,10 @@ CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::ve
 		//Der Zusammenhangs-CutGen hat schon verletzte Subtour-Ungleichungen gefunden
 		return valid;
 	}
-	tsp_util::addSupportGraphEdges(tsp, lpData, tolerance, solution, workGraph, origToWork, workToOrig, capacity);
+	tsp_util::addSupportGraphEdges(lpData, tolerance, solution, workGraph, origToWork, workToOrig, capacity);
 	minCut.run();
 	double cutCapacity = minCut.minCutValue();
-	const double cutScale = 100;
-	if (!tolerance.less(cutScale * cutCapacity, cutScale * 2)) {
+	if (!tolerance.less(cutCapacity, 2)) {
 		return valid;
 	}
 	//Positive Kapazität<2 ->Verletzte Subtour-Constraint

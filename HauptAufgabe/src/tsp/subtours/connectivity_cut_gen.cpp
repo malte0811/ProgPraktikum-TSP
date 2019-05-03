@@ -13,8 +13,8 @@ using std::size_t;
 ConnectivityCutGen::ConnectivityCutGen(const TSPInstance& inst, const TspLpData& lpData)
 		: origToWork(inst.getCityCount()), workToOrig(workGraph), tsp(inst), lpData(lpData) {
 	/*
-	 * Grundzustand des Arbeitsgraphen abspeichern: So viele Knoten wie in der TSP-Instanz, aber keine Kanten.
-	 * Außerdem NodeMap's anlegen, um Knoten im TSP-Graphen in Knoten im Arbeitsgraphen umzuwandeln und umgekehrt
+	 * Grundzustand des Arbeitsgraphen herstellen: So viele Knoten wie in der TSP-Instanz, aber keine Kanten.
+	 * Außerdem NodeMap's anlegen, um Städten in der TSP-Instanten in Knoten im Arbeitsgraphen umzuwandeln und umgekehrt
 	 */
 	for (city_id i = 0; i < tsp.getCityCount(); ++i) {
 		Graph::Node newNode = workGraph.addNode();
@@ -32,8 +32,7 @@ CutGenerator::CutStatus ConnectivityCutGen::validate(LinearProgram& lp, const st
 		workGraph.erase(e);
 	}
 	/*
-	 * Alle Kanten einfügen, deren Variablen einen echt positiven Wert haben (Kanten mit Wert 0 ändern den minimalen
-	 * Schnitt nicht)
+	 * Alle Kanten einfügen, deren Variablen einen echt positiven Wert haben
 	 */
 	for (variable_id i = 0; i < lpData.getVariableCount(); ++i) {
 		if (tolerance.positive(solution[i])) {

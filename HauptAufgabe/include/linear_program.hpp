@@ -54,6 +54,7 @@ public:
 		std::vector<double> reduced;
 		std::vector<double> shadowCosts;
 		double value;
+		bool valid;
 	};
 
 	class Constraint {
@@ -101,9 +102,6 @@ public:
 	void addVariables(const std::vector<double>& objCoeff, const std::vector<double>& lower,
 					  const std::vector<double>& upper);
 
-	void addVariableWithCoeffs(double objCoeff, double lower, double upper, const std::vector<int>& indices,
-							   const std::vector<double>& constrCoeffs);
-
 	void addConstraint(const Constraint& constr);
 
 	template<typename T>
@@ -115,11 +113,7 @@ public:
 
 	void removeSetVariables(std::vector<int>& shouldDelete);
 
-	Solution solveDual();
-
-	Solution solvePrimal();
-
-	void solve(Solution& out);
+	void solveDual(Solution& out);
 
 	variable_id getVariableCount();
 
@@ -135,13 +129,12 @@ public:
 
 	static variable_id invalid_variable;
 private:
-	void writeSolution(Solution& sol);
-
 	std::string getErrorMessage(int error);
 
 	CPXENVptr& env;
 	CPXLPptr problem;
 	std::vector<Constraint> constraints;
+	variable_id varCount = 0;
 };
 
 template<typename T>

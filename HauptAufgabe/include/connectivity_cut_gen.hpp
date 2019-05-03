@@ -10,6 +10,9 @@ class LinearProgram;
 
 class TspLpData;
 
+/**
+ * Fügt in nicht zusammenhängenden Graphen die Subtour-Constraints zu den Zusammenhangskomponenten hinzu
+ */
 class ConnectivityCutGen : public CutGenerator {
 public:
 	explicit ConnectivityCutGen(const TSPInstance& inst, const TspLpData& lpData);

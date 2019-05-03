@@ -18,10 +18,6 @@ TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst, const TspLpData& l
 
 CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
 													CutStatus currentStatus) {
-	//Nur erfüllt, falls der SimpleCombCutGen schon verletzte Constraints, meist 2-Matching-Constraints, gefunden hat
-	if (currentStatus == CutGenerator::maybe_recalc) {
-		return CutGenerator::valid;
-	}
 	Graph supportGraph;
 	//Ordnet den Städten der TSP-Instanz einen Knoten im Arbeitsgraphen zu. Nur bis zum Aufruf von contractPaths gültig!
 	std::vector<Graph::Node> origToWork(static_cast<size_t>(tsp.getCityCount()));
@@ -29,7 +25,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 	Graph::EdgeMap<double> capacity(supportGraph);
 	//Ordnet jedem Knoten die entsprechende Stadt zu
 	Graph::NodeMap <city_id> graphToTSP(supportGraph);
-	tsp_util::addSupportGraphEdges(tsp, lpData, tolerance, solution, supportGraph,
+	tsp_util::addSupportGraphEdges(lpData, tolerance, solution, supportGraph,
 								   origToWork, graphToTSP, capacity);
 	//Verletzten Blüten finden
 	BlossomFinder finder(supportGraph, capacity, tolerance, enableContraction);

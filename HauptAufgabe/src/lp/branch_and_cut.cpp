@@ -46,7 +46,7 @@ BranchAndCut::BranchAndCut(LinearProgram& program, std::vector<CutGenerator *> g
 		}
 	}
 	//obere Schranke auf schlechtesten möglichen Wert setzen
-	upperBound = std::numeric_limits<double>::max();
+	upperBound = std::numeric_limits<obj_t>::max();
 	//Koeffizienten in einem vector speichern, da direkter Zugriff über das LP langsam ist
 	std::vector<double> obj = program.getObjective();
 	for (size_t i = 0; i < obj.size(); ++i) {
@@ -63,11 +63,12 @@ BranchAndCut::BranchAndCut(LinearProgram& program, std::vector<CutGenerator *> g
 }
 
 /**
- * Berechnet die kleinste ganze Zahl, die mit der angegebenen Toleranz tol nicht kleiner als in ist
+ * Berechnet den besten möglichen ganzzahligen Wert, der schlechter als in ist. Ganzzahligkeit wird mit der Toleranz tol
+ * entschieden
  */
-obj_t tolerantCeil(double in, lemon::Tolerance<double> tol) {
+obj_t getNextWorse(double in, lemon::Tolerance<double> tol) {
 	auto ceil = static_cast<obj_t>(std::ceil(in));
-	if (tol.different(ceil - in, 1)) {
+	if (tol.less(ceil - 1, in)) {
 		return ceil;
 	} else {
 		return ceil - 1;
@@ -75,11 +76,13 @@ obj_t tolerantCeil(double in, lemon::Tolerance<double> tol) {
 }
 
 /**
- * Berechnet den besten möglichen ganzzahligen Wert, der schlechter als in ist. Besser/Schlechter bezieht sich auf g,
- * außerdem wird Ganzzahligkeit mit der Toleranz tol entschieden
+ * @param fractBound Der Wert einer fraktionalen Lösung des LPs
+ * @return true, falls die obere Schranke durch den Zweig des Suchbaums, der die Lösung produziert hat, verbessert
+ * werden kann
  */
-obj_t getNextWorse(double in, lemon::Tolerance<double> tol) {
-	return tolerantCeil(in, tol);
+bool BranchAndCut::canImproveBound(double fractBound) {
+	obj_t bestPossibleResult = getNextWorse(fractBound, intTolerance);
+	return bestPossibleResult < upperBound;
 }
 
 /**
@@ -87,11 +90,13 @@ obj_t getNextWorse(double in, lemon::Tolerance<double> tol) {
  * Bedingungen erfüllt ist:<br>
  * 1. Das LP ist unzulässig.<br>
  * 2. Die Lösung wird von allen Cut-Generatoren als gültig akzeptiert.<br>
- * 3. Die Lösung ist schlechter als die aktuelle obere Schranke.<br>
+ * 3. Die Lösung ist so schlecht, dass sie nicht zu einer besseren oberen Schranke führen kann.<br>
  * 4. Der Wert der Lösung hat sich in den letzten Iterationen nicht stark geändert und es wurde kein Schnitt hinzu-
  * gefügt, der eine Neuberechnung erzwingt.<br>
  * Am Ende werden Constraints entfernt, die seit mindestens 10 Iterationen nicht mehr mit Gleichheit erfüllt waren.
  * @param out Ein Solution-Objekt der korrekten Größe. Dient als Ausgabe.
+ * @param isRoot gibt an, ob der Wurzelknoten des Suchbaums gelöst wird (in diesem Fall werden Variablen entfernt bzw.
+ * die Schranken für die Entfernung verbessert)
  */
 void BranchAndCut::solveLP(LinearProgram::Solution& out, bool isRoot) {
 	CutGenerator::CutStatus solutionStatus;
@@ -106,13 +111,13 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out, bool isRoot) {
 			std::cout << "Currently at " << iterations << " cutting iterations, using " << problem.getConstraintCount()
 					  << " constraints!" << std::endl;
 		}
-		problem.solve(out);
+		problem.solveDual(out);
 		countSolutionSlack(out);
 		/*
 		 * Abbrechen, falls das LP unzulässig ist oder die optimale fraktionale Lösung nicht mehr besser als die beste
 		 * bekannte ganzzahlige ist
 		 */
-		if (!out.isValid() || !isBetter(getNextWorse(out.getValue(), intTolerance), upperBound)) {
+		if (!out.isValid() || !canImproveBound(out.getValue())) {
 			break;
 		}
 		/*
@@ -150,7 +155,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out, bool isRoot) {
 		if (iterations == 1) {
 			lastCleanup = out.getValue();
 		}
-		if (iterations == 1 || (iterations % 8 == 0 && isBetter(lastCleanup, out.getValue()))) {
+		if (iterations == 1 || (iterations % 8 == 0 && generalTolerance.less(lastCleanup, out.getValue()))) {
 			/*
 			 * Entfernen "alter" Constraints maximal alle 8 Iterationen und nur, wenn der Wert der aktuellen Lösung
 			 * "schlechter" (also eine bessere untere Schranke) als beim letzten erfolgreichen Entfernen ist
@@ -164,10 +169,13 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out, bool isRoot) {
 			}
 		}
 	} while (solutionStatus != CutGenerator::valid);
+	if (isRoot) {
+		std::cout << "Solved root node, lower bound is " << out.getValue() << std::endl;
+	}
 }
 
 /**
- * @return eine optimale ganzzahlige Lösung des LP, die von alle Cut-Generatoren akzeptiert wird.
+ * @return eine optimale ganzzahlige Lösung des LP, die von allen Cut-Generatoren akzeptiert wird.
  */
 std::vector<value_t> BranchAndCut::solve() {
 	handledNodes = 0;
@@ -194,8 +202,11 @@ std::vector<value_t> BranchAndCut::solve() {
 }
 
 /**
- * Findet die beste ganzzahlige Lösung des LP's (mit Cut-Generatoren) unter den aktuellen Grenzen für die Variablen.
- * Falls diese Lösung besser als upperBound bzw.
+ * Behandelt den gegebenen Suchbaum-Knoten. Falls der Zweig fortgesetzt wird, wird ein Kind immer sofort behandelt, das
+ * andere nur, wenn es wahrscheinlich schnell eine obere Schranke erzeugen wird (sonst wird es zur offenen Menge
+ * hinzugefügt).
+ * @param node Der zu behandelnde Suchbaumknoten
+ * @param isRoot Ob der gegebene Knoten die Wurzel des Suchbaums ist
  */
 void BranchAndCut::branchAndBound(BranchNode& node, bool isRoot) {
 	currStack.push_back(&node);
@@ -211,10 +222,10 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool isRoot) {
 	 * Zielfunktion im Endergebnis ganzzahlig; sie hat also mindestens den Wert
 	 * getNextWorse(fractOpt.getValue(), goal, intTolerance)
 	 */
-	if (fractOpt.isValid() && isBetter(getNextWorse(fractOpt.getValue(), intTolerance), upperBound)) {
+	if (fractOpt.isValid() && canImproveBound(fractOpt.getValue())) {
 		//Variable, die zum Branchen genutzt werden soll
 		variable_id varToBound = -1;
-		//Abstand des Wertes zu 0.5
+		//Abstand des Wertes dieser Variablen zu 0.5
 		double optDist = 1;
 		//Koeffizient der Variablen in der Zielfunktion
 		coeff_t varWeight = 0;
@@ -245,6 +256,10 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool isRoot) {
 				 * werden
 				 */
 				if (!node.bounds[i].isFixed()) {
+					/*
+					 * Die höchsten reduzierten Kosten, die eine Variable haben kann und trotzdem in einer verbesserten
+					 * Lösung einen anderen Wert als den aktuellen annehmen kann
+					 */
 					double minDifference = upperBound - 1 - fractOpt.getValue();
 					if (rounded == 1 && intTolerance.less(reducedCosts[i], -minDifference)) {
 						node.bounds.fix(i, LinearProgram::upper);
@@ -303,8 +318,8 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool isRoot) {
 }
 
 /**
- * Beschränkt den zulässgen Bereich einer Variablen wie durch die Parameter beschrieben, ruft dann branchAndBound auf
- * und setzt den zulässigen Bereich wieder auf den ursprünglichen Wert.
+ * Erzeugt das durch die Parameter beschriebene Kind des angegebenen Knotens und behandelt es oder fügt es zur offenen
+ * Menge hinzu
  * @param variable Die zu beschränkende Variable
  * @param val Der neue Wert der Beschränkung
  * @param bound Die "Richtung", in der die Variable beschränkt werden soll
@@ -341,15 +356,6 @@ void BranchAndCut::countSolutionSlack(const LinearProgram::Solution& sol) {
 }
 
 /**
- * @param a ein Wert der Zielfunktion
- * @param b ein Wert der Zielfunktion
- * @return true, falls a ein streng besserer Wert der Zielfunktion als b ist
- */
-bool BranchAndCut::isBetter(double a, double b) {
-	return generalTolerance.less(a, b);
-}
-
-/**
  * Setzt die obere Schranke für Branch and Bound
  * @param value Die Werte der Variablen, oder ein leerer Vector
  * @param cost Die Kosten der angegebenen Lösung
@@ -368,11 +374,11 @@ void BranchAndCut::setUpperBound(const std::vector<value_t>& value, obj_t cost) 
 		auto firstRemove = open.end();
 		--firstRemove;
 		//Letzten Knoten finden, der zu besseren Ergebnissen als der neuen Schranke führen kann
-		while (firstRemove != open.begin() && !isBetter(getNextWorse(firstRemove->value, intTolerance), cost)) {
+		while (firstRemove != open.begin() && !canImproveBound(firstRemove->value)) {
 			--firstRemove;
 			++removed;
 		}
-		if (isBetter(getNextWorse(firstRemove->value, intTolerance), cost)) {
+		if (canImproveBound(firstRemove->value)) {
 			++firstRemove;
 			--removed;
 		}
@@ -459,6 +465,10 @@ bool BranchAndCut::cleanupOldConstraints() {
 
 }
 
+/**
+ * Entfernt alle Variablen in toRemove aus dem LP (und allen anderen relevanten Daten)
+ * @param toRemove die zu entfernenden Variablen
+ */
 void BranchAndCut::removeVariables(const std::vector<variable_id>& toRemove) {
 	if (!toRemove.empty()) {
 		std::vector<int> variableMap(varCount, 0);
@@ -475,7 +485,7 @@ void BranchAndCut::removeVariables(const std::vector<variable_id>& toRemove) {
 			//Einen Knoten nicht hinzufügen, wenn er sich nur in den entfernten Variablen von einem anderen Knoten unterschiedet
 			bool add = true;
 			for (const BranchNode& newEle:newOpen) {
-				if (newNode == newEle) {
+				if (newNode.bounds == newEle.bounds) {
 					add = false;
 					break;
 				}
@@ -500,7 +510,7 @@ void BranchAndCut::removeVariables(const std::vector<variable_id>& toRemove) {
 		open = newOpen;
 		fractOpt.removeVariables(toRemove);
 		assert(varCount == static_cast<variable_id>(currentBounds.size()) &&
-			   varCount == static_cast<variable_id>(objCoefficients.size()));
+					   varCount == static_cast<variable_id>(objCoefficients.size()));
 		std::cout << "Removed " << toRemove.size() << " variables, " << varCount << " remaining" << std::endl;
 	}
 }
@@ -554,13 +564,12 @@ BranchAndCut::SystemBounds::SystemBounds(const BranchAndCut::SystemBounds& old, 
 }
 
 BranchAndCut::VariableBounds BranchAndCut::SystemBounds::operator[](variable_id id) const {
-	VariableBounds basic{0, 1};
 	if (fixUpper[id]) {
-		return {basic.max, basic.max};
+		return {1, 1};
 	} else if (fixLower[id]) {
-		return {basic.min, basic.min};
+		return {0, 0};
 	} else {
-		return basic;
+		return {0, 1};
 	}
 }
 
