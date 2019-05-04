@@ -37,8 +37,7 @@ public:
 
 	explicit CombHeuristic(std::vector<ContractionRule *> rules);
 
-	std::vector<Comb> findViolatedCombs(const TspLpData& lpData, const TSPInstance& inst,
-										const std::vector<double>& sol) const;
+	std::vector<Comb> findViolatedCombs(const TspLpData& lpData, const std::vector<double>& sol) const;
 
 private:
 	std::vector<ContractionRule *> rules;

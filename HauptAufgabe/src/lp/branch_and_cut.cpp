@@ -307,8 +307,7 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool isRoot) {
 				/*
 				 * Diesen Knoten sofort bearbeiten. So werden schneller obere Schranken gefunden und die LPs können
 				 * schneller gelöst werden, da das duale Simplexverfahren genutzt wird und das LP nach dem Hinzufügen
-				 * neuer Constraints (bzw. Schranke für Variablen) schnell neu gelöst werden kann
-				 * (TODO genauer beschreiben, wenn das in LGO besprochen wurde)
+				 * neuer Constraints (bzw. Schranken für Variablen) schnell neu gelöst werden kann
 				 */
 				branch(varToBound, 1, LinearProgram::lower, node.bounds, fractVal, true);
 			}

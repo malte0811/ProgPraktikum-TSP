@@ -13,7 +13,7 @@ using std::size_t;
 
 CombHeuristic::CombHeuristic(std::vector<ContractionRule *> rules) : rules(std::move(rules)), tolerance(1e-5) {}
 
-std::vector<CombHeuristic::Comb> CombHeuristic::findViolatedCombs(const TspLpData& lpData, const TSPInstance& inst,
+std::vector<CombHeuristic::Comb> CombHeuristic::findViolatedCombs(const TspLpData& lpData,
 																  const std::vector<double>& sol) const {
 	Graph g;
 	std::vector<Graph::Node> origToWork;

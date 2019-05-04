@@ -16,8 +16,7 @@ using std::size_t;
 TwoMatchingCutGen::TwoMatchingCutGen(const TSPInstance& inst, const TspLpData& lpData, bool contract)
 		: tsp(inst), lpData(lpData), enableContraction(contract), tolerance(1e-5) {}
 
-CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& solution,
-													CutStatus currentStatus) {
+CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std::vector<double>& solution, CutStatus) {
 	Graph supportGraph;
 	//Ordnet den Städten der TSP-Instanz einen Knoten im Arbeitsgraphen zu. Nur bis zum Aufruf von contractPaths gültig!
 	std::vector<Graph::Node> origToWork(static_cast<size_t>(tsp.getCityCount()));
