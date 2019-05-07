@@ -54,13 +54,14 @@ Graph::Graph(std::istream& input) {
 				auto nodeCount = readOrThrow<node_id>(ss);
 				nodes.resize(nodeCount);
 				nodeLocations.resize(nodeCount);
+				//TODO: Wenn keine NODE_COORD_SECTION folgt, sind alle knoten+locations uninitialisiert.
 			} else if (keyword == "EDGE_WEIGHT_TYPE") {
 				auto type = readOrThrow<std::string>(ss);
 				if (type == "EUC_2D") {
 					edgeType = euc_2d;
 				} else if (type == "CEIL_2D") {
 					edgeType = ceil_2d;
-				}
+				}//TODO: Wenn edge_type keins von beiden ist wird kein Fehler geworfen, sondern euc_2d genommen.
 			} else if (keyword == "NODE_COORD_SECTION") {
 				readNodes(input, edgeType);
 				input >> std::ws;
@@ -130,7 +131,7 @@ const std::string& Graph::getName() const {
 
 /*
 Einfache Helfer-Methode, gibt den jeweils anderen Endknoten zu known zurück
-*/
+*///TODO: assert, dass known mindestens gleich einem endpunkt ist.
 Graph::node_id edge::getOtherNode(Graph::node_id known) const {
 	if (known == endA) {
 		return endB;

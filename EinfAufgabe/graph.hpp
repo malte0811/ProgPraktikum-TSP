@@ -33,6 +33,7 @@ public:
 
 	explicit Graph(std::istream& input);
 
+	//TODO: Das koennte auch [const edge &] sein.
 	edge getEdge(edge_id id) const;
 
 	edge_id addEdge(node_id endA, node_id endB, cost_t c = 0);
@@ -49,6 +50,7 @@ private:
 	void readNodes(std::istream& input, EdgeWeightType type);
 
 	std::string name;
+	//TODO: Hier koennten Knoten und Orte zusammengefasst werden.
 	std::vector<node> nodes;
 	std::vector<edge> edges;
 	std::vector<Vec2> nodeLocations;

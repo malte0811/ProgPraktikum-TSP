@@ -66,6 +66,7 @@ namespace tspsolvers {
 		}
 		closeHamiltonPath(g, edgesAtNode);
 		std::vector<node_id> order = getOrderFromEdges(edgesAtNode);
+		// TODO: Es fehlt die letzte kante in totalCost
 		return Tour(order, totalCost, g.getName());
 	}
 
@@ -101,6 +102,7 @@ namespace tspsolvers {
 		do {
 			for (const edge& e:edgesAtNode[currentNode]) {
 				node_id otherNode = e.getOtherNode(currentNode);
+				//TODO: Endless loop wenn es nur 2 Knoten gibt
 				if (otherNode != prevNode) {
 					order.push_back(currentNode);
 					prevNode = currentNode;
