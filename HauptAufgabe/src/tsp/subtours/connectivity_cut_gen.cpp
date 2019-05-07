@@ -36,7 +36,7 @@ CutGenerator::CutStatus ConnectivityCutGen::validate(LinearProgram& lp, const st
 	 */
 	for (variable_id i = 0; i < lpData.getVariableCount(); ++i) {
 		if (tolerance.positive(solution[i])) {
-			TspLpData::Edge e = lpData.getEdge(i);
+			const TspLpData::Edge& e = lpData.getEdge(i);
 			workGraph.addEdge(origToWork[e.first], origToWork[e.second]);
 		}
 	}

@@ -24,6 +24,8 @@ link_directories(libs)
 link_libraries(cplex lemon dl pthread)
 
 add_executable(TSPtest2 ${COMMON_SOURCES} src/tests/tsp_test.cpp)
+add_executable(SpecialTests ${COMMON_SOURCES} src/tests/special_tests.cpp)
+add_executable(BrokenFileTest ${COMMON_SOURCES} src/tests/broken_file_test.cpp)
 add_executable(TSPsolver ${COMMON_SOURCES} src/main.cpp)
 add_executable(2MatchingSim ${COMMON_SOURCES} src/tests/two_matching_sim.cpp)
 add_executable(LinkernConverter src/linkern_to_lib.cpp)

@@ -24,7 +24,7 @@ TSPSolution::TSPSolution(const TSPInstance& inst, const std::vector<bool>& varia
 	lemon::FullGraph::EdgeMap<bool> used(g);
 	for (variable_id i = 0; i < variableMap.getVariableCount(); ++i) {
 		if (variables[i]) {
-			TspLpData::Edge e = variableMap.getEdge(i);
+			const TspLpData::Edge& e = variableMap.getEdge(i);
 			lemon::FullGraph::Node endA = g(e.first);
 			lemon::FullGraph::Node endB = g(e.second);
 			used[g.edge(endA, endB)] = true;
@@ -105,7 +105,7 @@ TSPSolution::TSPSolution(const TSPInstance& instance, std::istream& input) : ins
 				}
 			} else if (keyword == "TOUR_SECTION") {
 				order.resize(inst->getCityCount());
-				for (int& i : order) {
+				for (city_id& i : order) {
 					i = tsp_util::readOrThrow<city_id>(input) - 1;
 					if (i < 0) {
 						throw std::runtime_error("Invalid city in tour: "

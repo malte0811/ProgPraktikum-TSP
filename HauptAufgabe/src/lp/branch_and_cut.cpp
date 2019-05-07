@@ -470,7 +470,7 @@ bool BranchAndCut::cleanupOldConstraints() {
  */
 void BranchAndCut::removeVariables(const std::vector<variable_id>& toRemove) {
 	if (!toRemove.empty()) {
-		std::vector<int> variableMap(varCount, 0);
+		std::vector<variable_id> variableMap(varCount, 0);
 		for (variable_id r:toRemove) {
 			variableMap[r] = 1;
 		}

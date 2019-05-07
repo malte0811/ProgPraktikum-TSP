@@ -7,7 +7,8 @@
 #include <string>
 #include <vector>
 
-using cost_t = unsigned;
+using cost_t = unsigned long;
+//Kanten müssen als int's gespeichert werden können (wegen CPLEX), also müssen die Städte erst recht in int passen
 using city_id = int;
 using Graph = lemon::ListGraph;
 
@@ -34,6 +35,7 @@ private:
 		att
 	};
 	enum EdgeFormat {
+		function,
 		full_matrix,
 		lower_diag_row,
 		upper_diag_row,

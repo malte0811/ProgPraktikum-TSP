@@ -28,7 +28,7 @@ public:
 
 	inline cost_t getCost(variable_id var) const;
 
-	inline Edge getEdge(variable_id var) const;
+	inline const Edge& getEdge(variable_id var) const;
 
 	void setupBasicLP(LinearProgram& lp) const;
 
@@ -64,7 +64,7 @@ private:
 /**
  * @return die zur gegebenen Variable gehörende Kante
  */
-TspLpData::Edge TspLpData::getEdge(variable_id var) const {
+const TspLpData::Edge& TspLpData::getEdge(variable_id var) const {
 	return variableToEdge[var];
 }
 
@@ -72,7 +72,7 @@ TspLpData::Edge TspLpData::getEdge(variable_id var) const {
  * @return die Kosten der Variablen, d.h. die Länge der zugehörigen Kante
  */
 cost_t TspLpData::getCost(variable_id var) const {
-	Edge e = getEdge(var);
+	const Edge& e = getEdge(var);
 	return inst.getDistance(e.first, e.second);
 }
 

@@ -65,7 +65,7 @@ namespace tspsolvers {
 		}
 		FullGraph::EdgeMap<bool> used(g);
 		FullGraph::NodeMap<size_t> degree(g);
-		int addedEdges = 0;
+		size_t addedEdges = 0;
 		for (FullGraph::Edge e:sortedEdges) {
 			//Falls an einem der beiden Enden schon 2 Kanten anliegen, kann die Kante nicht hinzugefügt werden
 			size_t& edgesAtU = degree[g.u(e)];
@@ -85,7 +85,7 @@ namespace tspsolvers {
 				++edgesAtU;
 				++edgesAtV;
 				used[e] = true;
-				if (addedEdges == inst.getCityCount() - 1) {
+				if (addedEdges == static_cast<size_t>(inst.getCityCount() - 1)) {
 					break;//Tour ist fast vollständig, die letzte Kante ist aber eindeutig bestimmt
 				}
 				//Enden des neuen Segments setzen

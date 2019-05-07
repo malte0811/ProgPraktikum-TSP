@@ -68,7 +68,7 @@ T tsp_util::readOrThrow(std::istream& input) {
 	T ret;
 	input >> ret;
 	if (!input) {
-		throw std::invalid_argument("Could not read input!");
+		throw std::runtime_error("Could not read input!");
 	}
 	return ret;
 }

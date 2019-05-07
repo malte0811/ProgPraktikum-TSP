@@ -20,65 +20,108 @@ const city_id TSPInstance::invalid_city = -1;
 TSPInstance::TSPInstance(std::istream& input) {
 	const std::set<std::string> unsupportedKeys = {"FIXED_EDGES_SECTION"};
 	std::string line;
-	EdgeWeightType edgeType = euc_2d;
-	EdgeFormat edgeFormat = full_matrix;
+	EdgeWeightType edgeType = explicit_;
+	EdgeFormat edgeFormat = function;
 	bool emptyLines = false;
+	std::set<std::string> handledKeys;
+	bool hasDistances = false;
 	while (std::getline(input, line)) {
 		if (!line.empty()) {
 			if (emptyLines) {
 				std::cout << "Skipped empty line(s)" << std::endl;
+				emptyLines = false;
 			}
 			std::stringstream ss(line);
 			std::string keyword = tsp_util::readKeyword(ss);
+			if (keyword != "COMMENT" && !handledKeys.insert(keyword).second) {
+				throw std::runtime_error("Duplicate keyword: " + keyword);
+			}
 			if (keyword == "NAME") {
 				ss >> name;
 			} else if (keyword == "COMMENT") {
 				//NOP
 			} else if (keyword == "DIMENSION") {
 				auto nodeCount = readOrThrow<city_id>(ss);
+				if (nodeCount < 3) {
+					throw std::runtime_error("TSP-Instances must contain at least 3 vertices");
+				}
+				//Prüfen, dass alle Kanten-IDs noch darstellbar sind
+				variable_id maxEdgeCount = std::numeric_limits<variable_id>::max();
+				if (nodeCount % 2 == 0) {
+					if (nodeCount / 2 > maxEdgeCount / (nodeCount - 1)) {
+						throw std::runtime_error("Too many nodes, edge count would be greater than "
+												 + std::to_string(maxEdgeCount));
+					}
+				} else {
+					if ((nodeCount - 1) / 2 > maxEdgeCount / nodeCount) {
+						throw std::runtime_error("Too many nodes, edge count would be greater than "
+												 + std::to_string(maxEdgeCount));
+					}
+				}
 				distances.resize(static_cast<size_t>(nodeCount - 1));
 				for (size_t i = 0; i < static_cast<size_t>(nodeCount - 1); ++i) {
 					distances[i].resize(i + 1);
 				}
 			} else if (keyword == "EDGE_WEIGHT_TYPE") {
 				auto type = readOrThrow<std::string>(ss);
-				if (type == "EUC_2D") {
-					edgeType = euc_2d;
-				} else if (type == "CEIL_2D") {
-					edgeType = ceil_2d;
-				} else if (type == "EXPLICIT") {
-					edgeType = explicit_;
-				} else if (type == "GEO") {
-					edgeType = geo;
-				} else if (type == "ATT") {
-					edgeType = att;
-				} else {
-					throw std::runtime_error("Unknown edge weight type: " + type);
+				if (type != "EXPLICIT") {
+					if (edgeFormat != function) {
+						throw std::runtime_error(
+								"Found both non-EXPLICIT EDGE_WEIGHT_TYPE and non-FUNCTION EDGE_WEIGHT_FORMAT");
+					}
+					if (type == "EUC_2D") {
+						edgeType = euc_2d;
+					} else if (type == "CEIL_2D") {
+						edgeType = ceil_2d;
+					} else if (type == "GEO") {
+						edgeType = geo;
+					} else if (type == "ATT") {
+						edgeType = att;
+					} else {
+						throw std::runtime_error("Unknown edge weight type: " + type);
+					}
 				}
 			} else if (keyword == "EDGE_WEIGHT_FORMAT") {
 				auto type = readOrThrow<std::string>(ss);
-				if (type == "FULL_MATRIX") {
-					edgeFormat = full_matrix;
-				} else if (type == "LOWER_DIAG_ROW") {
-					edgeFormat = lower_diag_row;
-				} else if (type == "UPPER_DIAG_ROW") {
-					edgeFormat = upper_diag_row;
-				} else if (type == "UPPER_ROW") {
-					edgeFormat = upper_row;
-				} else if (type !=
-						   "FUNCTION") {//Function kommt in einigen Instanzen vor, die sonst keine ungewöhnlichen Daten haben (gr431)
-					throw std::runtime_error("Unknown edge format: " + type);
+				//FUNCTION heißt, dass EDGE_WEIGHT_TYPE genutzt wird
+				if (type != "FUNCTION") {
+					if (edgeType != explicit_) {
+						throw std::runtime_error(
+								"Found both non-EXPLICIT EDGE_WEIGHT_TYPE and non-FUNCTION EDGE_WEIGHT_FORMAT");
+					}
+					if (type == "FULL_MATRIX") {
+						edgeFormat = full_matrix;
+					} else if (type == "LOWER_DIAG_ROW") {
+						edgeFormat = lower_diag_row;
+					} else if (type == "UPPER_DIAG_ROW") {
+						edgeFormat = upper_diag_row;
+					} else if (type == "UPPER_ROW") {
+						edgeFormat = upper_row;
+					} else {
+						throw std::runtime_error("Unknown edge format: " + type);
+					}
 				}
 			} else if (keyword == "NODE_COORD_SECTION") {
+				if (distances.empty()) {
+					throw std::runtime_error("NODE_COORD_SECTION before DIMENSION");
+				}
+				if (edgeType == explicit_) {
+					throw std::runtime_error("Found NODE_COORD_SECTION, but edge weight type is EXPLICIT");
+				}
 				readNodes(input, edgeType);
 				input >> std::ws;
+				hasDistances = true;
 			} else if (keyword == "EDGE_WEIGHT_SECTION") {
+				if (edgeFormat == function) {
+					throw std::runtime_error("Found EDGE_WEIGHT_SECTION, but edge weight format is FUNCTION");
+				}
 				readEdges(input, edgeFormat);
 				input >> std::ws;
+				hasDistances = true;
 			} else if (keyword == "TYPE") {
 				auto type = readOrThrow<std::string>(ss);
 				if (type != "TSP") {
-					throw std::invalid_argument("Input is not a symmetric TSP instance!");
+					throw std::runtime_error("Input is not a symmetric TSP instance! (Type: " + type + ")");
 				}
 			} else if (keyword == "EOF") {
 				break;
@@ -90,6 +133,12 @@ TSPInstance::TSPInstance(std::istream& input) {
 		} else {
 			emptyLines = true;
 		}
+	}
+	if (!hasDistances) {
+		throw std::runtime_error("Did not find distance data!");
+	}
+	if (name.empty()) {
+		throw std::runtime_error("Unnamed instance!");
 	}
 }
 
@@ -142,6 +191,7 @@ void TSPInstance::readNodes(std::istream& input, EdgeWeightType type) {
 					distance = static_cast<cost_t>(std::ceil(std::sqrt(distX * distX + distY * distY)));
 					break;
 				case explicit_:
+					//Sollte nie auftreten
 					throw std::runtime_error("Weight type is EXPLICIT, but a NODE_COORD_SECTION exists!");
 				case geo: {
 					double lat1 = coordToLatLong(nodeLocations[lowerId].x);
@@ -199,6 +249,9 @@ void TSPInstance::readEdges(std::istream& input, TSPInstance::EdgeFormat type) {
 				minCol = row + 1;
 				colCount = nodeCount - row - 1;
 				break;
+			case function:
+				//Solle nie auftreten
+				throw std::runtime_error("Format is FUNCTION, but an EDGE_WEIGHT_SECTION exists!");
 		}
 		for (city_id col = minCol; col < minCol + colCount; ++col) {
 			setDistance(row, col, readOrThrow<cost_t>(input));

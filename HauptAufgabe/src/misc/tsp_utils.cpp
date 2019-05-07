@@ -41,7 +41,7 @@ void tsp_util::addSupportGraphEdges(const TspLpData& lpData, lemon::Tolerance<do
 	 */
 	for (variable_id i = 0; i < lpData.getVariableCount(); ++i) {
 		if (tolerance.positive(solution[i])) {
-			TspLpData::Edge e = lpData.getEdge(i);
+			const TspLpData::Edge& e = lpData.getEdge(i);
 			Graph::Edge inWork = workGraph.addEdge(origToWork[e.first], origToWork[e.second]);
 			c[inWork] = solution[i];
 		}
