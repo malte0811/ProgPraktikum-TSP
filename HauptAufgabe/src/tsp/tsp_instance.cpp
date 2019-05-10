@@ -6,7 +6,10 @@
 #include <memory>
 #include <set>
 #include <stdexcept>
+#include <limits>
+#include <utility>
 #include <tsp_utils.hpp>
+#include <linear_program.hpp>
 
 using std::size_t;
 using tsp_util::readOrThrow;
