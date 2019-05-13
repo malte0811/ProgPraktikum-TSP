@@ -45,8 +45,10 @@ BranchAndCut::BranchAndCut(LinearProgram& program, std::vector<CutGenerator *> g
 									 + ", expected 1");
 		}
 	}
+
 	//obere Schranke auf schlechtesten möglichen Wert setzen
 	upperBound = std::numeric_limits<obj_t>::max();
+
 	//Koeffizienten in einem vector speichern, da direkter Zugriff über das LP langsam ist
 	std::vector<double> obj = program.getObjective();
 	for (size_t i = 0; i < obj.size(); ++i) {
@@ -58,6 +60,7 @@ BranchAndCut::BranchAndCut(LinearProgram& program, std::vector<CutGenerator *> g
 									 std::to_string(objCoefficients[i] - realCoeff));
 		}
 	}
+
 	//Am Anfang sind ursprüngliche und aktuelle ID's gleich
 	std::iota(correspondingOrigVar.begin(), correspondingOrigVar.end(), 0);
 }
@@ -111,6 +114,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out, bool isRoot) {
 			std::cout << "Currently at " << iterations << " cutting iterations, using " << problem.getConstraintCount()
 					  << " constraints!" << std::endl;
 		}
+
 		problem.solveDual(out);
 		countSolutionSlack(out);
 		/*
@@ -120,6 +124,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out, bool isRoot) {
 		if (!out.isValid() || !canImproveBound(out.getValue())) {
 			break;
 		}
+
 		/*
 		 * Als langsame Iteration zählen solche, in denen die relative Änderung des Wertes der Lösung weniger
 		 * als 2.5*10^-5 ist, siehe "A branch-and-cut algorithm for the resolution of large-scale symmetric traveling
@@ -131,10 +136,12 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out, bool isRoot) {
 			slowIterations = 0;
 		}
 		oldVal = std::abs(out.getValue());
+
+		//Verletzte Constraints finden
 		solutionStatus = readdRemovedConstraints(out);
 		if (solutionStatus == CutGenerator::valid) {
 			for (CutGenerator *gen:generators) {
-				//Kurz
+				//Kurz bevor die Berechnung abgebrochen wird, werden noch mal alle Generatoren "ausprobiert"
 				if (slowIterations > maxSlow - 1 && solutionStatus == CutGenerator::maybe_recalc) {
 					solutionStatus = CutGenerator::valid;
 				}
@@ -152,6 +159,7 @@ void BranchAndCut::solveLP(LinearProgram::Solution& out, bool isRoot) {
 		if (slowIterations > maxSlow && solutionStatus == CutGenerator::maybe_recalc) {
 			solutionStatus = CutGenerator::valid;
 		}
+
 		if (iterations == 1) {
 			lastCleanup = out.getValue();
 		}
@@ -191,6 +199,7 @@ std::vector<value_t> BranchAndCut::solve() {
 		open.erase(it);
 		branchAndBound(next, isRoot);
 		isRoot = false;
+
 		++iterations;
 		if (iterations % 16 == 0) {
 			std::cout << "At iteration " << iterations << ", cost is " << next.value << ", open set contains " <<
@@ -215,12 +224,11 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool isRoot) {
 		std::cout << "Handling search node " << handledNodes << std::endl;
 	}
 	setupBounds(node.bounds);
+
 	solveLP(fractOpt, isRoot);
 	/*
-	 * Ein Branch wird nur dann weiterentwickelt, wenn das LP lösbar ist und die Lösung besser ist als die obere Schranke.
-	 * Da sowohl die Variablen als auch die Koeffizienten der Zielfunktion ganzzahlig sind, ist auch der Wert der
-	 * Zielfunktion im Endergebnis ganzzahlig; sie hat also mindestens den Wert
-	 * getNextWorse(fractOpt.getValue(), goal, intTolerance)
+	 * Ein Branch wird nur dann weiterentwickelt, wenn das LP lösbar ist und die aktuelle obere Schranke durch durch die
+	 * aktuelle untere Schranke verbessert werden kann
 	 */
 	if (fractOpt.isValid() && canImproveBound(fractOpt.getValue())) {
 		//Variable, die zum Branchen genutzt werden soll
@@ -292,7 +300,8 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool isRoot) {
 			 * wahrscheinlich, dass hier schnell eine neue obere Schranke gefunden werden kann)
 			 */
 			branch(varToBound, 0, LinearProgram::upper, node.bounds, fractVal, nonIntCount < 10);
-			//Wurden Variablen entfernt, so dass sich die ID der aktuelleb Variable geändert hat?
+
+			//Wurden Variablen entfernt, so dass sich die ID der aktuellen Variable geändert hat?
 			if (varToBound >= varCount || correspondingOrigVar[varToBound] != origVar) {
 				//Neue ID finden oder feststellen, dass die Variable entfernt wurde (invalid_variable)
 				varToBound = LinearProgram::invalid_variable;
@@ -303,6 +312,7 @@ void BranchAndCut::branchAndBound(BranchNode& node, bool isRoot) {
 					}
 				}
 			}
+
 			if (varToBound != LinearProgram::invalid_variable) {
 				/*
 				 * Diesen Knoten sofort bearbeiten. So werden schneller obere Schranken gefunden und die LPs können
@@ -368,6 +378,7 @@ void BranchAndCut::setUpperBound(const std::vector<value_t>& value, obj_t cost) 
 	} else {
 		std::cout << "Setting upper bound as " << upperBound << " without an example vector" << std::endl;
 	}
+
 	if (!open.empty()) {
 		size_t removed = 1;
 		auto firstRemove = open.end();
@@ -385,6 +396,7 @@ void BranchAndCut::setUpperBound(const std::vector<value_t>& value, obj_t cost) 
 		open.erase(firstRemove, open.end());
 		std::cout << "Removed " << removed << " nodes from the open set" << std::endl;
 	}
+
 	if (variablesValid && remover != nullptr) {
 		std::vector<variable_id> toRemove = remover->removeOnUpperBound(currBest);
 		removeVariables(toRemove);
@@ -451,6 +463,7 @@ bool BranchAndCut::cleanupOldConstraints() {
 				removed.push_back(problem.getConstraint(static_cast<int>(indexInLP)));
 			}
 		}
+
 		if (removeCount > minRemove) {
 			sinceSlack0.resize(sinceSlack0.size() - removeCount);
 			std::fill(sinceSlack0.begin(), sinceSlack0.end(), 0);
@@ -475,7 +488,9 @@ void BranchAndCut::removeVariables(const std::vector<variable_id>& toRemove) {
 			variableMap[r] = 1;
 		}
 		problem.removeSetVariables(variableMap);
+
 		variable_id newVarCount = varCount - toRemove.size();
+
 		//Variablengrenzen in der offenen Menge updaten
 		std::multiset<BranchNode> newOpen;
 		for (const BranchNode& old:open) {
@@ -493,11 +508,13 @@ void BranchAndCut::removeVariables(const std::vector<variable_id>& toRemove) {
 				newOpen.insert(newNode);
 			}
 		}
+
 		//Variablengrenzen der aktuellen Knoten updaten
 		for (BranchNode *activeNode:currStack) {
 			SystemBounds newBounds(activeNode->bounds, variableMap, newVarCount);
 			*activeNode = {newBounds, activeNode->value};
 		}
+
 		//Einträge zu den entfernten Variablen aus den relevanten vectoren entfernen
 		tsp_util::eraseEntries(currentBounds, toRemove);
 		tsp_util::eraseEntries(objCoefficients, toRemove);

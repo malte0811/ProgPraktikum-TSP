@@ -36,9 +36,8 @@ void tsp_util::addSupportGraphEdges(const TspLpData& lpData, lemon::Tolerance<do
 			workGraph.erase(e);
 		}
 	}
-	/*
-	 * Alle Kanten einfügen, deren Variablen einen echt positiven Wert haben
-	 */
+
+	//Alle Kanten einfügen, deren Variablen einen echt positiven Wert haben
 	for (variable_id i = 0; i < lpData.getVariableCount(); ++i) {
 		if (tolerance.positive(solution[i])) {
 			const TspLpData::Edge& e = lpData.getEdge(i);

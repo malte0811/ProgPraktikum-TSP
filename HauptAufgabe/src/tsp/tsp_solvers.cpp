@@ -55,6 +55,7 @@ namespace tspsolvers {
 					  return inst.getDistance(endA1, endB1) < inst.getDistance(endA2, endB2);
 				  }
 		);
+
 		/*
 		 * Falls an Knoten i weniger als 2 Kanten anliegen, gibt otherEnd[i] den anderen Knoten in der selben
 		 * Zusammenhangskomponente wie i an, der auch Grad <2 hat (Falls i Grad 0 hat, ist dies i selbst), d.h. das
@@ -137,8 +138,6 @@ namespace tspsolvers {
 		SubtourCutGen subtours(inst, data);
 		TwoMatchingCutGen matchings(inst, data, true);
 		CombCutGen generalCombs(inst, data);
-		LinearProgram lp(lpEnv, inst.getName(), LinearProgram::minimize);
-		data.setupBasicLP(lp);
 		std::vector<CutGenerator *> gens;
 		gens.reserve(cutGenerators.size());
 		for (const std::string& genName:cutGenerators) {
@@ -154,6 +153,9 @@ namespace tspsolvers {
 				throw std::runtime_error("Unknown cut generator: " + genName);
 			}
 		}
+
+		LinearProgram lp(lpEnv, inst.getName(), LinearProgram::minimize);
+		data.setupBasicLP(lp);
 		BranchAndCut bac(lp, gens, &data, dfs);
 		if (initial != nullptr) {
 			bac.setUpperBound({}, initial->getCost());

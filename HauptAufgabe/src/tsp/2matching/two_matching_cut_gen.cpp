@@ -33,17 +33,18 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 		//Constraints zu den Blüten berechnen und nach "Verletztheit" sortiert speichern
 		std::set<tsp_util::ConstraintWithSlack, tsp_util::CompareOrderedConstraint> allConstrs;
 		for (BlossomFinder::Blossom& min:allMin) {
-			const size_t sizeF = min.teeth.size();
-			assert(sizeF % 2 == 1);
+			const size_t teethCount = min.teeth.size();
+			assert(teethCount % 2 == 1);
 			//Die Indizes der Variablen in den hinzugefügten Constraints
 			std::vector<variable_id> indices;
 			//Die Koeffizienten für alle Variablen
 			std::vector<double> coeffs(lpData.getVariableCount());
+
 			/*
-			 * Mit |F|==1 ist auch die Subtour-Constraint für X verletzt und impliziert die
-			 * 2-Matching-Constraint
+			 * Wenn die Blüte nur einen Zahn hat, ist auch die Subtour-Constraint für den Griff verletzt und impliziert
+			 * die 2-Matching-Constraint
 			 */
-			if (sizeF > 1) {
+			if (min.isProperBlossom()) {
 				//Zähne zur Contraint hinzufügen
 				for (Graph::Edge e:min.teeth) {
 					Graph::Node u = supportGraph.u(e);
@@ -53,6 +54,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 					coeffs[var] += 1;
 				}
 			}
+
 			//Die zum Griff gehörenden Städte
 			std::vector<city_id> handleTSP;
 			handleTSP.reserve(min.handle.size());
@@ -61,20 +63,22 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 			}
 			//Griff zur Constraint hinzufügen
 			city_id handleSubtourRHS = lpData.sparserInducedSum(handleTSP, coeffs, indices);
+
 			if (!indices.empty()) {
 				LinearProgram::Constraint constr;
 				//Indizes sortieren, damit eventuell doppelte Constraints erkannt werden können
 				std::sort(indices.begin(), indices.end());
-				if (sizeF > 1) {
+				if (min.isProperBlossom()) {
 					//2-Matching-Constraint
 					constr = LinearProgram::Constraint::fromDense
 							(indices, coeffs, LinearProgram::less_eq, static_cast<size_t>(handleSubtourRHS + 1 +
-																						  sizeF / 2));
+																						  teethCount / 2));
 				} else {
 					//Subtour-Constraint
 					constr = LinearProgram::Constraint::fromDense
 							(indices, coeffs, LinearProgram::less_eq, handleSubtourRHS);
 				}
+
 				double lhs = constr.evalLHS(solution);
 				//Falls die Constraint knapp nicht oder nur schwach verletzt ist, liegt dies an Rundungsfehlern
 				if (tolerance.less(constr.getRHS(), lhs)) {
@@ -85,6 +89,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 				}
 			}
 		}
+
 		if (!allConstrs.empty()) {
 			size_t sumNZ = 0;
 			/*

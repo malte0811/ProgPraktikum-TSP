@@ -40,6 +40,7 @@ CutGenerator::CutStatus ConnectivityCutGen::validate(LinearProgram& lp, const st
 			workGraph.addEdge(origToWork[e.first], origToWork[e.second]);
 		}
 	}
+
 	Graph::NodeMap<bool> visited(workGraph);
 	std::vector<std::vector<city_id>> components;
 	size_t maxIndex = 0;
@@ -51,6 +52,7 @@ CutGenerator::CutStatus ConnectivityCutGen::validate(LinearProgram& lp, const st
 			std::vector<city_id> currentComponent{workToOrig[startIt]};
 			open.push(startIt);
 			visited[startIt] = true;
+
 			while (!open.empty()) {
 				Graph::Node current = open.top();
 				open.pop();
@@ -63,6 +65,7 @@ CutGenerator::CutStatus ConnectivityCutGen::validate(LinearProgram& lp, const st
 					}
 				}
 			}
+
 			//Komponente mit den meisten Knoten speichern
 			if (currentComponent.size() > maxSize) {
 				maxSize = currentComponent.size();
@@ -71,6 +74,7 @@ CutGenerator::CutStatus ConnectivityCutGen::validate(LinearProgram& lp, const st
 			components.push_back(currentComponent);
 		}
 	}
+
 	if (components.size() > 1) {
 		std::vector<LinearProgram::Constraint> constrs;
 		constrs.reserve(components.size() - 1);

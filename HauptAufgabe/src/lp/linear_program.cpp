@@ -63,6 +63,7 @@ void LinearProgram::removeSetConstraints(std::vector<int>& shouldDelete) {
 	if (status != 0) {
 		throw std::runtime_error("Error while deleting constraints: " + getErrorMessage(status, env.get()));
 	}
+
 	std::vector<Constraint> newConstrs;
 	for (size_t i = 0; i < constraints.size(); ++i) {
 		if (shouldDelete[i] >= 0) {

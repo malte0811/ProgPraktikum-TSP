@@ -27,6 +27,7 @@ bool ContractionRule::contractAll(Graph& g, lemon::GraphExtender<lemon::ListGrap
 				possibleOneEdges.push_back(it);
 			}
 		}
+
 		//Zu kontrahierende Mangen finden
 		Contraction contr = validate(g, possibleNodes, possibleOneEdges, costs, used);
 		if (!contr.empty()) {
@@ -52,6 +53,7 @@ bool ContractionRule::contract(const Contraction& contr, Graph& g, Graph::EdgeMa
 		if (toContract.size() < 2) {
 			continue;
 		}
+
 		//Knoten, der nach der Kontraktion der Gesamtmenge entspricht
 		Graph::Node remaining = toContract.back();
 		toContract.pop_back();
@@ -60,6 +62,11 @@ bool ContractionRule::contract(const Contraction& contr, Graph& g, Graph::EdgeMa
 		for (Graph::OutArcIt it(g, remaining); it != lemon::INVALID; ++it) {
 			adjCosts[g.target(it)] = costs[it];
 		}
+
+		/*
+		 * Nicht kontrahieren, wenn dadurch eine Kante mit Kosten >1 entstehen würde (dann funktioniert der 2-Matching-
+		 * Algorithmus nicht sicher, weil Gomory-Hu-Bäume zu Graphen mit negativen Kapazitäten berechnet werden müssen)
+		 */
 		for (Graph::Node toRemove:toContract) {
 			for (Graph::OutArcIt it(g, toRemove); it != lemon::INVALID; ++it) {
 				adjCosts[g.target(it)] += costs[it];
@@ -68,11 +75,13 @@ bool ContractionRule::contract(const Contraction& contr, Graph& g, Graph::EdgeMa
 				}
 			}
 		}
+
 		std::vector<city_id>& contracted = map[remaining];
 		for (Graph::Node toRemove:toContract) {
 			contracted.insert(contracted.end(), map[toRemove].begin(), map[toRemove].end());
 			g.erase(toRemove);
 		}
+
 		//Kosten der bereits existierenden Kanten erhöhen
 		for (Graph::OutArcIt it(g, remaining); it != lemon::INVALID; ++it) {
 			costs[it] = adjCosts[g.target(it)];

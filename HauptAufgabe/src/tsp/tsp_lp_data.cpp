@@ -113,6 +113,7 @@ void TspLpData::setupBasicLP(LinearProgram& lp) const {
 	std::vector<double> lower(varCount, 0);
 	std::vector<double> upper(varCount, 1);
 	lp.addVariables(objCoeffs, lower, upper);
+
 	std::vector<LinearProgram::Constraint> constrs;
 	constrs.reserve(inst.getCityCount());
 	for (city_id i = 0; i < inst.getCityCount(); ++i) {
@@ -122,8 +123,7 @@ void TspLpData::setupBasicLP(LinearProgram& lp) const {
 				indices.push_back(getVariable(i, otherEnd));
 			}
 		}
-		constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::equal,
-							 2);
+		constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::equal, 2);
 	}
 	lp.addConstraints(constrs.begin(), constrs.end());
 }

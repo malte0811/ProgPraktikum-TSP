@@ -61,10 +61,12 @@ std::vector<BlossomFinder::Blossom> BlossomFinder::lemma1220() {
 		}
 		assert(d[it] > -0.01);
 	}
+
 	//Gomory-Hu-Baum/Arboreszenz bezüglich d berechnen
 	lemon::GomoryHu<Graph, Graph::EdgeMap < double>>
 	gh(fractionalGraph, d);
 	gh.run();
+
 	/*
 	 * Die Arboreszenz durchlaufen. Eine einfachere Implementierung, bei der wiederholt minCutMap aufgerufen wird, ist
 	 * deutlich langsamer. Die Arboreszenz wird von den Blättern aus zur Wurzel durchlaufen. Die Knoten auf der "unteren"
@@ -80,6 +82,7 @@ std::vector<BlossomFinder::Blossom> BlossomFinder::lemma1220() {
 			++childCount[pred];
 		}
 	}
+
 	//Ordnet jedem Knoten eine ID im Union-Find zu
 	Graph::NodeMap <size_t> nodeToUF(fractionalGraph);
 	UnionFind components(nodeCount);
@@ -97,6 +100,7 @@ std::vector<BlossomFinder::Blossom> BlossomFinder::lemma1220() {
 			nodeToUF[it] = nextIndex;
 		}
 	}
+
 	std::vector<Blossom> ret;
 	while (!leaves.empty()) {
 		Graph::Node currentNode = leaves.back();
@@ -163,6 +167,7 @@ bool BlossomFinder::findAndContractPath(Graph::Node start) {
 		//Kreis mit einem geraden Knoten
 		isCycle = right.back() == left.back();
 	}
+
 	//Der Knoten, der von der kontrahierten Menge übrig bleibt
 	Graph::Node remainingNode = left.back();
 	//Die restlichen Knoten der kontrahierten Menge:
@@ -174,6 +179,7 @@ bool BlossomFinder::findAndContractPath(Graph::Node start) {
 		//sonst kann nur P-u_1 kontrahiert werden
 		toRemove.insert(toRemove.end(), right.begin(), right.end() - 1);
 	}
+
 	if (!isCycle) {
 		//Falls der Pfad kein Kreis ist, muss die Kante zwischen dem letzten kontrahierten Knoten und u_1 verbleiben
 		//Es kann nicht einfach die Kante gelöscht und durch eine neue ersetzt werden, da sonst Werte in EdgeMap's
@@ -192,6 +198,7 @@ bool BlossomFinder::findAndContractPath(Graph::Node start) {
 			}
 		}
 	}
+
 	//Ob der durch die Kontraktion entstehende Knoten ungerade ist
 	bool resultOdd = oddNodes[remainingNode];
 	std::vector<Graph::Node>& contractedSet = contraction[remainingNode];
@@ -286,10 +293,13 @@ bool BlossomFinder::finalizeBlossom(Blossom& b) {
 	if (handle.size() < minHandleSize || handle.size() > nodeCount - minHandleSize) {
 		return false;
 	}
+
+	//Ordnet jedem Knoten seinen Index im Griff zu, falls er im Griff enthalten ist, sonst -1
 	Graph::NodeMap<int> handleIndex(inputGraph, -1);
 	for (size_t i = 0; i < handle.size(); ++i) {
 		handleIndex[handle[i]] = i;
 	}
+
 	//Alle 1-Kanten im Schnitt vom Griff sind Zähne
 	for (Graph::Edge e:oneEdges) {
 		bool uInHandle = handleIndex[inputGraph.u(e)] >= 0;
@@ -299,6 +309,7 @@ bool BlossomFinder::finalizeBlossom(Blossom& b) {
 		}
 	}
 	assert(teeth.size() % 2 == 1);
+
 	//Gibt an, ob eine Variable/Kante im TSP-Graphen ein Zahn ist
 	Graph::EdgeMap<bool> isTooth(inputGraph, false);
 	{
@@ -321,6 +332,7 @@ bool BlossomFinder::finalizeBlossom(Blossom& b) {
 			}
 		}
 	}
+
 	//Ordnet jedem Knoten den inzidenten Zahn zu
 	Graph::NodeMap <Graph::Edge> incidentTooth(inputGraph, lemon::INVALID);
 	for (Graph::Edge e:teeth) {
@@ -352,6 +364,7 @@ bool BlossomFinder::finalizeBlossom(Blossom& b) {
 			}
 		}
 	}
+
 	//Zähne, die zu Erzeugen des Matchings entfernt wurden, auch aus den in der Blüte gespeicherten Zähnen entfernen
 	size_t i = 0;
 	while (i < teeth.size()) {
@@ -406,6 +419,7 @@ BlossomFinder::Blossom BlossomFinder::calculateBlossomFor(const Graph::NodeMap <
 			}
 		}
 	}
+
 	//Die Kardinalität von Xf geschnitten mit T'
 	unsigned xAndTDash = 0;
 	for (Graph::NodeIt nIt(fractionalGraph); nIt != lemon::INVALID; ++nIt) {
@@ -418,6 +432,7 @@ BlossomFinder::Blossom BlossomFinder::calculateBlossomFor(const Graph::NodeMap <
 			curr.handle.push_back(nIt);
 		}
 	}
+
 	//Ist der Schnitt gültig?
 	bool valid = true;
 	if (xAndTDash % 2 == 0) {
@@ -435,6 +450,7 @@ BlossomFinder::Blossom BlossomFinder::calculateBlossomFor(const Graph::NodeMap <
 			curr.teeth.push_back(minDiffEdge);
 		}
 	}
+
 	//Falls die Blüte gültig ist und Wert kleiner als 1 hat, wird sie zurückgegeben
 	if (valid && tolerance.less(cutCost, 1)) {
 		return curr;
@@ -454,6 +470,7 @@ void BlossomFinder::setupFractionalGraph() {
 		contraction[newNode] = {it};
 		mainToFract[it] = newNode;
 	}
+
 	for (Graph::EdgeIt it(inputGraph); it != lemon::INVALID; ++it) {
 		Graph::Node u = inputGraph.u(it);
 		Graph::Node v = inputGraph.v(it);

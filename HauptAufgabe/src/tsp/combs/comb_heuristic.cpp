@@ -27,6 +27,7 @@ std::vector<CombHeuristic::Comb> CombHeuristic::findViolatedCombs(const TspLpDat
 			contrMap[it] = {workToOrig[it]};
 		}
 	}
+
 	std::vector<Comb> ret;
 	bool changed;
 	do {
@@ -89,6 +90,7 @@ void CombHeuristic::Comb::simplify(const TspLpData& lpData, const std::vector<do
 			isPureHandle[i] = false;
 		}
 	}
+
 	std::vector<std::pair<city_id, city_id>> oneNeighbors = findOneNeighbors(isPureHandle, lpData, solution);
 	simplifyPureOnePaths(oneNeighbors, isHandle);
 	//Knoten, die beim Vereinfachen aus dem Griff entfernt wurden, auch tatsächlich entfernen
@@ -129,6 +131,7 @@ std::vector<std::pair<city_id, city_id>> CombHeuristic::Comb::findOneNeighbors(c
 					}
 				}
 			}
+
 			if (validNeighbors.size() == 2) {
 				oneNeighbors[i] = {validNeighbors[0], validNeighbors[1]};
 			} else if (validNeighbors.size() == 1) {
@@ -159,6 +162,7 @@ void CombHeuristic::Comb::simplifyPureOnePaths(std::vector<std::pair<city_id, ci
 				startNeighbors.first = invalid_city;
 				continue;
 			}
+
 			city_id pathEnd = pathStart;
 			city_id nextInPath = startNeighbors.first;
 			while (nextInPath != invalid_city) {
@@ -179,6 +183,7 @@ void CombHeuristic::Comb::simplifyPureOnePaths(std::vector<std::pair<city_id, ci
 				nextInPath = next;
 				assert(nextInPath != pathStart);
 			}
+
 			assert(pathEnd != pathStart);
 			//Der zweite und der vorletzte Knoten im Pfad
 			city_id secondNode = startNeighbors.first;

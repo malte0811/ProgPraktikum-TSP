@@ -37,7 +37,8 @@ CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::ve
 	if (!tolerance.less(cutCapacity, 2)) {
 		return valid;
 	}
-	//Positive Kapazität<2 ->Verletzte Subtour-Constraint
+
+	//Kapazität<2 ->Verletzte Subtour-Constraint
 	Graph::NodeMap<bool> inCut(workGraph);
 	minCut.minCutMap(inCut);
 	std::vector<city_id> inducing;
@@ -46,10 +47,12 @@ CutGenerator::CutStatus SubtourCutGen::validate(LinearProgram& lp, const std::ve
 			inducing.push_back(workToOrig[it]);
 		}
 	}
+
 	//Kann auftreten, wenn alle Constraints erfüllt sind, aber Kanten mit sehr kleinen positiven Werten existieren
 	if (inducing.size() <= 2 || static_cast<city_id>(inducing.size()) >= tsp.getCityCount() - 2) {
 		return valid;
 	}
+
 	std::vector<variable_id> usedVars;
 	std::vector<double> coeffs(lpData.getVariableCount());
 	city_id rhs = lpData.sparserInducedSum(inducing, coeffs, usedVars);

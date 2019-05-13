@@ -33,6 +33,7 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 	if (currentStatus != CutGenerator::valid) {
 		return CutGenerator::valid;
 	}
+
 	//Verletzte Constraints nach "Verletztheit" speichern
 	std::set<tsp_util::ConstraintWithSlack, tsp_util::CompareOrderedConstraint> allConstrs;
 	for (const CombHeuristic& ch:{heuristic1, heuristic2, heuristic3, heuristic4}) {
@@ -54,6 +55,7 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 			}
 		}
 	}
+
 	if (!allConstrs.empty()) {
 		size_t sumNZ = 0;
 		//Constraint nach absteigender Verletztheit hinzufügen, bis zu viele Nonzeroes zum LP hinzugefügt wurden
@@ -146,6 +148,7 @@ ContractionRule::Contraction CombCutGen::findSquare3(const Graph& g, const std::
 		for (Graph::OutArcIt it(g, first); it != lemon::INVALID; ++it) {
 			adjCosts1[g.target(it)] = costs[it];
 		}
+
 		//Mindestens ein Knoten im "Quadrat" muss mit 2 oder mehr der anderen Knoten im Quadrat benachbart sein
 		for (Graph::OutArcIt itSecond(g, first); itSecond != lemon::INVALID; ++itSecond) {
 			Graph::Node second = g.target(itSecond);
@@ -157,6 +160,7 @@ ContractionRule::Contraction CombCutGen::findSquare3(const Graph& g, const std::
 			for (Graph::OutArcIt it(g, second); it != lemon::INVALID; ++it) {
 				adjCosts2[g.target(it)] = costs[it];
 			}
+
 			//Alle weiteren Nachbarn von 1 kommen als dritter Knoten in Frage
 			Graph::OutArcIt itThird = itSecond;
 			++itThird;
@@ -170,6 +174,7 @@ ContractionRule::Contraction CombCutGen::findSquare3(const Graph& g, const std::
 				for (Graph::OutArcIt it(g, third); it != lemon::INVALID; ++it) {
 					adjCosts3[g.target(it)] = costs[it];
 				}
+
 				for (Graph::Node fourth:possibleNodes) {
 					if (fourth == first || fourth == second || fourth == third) {
 						continue;
@@ -209,6 +214,7 @@ ContractionRule::Contraction CombCutGen::findOneSquare(const Graph& g, const std
 			if (v == u || v == w || x == u || x == w) {
 				continue;
 			}
+
 			//Erste verbindende Kante finden
 			for (Graph::OutArcIt it(g, v); it != lemon::INVALID; ++it) {
 				Graph::Node target = g.target(it);

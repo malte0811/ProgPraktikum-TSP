@@ -62,6 +62,7 @@ TSPInstance::TSPInstance(std::istream& input) {
 												 + std::to_string(maxEdgeCount));
 					}
 				}
+
 				distances.resize(static_cast<size_t>(nodeCount - 1));
 				for (size_t i = 0; i < static_cast<size_t>(nodeCount - 1); ++i) {
 					distances[i].resize(i + 1);
@@ -181,6 +182,7 @@ void TSPInstance::readNodes(std::istream& input, EdgeWeightType type) {
 				"Only " + std::to_string(setCount) + " of " + std::to_string(nodeCount) +
 				" node locations have been set");
 	}
+
 	//Über alle Kanten iterieren und die Distanzen berechnen
 	for (city_id higherId = 1; higherId < nodeCount; ++higherId) {
 		for (city_id lowerId = 0; lowerId < higherId; ++lowerId) {
