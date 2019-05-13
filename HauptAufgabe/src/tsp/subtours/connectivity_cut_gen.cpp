@@ -88,7 +88,7 @@ CutGenerator::CutStatus ConnectivityCutGen::validate(LinearProgram& lp, const st
 				constrs.push_back(LinearProgram::Constraint::fromDense(usedVars, coeffs, LinearProgram::less_eq, rhs));
 			}
 		}
-		lp.addConstraints(constrs);
+		lp.addConstraints(constrs.begin(), constrs.end());
 		return recalc;
 	} else {
 		return valid;

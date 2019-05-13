@@ -18,6 +18,10 @@ namespace tsp_util {
 	struct ConstraintWithSlack {
 		ConstraintWithSlack() = delete;
 
+		explicit operator const LinearProgram::Constraint&() const;
+
+		explicit operator LinearProgram::Constraint&();
+
 		LinearProgram::Constraint constraint;
 		double slack;
 	};

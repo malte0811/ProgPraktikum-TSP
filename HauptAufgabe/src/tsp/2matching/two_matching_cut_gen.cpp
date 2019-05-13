@@ -91,16 +91,13 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 			 * Constraints hinzufügen (stark verletzte zuerst), bis viele Nonzeroes zum LP hinzugefügt wurden. Dann
 			 * werden keine weiteren Constraints hinzugefügt, um den Speicherverbrauch möglichst klein zu halten
 			 */
-			std::vector<LinearProgram::Constraint> toAdd;
-			for (const tsp_util::ConstraintWithSlack& cws:allConstrs) {
-				toAdd.push_back(cws.constraint);
-				const size_t nz = cws.constraint.getNonzeroes().size();
-				sumNZ += nz;
-				if (sumNZ > static_cast<size_t>(tsp.getCityCount() * tsp.getCityCount()) / 4) {
-					break;
-				}
+			auto firstOverMax = allConstrs.begin();
+			while (firstOverMax != allConstrs.end() &&
+				   sumNZ < static_cast<size_t>(tsp.getCityCount() * tsp.getCityCount()) / 4) {
+				sumNZ += firstOverMax->constraint.getNonzeroes().size();
+				++firstOverMax;
 			}
-			lp.addConstraints(toAdd);
+			lp.addConstraints(allConstrs.begin(), firstOverMax);
 			return CutGenerator::maybe_recalc;
 		}
 	}

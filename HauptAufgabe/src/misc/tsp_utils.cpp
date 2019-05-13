@@ -92,3 +92,11 @@ bool tsp_util::CompareOrderedConstraint::operator()(const ConstraintWithSlack& p
 	}
 	return false;
 }
+
+tsp_util::ConstraintWithSlack::operator const LinearProgram::Constraint&() const {
+	return constraint;
+}
+
+tsp_util::ConstraintWithSlack::operator LinearProgram::Constraint&() {
+	return constraint;
+}

@@ -65,7 +65,8 @@ variable_id TSPInstance::getEdgeCount() const {
 }
 
 cost_t TSPInstance::getDistance(city_id a, city_id b) const {
-   //TODO: Hier ist es generell eine gute Idee einen rangecheck einzubauen, ggf. nur im DEBUG modus.
+	assert(a >= 0 && a < getCityCount());
+	assert(b >= 0 && b < getCityCount());
 	if (a > b) {
 		return distances[a - 1][b];
 	} else if (b > a) {

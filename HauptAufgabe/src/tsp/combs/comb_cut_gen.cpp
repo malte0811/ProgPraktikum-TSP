@@ -55,17 +55,15 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 		}
 	}
 	if (!allConstrs.empty()) {
-		std::vector<LinearProgram::Constraint> toAdd;
 		size_t sumNZ = 0;
 		//Constraint nach absteigender Verletztheit hinzufügen, bis zu viele Nonzeroes zum LP hinzugefügt wurden
-		for (const tsp_util::ConstraintWithSlack& pair:allConstrs) {
-			sumNZ += pair.constraint.getNonzeroes().size();
-			toAdd.push_back(pair.constraint);
-			if (static_cast<city_id>(sumNZ) > tsp.getCityCount() * tsp.getCityCount()) {
-				break;
-			}
+		auto firstAboveMax = allConstrs.begin();
+		while (firstAboveMax != allConstrs.end() &&
+			   static_cast<city_id>(sumNZ) < tsp.getCityCount() * tsp.getCityCount()) {
+			sumNZ += firstAboveMax->constraint.getNonzeroes().size();
+			++firstAboveMax;
 		}
-		lp.addConstraints(toAdd);
+		lp.addConstraints(allConstrs.begin(), firstAboveMax);
 		return CutGenerator::maybe_recalc;
 	} else {
 		return CutGenerator::valid;

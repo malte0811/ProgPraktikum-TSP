@@ -108,8 +108,8 @@ public:
 
 	void addConstraint(const Constraint& constr);
 
-	template<typename T>
-	void addConstraints(const T& constrs);
+	template<typename It>
+	void addConstraints(const It& begin, const It& end);
 
 	Constraint getConstraint(int index) const;
 
@@ -143,31 +143,34 @@ private:
 	variable_id varCount = 0;
 };
 
-template<typename T>
-void LinearProgram::addConstraints(const T& constrs) {
+template<typename It>
+void LinearProgram::addConstraints(const It& begin, const It& end) {
 	std::vector<double> rhs;
 	std::vector<double> coeffs;
 	std::vector<int> indices;
 	std::vector<int> constrStarts;
 	std::vector<char> sense;
-	constrStarts.reserve(constrs.size());
-	sense.reserve(constrs.size());
-	rhs.reserve(constrs.size());
-	for (const Constraint& c:constrs) {
+	size_t addCount = std::distance(begin, end);
+	constrStarts.reserve(addCount);
+	sense.reserve(addCount);
+	rhs.reserve(addCount);
+	constraints.reserve(constraints.size() + addCount);
+	for (It i = begin; i != end; ++i) {
+		const auto& c = static_cast<const Constraint&>(*i);
 		assert(c.isValid() || getVariableCount() == 0);
 		constrStarts.push_back(indices.size());
 		rhs.push_back(c.getRHS());
 		sense.push_back(c.getSense());
 		indices.insert(indices.end(), c.getNonzeroes().begin(), c.getNonzeroes().end());
 		coeffs.insert(coeffs.end(), c.getCoeffs().begin(), c.getCoeffs().end());
+		constraints.push_back(c);
 	}
-	int result = CPXaddrows(env.get(), problem, 0, constrs.size(), indices.size(), rhs.data(),
+	int result = CPXaddrows(env.get(), problem, 0, addCount, indices.size(), rhs.data(),
 							sense.data(), constrStarts.data(), indices.data(), coeffs.data(), nullptr, nullptr);
 	if (result != 0) {
 		throw std::runtime_error("Could not add constraint to LP, return value was " +
 								 getErrorMessage(result, env.get()));
 	}
-	constraints.insert(constraints.end(), constrs.begin(), constrs.end());
 }
 
 #endif

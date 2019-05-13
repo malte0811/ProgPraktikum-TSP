@@ -125,7 +125,7 @@ void TspLpData::setupBasicLP(LinearProgram& lp) const {
 		constrs.emplace_back(indices, std::vector<double>(indices.size(), 1), LinearProgram::equal,
 							 2);
 	}
-	lp.addConstraints(constrs);
+	lp.addConstraints(constrs.begin(), constrs.end());
 }
 
 const TSPSolution& TspLpData::getUpperBound() const {

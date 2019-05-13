@@ -24,10 +24,6 @@ public:
 
 	const std::vector<city_id>& getOrder() const;
 
-	//TODO: Das sollte vielleicht auch ein tspsolver sein. Es ist seltsam, dass die Loesung nochmal optimieren kann.
-	//Generell: Diese Datenstruktur soll eine Loesung speichern, also sollte sie auch nichts weiter koennen.
-	TSPSolution opt2() const;
-
 	bool isValid() const;
 
 private:

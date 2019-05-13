@@ -27,6 +27,8 @@ namespace tspsolvers {
 										cutgens::generalCombs
 								});
 
+	TSPSolution opt2(const TSPSolution& initial, const TSPInstance& inst);
+
 	void closeHamiltonPath(const lemon::FullGraph& g, lemon::FullGraph::EdgeMap<bool>& used,
 						   const lemon::FullGraph::NodeMap<size_t>& degree);
 }

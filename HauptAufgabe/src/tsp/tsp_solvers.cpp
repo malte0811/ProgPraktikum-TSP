@@ -19,6 +19,7 @@
 #include <vector>
 #include <cut_generator.hpp>
 #include <cstddef>
+#include <lemon/opt2_tsp.h>
 
 using std::size_t;
 using std::clock_t;
@@ -164,4 +165,30 @@ namespace tspsolvers {
 		std::cout << "Branch and cut took " << elapsed_secs << " seconds" << std::endl;
 		return data.getUpperBound();
 	}
+
+
+	/**
+	 * Gibt eine mit 2-Opt (aus lemon) optimierte Version dieser Tour zurück
+	 */
+	TSPSolution opt2(const TSPSolution& initial, const TSPInstance& inst) {
+		using lemon::FullGraph;
+		FullGraph g(inst.getCityCount());
+		FullGraph::EdgeMap<cost_t> costs(g);
+		for (FullGraph::EdgeIt it(g); it != lemon::INVALID; ++it) {
+			costs[it] = inst.getDistance(FullGraph::id(g.u(it)), FullGraph::id(g.v(it)));
+		}
+		lemon::Opt2Tsp<FullGraph::EdgeMap<cost_t>> opt2(g, costs);
+		std::vector<FullGraph::Node> orderGraph(inst.getCityCount());
+		for (city_id i = 0; i < inst.getCityCount(); ++i) {
+			orderGraph[i] = g(initial.getOrder()[i]);
+		}
+		opt2.run(orderGraph);
+		orderGraph = opt2.tourNodes();
+		std::vector<city_id> orderInt(inst.getCityCount());
+		for (city_id i = 0; i < inst.getCityCount(); ++i) {
+			orderInt[i] = FullGraph::id(orderGraph[i]);
+		}
+		return TSPSolution(inst, orderInt);
+	}
+
 }

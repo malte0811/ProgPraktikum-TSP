@@ -49,7 +49,8 @@ void LinearProgram::addVariables(const std::vector<double>& objCoeff, const std:
  * Fügt die angegebene Constraint zum LP hinzu
  */
 void LinearProgram::addConstraint(const Constraint& constr) {
-	addConstraints(std::vector<Constraint>{constr});
+	std::vector<Constraint> temp{constr};
+	addConstraints(temp.begin(), temp.end());
 }
 
 /**
