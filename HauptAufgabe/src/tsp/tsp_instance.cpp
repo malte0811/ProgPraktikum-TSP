@@ -49,6 +49,7 @@ TSPInstance::TSPInstance(std::istream& input) {
 					throw std::runtime_error("TSP-Instances must contain at least 3 vertices");
 				}
 				//Prüfen, dass alle Kanten-IDs noch darstellbar sind
+				//TODO: Du kannst auch in einem groesseren Datentyp ausrechnen dass das geht. (mit weniger Aufwand).
 				variable_id maxEdgeCount = std::numeric_limits<variable_id>::max();
 				if (nodeCount % 2 == 0) {
 					if (nodeCount / 2 > maxEdgeCount / (nodeCount - 1)) {

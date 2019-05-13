@@ -22,7 +22,7 @@ std::vector<std::string> splitOnChar(const std::string& string, char delim) {
 		ret.push_back(segment);
 	}
 	return ret;
-}
+}//TODO: Warum verwendest Du diese Funktion nicht in parseArgs?
 
 /**
  * Entfernt die Optionen (Parameter der Form --foo=bar) aus dem Vector der Argumente und gibt die Optionen als std::map
@@ -50,8 +50,12 @@ std::map<std::string, std::string> parseArgs(std::vector<std::string>& args) {
 		}
 	}
 	return ret;
-}
+}//TODO: Wenn es wirklich fancy sein soll dann nimmst Du iteratoren als argument
+// und shiftest die zu loeschenden elemente ans ende, Zum schluss gibst Du dann einen Iterator auf das erste ungueltige element
+//zurueck. Dann ist parseArgs unabhaengig von der Datenstruktur, in der die strings gespeichert sind.
 
+//TODO: Mir ist unklar, warum hier die Optionen geloescht werden.
+// Die koennen ja auch einfach am Ende mit der Map geloescht werden.
 /**
  * Liest den Wert der angegebenen Option aus, entfernt ihn aus der map und gibt ihn zurück
  * @tparam T Der Typ des Wertes der Option
@@ -76,12 +80,13 @@ T getOption(std::map<std::string, std::string>& options, const std::string& key,
 		return defaultVal;
 	}
 }
-
+//TODO: Genereller Tipp: Leerzeilen zwischen zusammenhaengenden Codebloecken verbessern die Lesbarkeit.
 int main(int argc, char **argv) {
 	try {
 		std::vector<std::string> args(argv + 1, argv + argc);
 		std::map<std::string, std::string> options = parseArgs(args);
 		if (args.size() != 1 && args.size() != 2) {
+		   //TODO: Btw. in C++ kann man and or und not verwenden (alias fuer &&, ||, !). Das ist einfacher zu lesen.
 			std::cerr << "Arguments: [options] <input file name> [<output file name>]" << std::endl;
 			return 1;
 		}
@@ -107,7 +112,7 @@ int main(int argc, char **argv) {
 		CPXENVptr env = CPXopenCPLEX(&status);
 		if (status != 0) {
 			throw std::runtime_error("Failed to open CPLEX environment: " + std::to_string(status));
-		}
+		}//TODO: Warum ist das hier so eingeschoben. Lieber vorm oeffnen des Files oder nach dem Einlesen der Instanz.
 		TSPInstance inst(in);
 		in.close();
 		TSPSolution initial;
@@ -128,10 +133,12 @@ int main(int argc, char **argv) {
 			std::ofstream out(args[1]);
 			if (!out) {
 				std::cout << "Could not create/write to output file: " << args[1] << std::endl;
-				return 1;
-			}
-			optimal.write(out);
-			out.close();
+            //TODO: Hier ist es evtl sinnvoll das Ergebnis nach std::cout zu schreiben.
+            // Sonst rechnet man evtl ewig und dann bekommt man keinen Output, weil der den File nicht oeffnen konnte.
+            return 1;
+         }
+         optimal.write(out);
+         out.close();
 		}
 		if (expectedValue > 0 && optimal.getCost() != expectedValue) {
 			std::cerr << "Found tour of cost " << optimal.getCost() << ", but expected cost " << expectedValue
