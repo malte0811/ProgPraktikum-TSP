@@ -8,8 +8,12 @@
 #include <cassert>
 #include <stdexcept>
 #include <set>
+#include <memory>
+#include <type_traits>
 
 using variable_id = int;
+
+using SharedCplexEnv = std::shared_ptr<std::remove_pointer<CPXENVptr>::type>;
 
 class LinearProgram {
 public:
@@ -93,7 +97,7 @@ public:
 		friend LinearProgram;
 	};
 
-	LinearProgram(CPXENVptr& env, const std::string& name, Goal opt);
+	LinearProgram(const SharedCplexEnv& env, const std::string& name, Goal opt);
 
 	LinearProgram(const LinearProgram& other) = delete;
 
@@ -128,10 +132,12 @@ public:
 	std::vector<double> getObjective();
 
 	static variable_id invalid_variable;
-private:
-	std::string getErrorMessage(int error);
 
-	CPXENVptr& env;
+	static SharedCplexEnv openCPLEX();
+private:
+	static std::string getErrorMessage(int error, CPXENVptr env);
+
+	SharedCplexEnv env;
 	CPXLPptr problem;
 	std::vector<Constraint> constraints;
 	variable_id varCount = 0;
@@ -155,10 +161,11 @@ void LinearProgram::addConstraints(const T& constrs) {
 		indices.insert(indices.end(), c.getNonzeroes().begin(), c.getNonzeroes().end());
 		coeffs.insert(coeffs.end(), c.getCoeffs().begin(), c.getCoeffs().end());
 	}
-	int result = CPXaddrows(env, problem, 0, constrs.size(), indices.size(), rhs.data(),
+	int result = CPXaddrows(env.get(), problem, 0, constrs.size(), indices.size(), rhs.data(),
 							sense.data(), constrStarts.data(), indices.data(), coeffs.data(), nullptr, nullptr);
 	if (result != 0) {
-		throw std::runtime_error("Could not add constraint to LP, return value was " + getErrorMessage(result));
+		throw std::runtime_error("Could not add constraint to LP, return value was " +
+								 getErrorMessage(result, env.get()));
 	}
 	constraints.insert(constraints.end(), constrs.begin(), constrs.end());
 }

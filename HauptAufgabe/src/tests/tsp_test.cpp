@@ -91,11 +91,7 @@ int main() {
 			{"pr1002",    259045},
 			{"si1032",    92650},
 	};
-	int status;
-	CPXENVptr env = CPXopenCPLEX(&status);
-	if (status != 0) {
-		throw std::runtime_error("Failed to open CPLEX environment: " + std::to_string(status));
-	}
+	SharedCplexEnv env = LinearProgram::openCPLEX();
 	std::vector<double> times;
 	for (const auto& inst:instances) {
 		clock_t start = std::clock();
@@ -126,5 +122,4 @@ int main() {
 			std::cout << instances[i].first << ": " << times[i] << std::endl;
 		}
 	}
-	CPXcloseCPLEX(&env);
 }

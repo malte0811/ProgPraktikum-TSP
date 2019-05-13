@@ -108,11 +108,6 @@ int main(int argc, char **argv) {
 			std::cout << "File does not exist: " << args[0] << std::endl;
 			return 1;
 		}
-		int status;
-		CPXENVptr env = CPXopenCPLEX(&status);
-		if (status != 0) {
-			throw std::runtime_error("Failed to open CPLEX environment: " + std::to_string(status));
-		}//TODO: Warum ist das hier so eingeschoben. Lieber vorm oeffnen des Files oder nach dem Einlesen der Instanz.
 		TSPInstance inst(in);
 		in.close();
 		TSPSolution initial;
@@ -125,6 +120,7 @@ int main(int argc, char **argv) {
 			std::ifstream boundIn(startingBound);
 			initial = TSPSolution(inst, boundIn);
 		}
+		SharedCplexEnv env = LinearProgram::openCPLEX();
 		TSPSolution optimal = tspsolvers::solveLP(inst, initial.isValid() ? &initial : nullptr, env, useDFS,
 												  generators);
 		if (args.size() == 1) {
@@ -144,7 +140,6 @@ int main(int argc, char **argv) {
 			std::cerr << "Found tour of cost " << optimal.getCost() << ", but expected cost " << expectedValue
 					  << std::endl;
 		}
-		CPXcloseCPLEX(&env);
 	} catch (std::runtime_error& err) {
 		std::cout << "Error: " << err.what() << std::endl;
 	}

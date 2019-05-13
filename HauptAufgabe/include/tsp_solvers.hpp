@@ -18,7 +18,7 @@ namespace tspsolvers {
 
 	TSPSolution solveGreedy(const TSPInstance& inst);
 
-	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution *initial, CPXENVptr& lpEnv, bool dfs,
+	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution *initial, const SharedCplexEnv& lpEnv, bool dfs,
 						const std::vector<std::string>& cutGenerators =
 								{
 										cutgens::connected,

@@ -128,7 +128,7 @@ namespace tspsolvers {
 	 * @param cutGenerators die Namen der zu nutzenden CutGens (siehe tspsolvers::cutgens)
 	 * @return eine optimal Lösung der gegebenen TSP-Instanz
 	 */
-	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution *initial, CPXENVptr& lpEnv, bool dfs,
+	TSPSolution solveLP(const TSPInstance& inst, const TSPSolution *initial, const SharedCplexEnv& lpEnv, bool dfs,
 						const std::vector<std::string>& cutGenerators) {
 		TspLpData data(inst, initial);
 		std::cout << "Starting at variable count " << data.getVariableCount() << std::endl;

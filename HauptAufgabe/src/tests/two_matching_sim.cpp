@@ -1,6 +1,8 @@
 #include <fstream>
 #include <tsp_instance.hpp>
 #include <two_matching_cut_gen.hpp>
+#include <tsp_lp_data.hpp>
+#include <linear_program.hpp>
 
 int main() {
 	std::ifstream in("../instances/pcb442.tsp");
@@ -17,15 +19,10 @@ int main() {
 		ss >> val;
 		sol[index] = val;
 	}
-	int status;
-	CPXENVptr env = CPXopenCPLEX(&status);
-	if (status != 0) {
-		throw std::runtime_error("Failed to open CPLEX environment: " + std::to_string(status));
-	}
+	SharedCplexEnv env = LinearProgram::openCPLEX();
 	TspLpData lpData(inst, nullptr);
 	LinearProgram lp(env, "test", LinearProgram::minimize);
 	lpData.setupBasicLP(lp);
 	TwoMatchingCutGen cg(inst, lpData, false);
 	std::cout << cg.validate(lp, sol, CutGenerator::valid) << std::endl;
-	CPXcloseCPLEX(&env);
 }
