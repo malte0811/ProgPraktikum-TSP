@@ -11,6 +11,7 @@
 #include <ilcplex/cplex.h>
 #include <ilcplex/cpxconst.h>
 #include <tsp_solution.hpp>
+#include <linear_program.hpp>
 
 using std::size_t;
 

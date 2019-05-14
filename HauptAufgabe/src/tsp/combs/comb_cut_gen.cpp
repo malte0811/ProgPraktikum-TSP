@@ -34,8 +34,8 @@ CutGenerator::CutStatus CombCutGen::validate(LinearProgram& lp, const std::vecto
 		return CutGenerator::valid;
 	}
 
-	//Verletzte Constraints nach "Verletztheit" speichern
-	std::set<tsp_util::ConstraintWithSlack, tsp_util::CompareOrderedConstraint> allConstrs;
+	//Verletzte Constraints nach "Verletztheit" sortiert speichern
+	std::set<tsp_util::ConstraintWithSlack> allConstrs;
 	for (const CombHeuristic& ch:{heuristic1, heuristic2, heuristic3, heuristic4}) {
 		std::vector<CombHeuristic::Comb> combs = ch.findViolatedCombs(lpData, solution);
 		for (CombHeuristic::Comb& c:combs) {

@@ -64,29 +64,28 @@ std::string tsp_util::readKeyword(std::istream& in) {
 
 /**
  * Vergleicht Constraints, bei denen die Nonzeroes in aufsteigender ID-Reihenfolge angegeben sind. Constraints mit
- * kleinerem Slack sind dabei immer klener.
+ * kleinerem Slack sind dabei immer kleiner.
  */
-bool tsp_util::CompareOrderedConstraint::operator()(const ConstraintWithSlack& p1, const ConstraintWithSlack& p2) {
-	if (p1.slack != p2.slack) {
-		return p1.slack < p2.slack;
+bool tsp_util::ConstraintWithSlack::operator<(const ConstraintWithSlack& other) const {
+	if (slack != other.slack) {
+		return slack < other.slack;
 	}
-	const LinearProgram::Constraint& c1 = p1.constraint;
-	const LinearProgram::Constraint& c2 = p2.constraint;
-	if (c1.getNonzeroes().size() != c2.getNonzeroes().size()) {
-		return c1.getNonzeroes().size() < c2.getNonzeroes().size();
+	const LinearProgram::Constraint& cOther = other.constraint;
+	if (constraint.getNonzeroes().size() != cOther.getNonzeroes().size()) {
+		return constraint.getNonzeroes().size() < cOther.getNonzeroes().size();
 	}
-	if (c1.getRHS() != c2.getRHS()) {
-		return c1.getRHS() < c2.getRHS();
+	if (constraint.getRHS() != cOther.getRHS()) {
+		return constraint.getRHS() < cOther.getRHS();
 	}
-	if (c1.getSense() != c2.getSense()) {
-		return c1.getSense() < c2.getSense();
+	if (constraint.getSense() != cOther.getSense()) {
+		return constraint.getSense() < cOther.getSense();
 	}
-	for (size_t i = 0; i < c1.getNonzeroes().size(); ++i) {
-		if (c1.getNonzeroes()[i] != c2.getNonzeroes()[i]) {
-			return c1.getNonzeroes()[i] < c2.getNonzeroes()[i];
+	for (size_t i = 0; i < constraint.getNonzeroes().size(); ++i) {
+		if (constraint.getNonzeroes()[i] != cOther.getNonzeroes()[i]) {
+			return constraint.getNonzeroes()[i] < cOther.getNonzeroes()[i];
 		}
-		if (c1.getCoeffs()[i] != c2.getCoeffs()[i]) {
-			return c1.getCoeffs()[i] < c2.getCoeffs()[i];
+		if (constraint.getCoeffs()[i] != cOther.getCoeffs()[i]) {
+			return constraint.getCoeffs()[i] < cOther.getCoeffs()[i];
 		}
 	}
 	return false;

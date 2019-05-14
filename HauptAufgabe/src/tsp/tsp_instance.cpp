@@ -48,19 +48,17 @@ TSPInstance::TSPInstance(std::istream& input) {
 				if (nodeCount < 3) {
 					throw std::runtime_error("TSP-Instances must contain at least 3 vertices");
 				}
+				//Sicherstellen, dass die Anzahl der Kanten in unsigned long long (64 bit) darstellbar ist
+				auto nodeCountU = static_cast<unsigned long long>(nodeCount);
+				const unsigned long long maxNodeCount = (1ULL << 32) - 1;
+				if (nodeCountU > maxNodeCount) {
+					throw std::runtime_error("Too many nodes (more than " + std::to_string(maxNodeCount) + ")");
+				}
 				//Prüfen, dass alle Kanten-IDs noch darstellbar sind
-				//TODO: Du kannst auch in einem groesseren Datentyp ausrechnen dass das geht. (mit weniger Aufwand).
-				variable_id maxEdgeCount = std::numeric_limits<variable_id>::max();
-				if (nodeCount % 2 == 0) {
-					if (nodeCount / 2 > maxEdgeCount / (nodeCount - 1)) {
-						throw std::runtime_error("Too many nodes, edge count would be greater than "
-												 + std::to_string(maxEdgeCount));
-					}
-				} else {
-					if ((nodeCount - 1) / 2 > maxEdgeCount / nodeCount) {
-						throw std::runtime_error("Too many nodes, edge count would be greater than "
-												 + std::to_string(maxEdgeCount));
-					}
+				const auto maxEdgeCount = static_cast<unsigned long long>(std::numeric_limits<variable_id>::max());
+				if ((nodeCountU * (nodeCountU - 1)) / 2 > maxEdgeCount) {
+					throw std::runtime_error("Too many nodes, edge count would be greater than "
+											 + std::to_string(maxEdgeCount));
 				}
 
 				distances.resize(static_cast<size_t>(nodeCount - 1));

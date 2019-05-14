@@ -31,7 +31,7 @@ CutGenerator::CutStatus TwoMatchingCutGen::validate(LinearProgram& lp, const std
 	std::vector<BlossomFinder::Blossom> allMin = finder.findViolatedBlossoms();
 	if (!allMin.empty()) {
 		//Constraints zu den Blüten berechnen und nach "Verletztheit" sortiert speichern
-		std::set<tsp_util::ConstraintWithSlack, tsp_util::CompareOrderedConstraint> allConstrs;
+		std::set<tsp_util::ConstraintWithSlack> allConstrs;
 		for (BlossomFinder::Blossom& min:allMin) {
 			const size_t teethCount = min.teeth.size();
 			assert(teethCount % 2 == 1);

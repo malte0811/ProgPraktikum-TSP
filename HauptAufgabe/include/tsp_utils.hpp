@@ -22,12 +22,10 @@ namespace tsp_util {
 
 		explicit operator LinearProgram::Constraint&();
 
+		bool operator<(const ConstraintWithSlack& other) const;
+
 		LinearProgram::Constraint constraint;
 		double slack;
-	};
-
-	struct CompareOrderedConstraint {
-		bool operator()(const ConstraintWithSlack& p1, const ConstraintWithSlack& p2);
 	};
 
 	void addSupportGraphEdges(const TspLpData& lpData, lemon::Tolerance<double> tolerance,

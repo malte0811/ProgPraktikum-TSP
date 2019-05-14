@@ -1,6 +1,5 @@
 #include <lemon/core.h>
 #include <lemon/full_graph.h>
-#include <lemon/opt2_tsp.h>
 #include <cstddef>
 #include <iostream>
 #include <stdexcept>
